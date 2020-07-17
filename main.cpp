@@ -25,6 +25,15 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
+float deltaTime = 0.0f;
+float lastFrameTime = 0.0f;
+
+float lastCursorX = 400;
+float lastCursorY = 300;
+
+float yaw = -90.0f;
+float pitch = 0;
+
 const int numRows = 8;
 const int numColumns = 8;
 
@@ -58,45 +67,76 @@ void processKeyboardInput(GLFWwindow *window) {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
 	}
-
-	// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
-	//		 Definite possibility of missing a press or release event here. And frame timing has not
-	//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
-	int w_currentState = glfwGetKey(window, GLFW_KEY_W);
-	if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
-		int prospectiveYCoord = playerCoordY - 1;
-		if(prospectiveYCoord >= 0 && currentGrid[prospectiveYCoord][playerCoordX] == 0) {
-			playerCoordY = prospectiveYCoord;
-		}
+	
+	const float cameraSpeed = 5.0f * deltaTime;
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		cameraPos += cameraSpeed * cameraFront;
 	}
-	w_prevState = w_currentState;
-
-	int a_currentState = glfwGetKey(window, GLFW_KEY_A);
-	if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
-		int prospectiveXCoord = playerCoordX - 1;
-		if (prospectiveXCoord >= 0 && currentGrid[playerCoordY][prospectiveXCoord] == 0) {
-			playerCoordX = prospectiveXCoord;
-		}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		cameraPos -= cameraSpeed * cameraFront;
 	}
-	a_prevState = a_currentState;
-
-	int s_currentState = glfwGetKey(window, GLFW_KEY_S);
-	if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
-		int prospectiveYCoord = playerCoordY + 1;
-		if (prospectiveYCoord < numColumns && currentGrid[prospectiveYCoord][playerCoordX] == 0) {
-			playerCoordY = prospectiveYCoord;
-		}
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 	}
-	s_prevState = s_currentState;
-
-	int d_currentState = glfwGetKey(window, GLFW_KEY_D);
-	if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
-		int prospectiveXCoord = playerCoordX + 1;
-		if (prospectiveXCoord < numRows && currentGrid[playerCoordY][prospectiveXCoord] == 0) {
-			playerCoordX = prospectiveXCoord;
-		}
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 	}
-	d_prevState = d_currentState;	
+
+	//
+	//// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
+	////		 Definite possibility of missing a press or release event here. And frame timing has not
+	////		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
+	//int w_currentState = glfwGetKey(window, GLFW_KEY_W);
+	//if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
+	//	int prospectiveYCoord = playerCoordY - 1;
+	//	if(prospectiveYCoord >= 0 && currentGrid[prospectiveYCoord][playerCoordX] == 0) {
+	//		playerCoordY = prospectiveYCoord;
+	//	}
+	//}
+	//w_prevState = w_currentState;
+
+	//int a_currentState = glfwGetKey(window, GLFW_KEY_A);
+	//if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
+	//	int prospectiveXCoord = playerCoordX - 1;
+	//	if (prospectiveXCoord >= 0 && currentGrid[playerCoordY][prospectiveXCoord] == 0) {
+	//		playerCoordX = prospectiveXCoord;
+	//	}
+	//}
+	//a_prevState = a_currentState;
+
+	//int s_currentState = glfwGetKey(window, GLFW_KEY_S);
+	//if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
+	//	int prospectiveYCoord = playerCoordY + 1;
+	//	if (prospectiveYCoord < numColumns && currentGrid[prospectiveYCoord][playerCoordX] == 0) {
+	//		playerCoordY = prospectiveYCoord;
+	//	}
+	//}
+	//s_prevState = s_currentState;
+
+	//int d_currentState = glfwGetKey(window, GLFW_KEY_D);
+	//if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
+	//	int prospectiveXCoord = playerCoordX + 1;
+	//	if (prospectiveXCoord < numRows && currentGrid[playerCoordY][prospectiveXCoord] == 0) {
+	//		playerCoordX = prospectiveXCoord;
+	//	}
+	//}
+	//d_prevState = d_currentState;	
+}
+
+void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
+	// what is the unit for offsets here? is it really degrees?
+	float xOffset = (float)(xPos - lastCursorX);
+	float yOffset = (float)(lastCursorY - yPos);
+
+	lastCursorX = (float)xPos;
+	lastCursorY = (float)yPos;
+
+	const float sensitivity = 0.1f;
+	xOffset *= sensitivity;
+	yOffset *= sensitivity;
+
+	yaw += xOffset;
+	pitch += yOffset;
 }
 
 int main() {
@@ -240,6 +280,8 @@ int main() {
 
 	// initializing viewport and setting callback for window resizing
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetCursorPosCallback(window, mouseInputCallback);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glViewport(0, 0, 800, 600);
 
 	glEnable(GL_DEPTH_TEST);
@@ -315,10 +357,16 @@ int main() {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_EBO_ID);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIndices), cubeIndices, GL_STATIC_DRAW);
 
-	glm::vec3 color = glm::vec3(0.4f, 1.0f, 1.0f);
+	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
+	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
 
 	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgram_ID, "colorIn");
-	glUniform3f(colorUniformLocation, 0.4f, 1.0f, 1.0f);
+	
+	glm::vec3 currentColor = color1;
+
+	bool color = true;
+
+	lastFrameTime = (float)glfwGetTime();
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
@@ -326,11 +374,25 @@ int main() {
 
 		processKeyboardInput(window);
 
+		cameraDirection.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+		cameraDirection.y = sin(glm::radians(pitch));
+		cameraDirection.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		cameraFront = glm::normalize(cameraDirection);
+
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.0f, 0.7f, 0.3f, 1.0f);
 		
+		glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);		
+
 		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 		
+		float currentFrame = (float)glfwGetTime();
+		deltaTime = currentFrame - lastFrameTime;
+		lastFrameTime = currentFrame;
+
 		glfwSwapBuffers(window);
 	}
 
