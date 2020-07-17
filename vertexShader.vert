@@ -1,0 +1,20 @@
+#version 330 core
+#extension GL_ARB_separate_shader_objects : enable
+
+layout (location = 0) in vec3 aPos;
+
+out vec3 fragColor;
+
+uniform vec3 colorIn;
+
+uniform mat4 transform;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main()
+{
+   gl_Position = projection * view * model * vec4(aPos.x, aPos.y, aPos.z, 1.0);
+//   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+   fragColor = colorIn;
+};
