@@ -11,13 +11,16 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define UP_SIDE		0
-#define DOWN_SIDE	1
-#define LEFT_SIDE	2
-#define RIGHT_SIDE	3
+#define UP_SIDE		1
+#define DOWN_SIDE	2
+#define LEFT_SIDE	4
+#define RIGHT_SIDE	8
 
 #define WORLD_MAP_SIZE_X 5
 #define WORLD_MAP_SIZE_Y 5
+
+#define GRID_MAP_SIZE_X	16
+#define GRID_MAP_SIZE_Y	16
 
 #define PLAYER_WORLD_START_X 2
 #define PLAYER_WORLD_START_Y 2
@@ -27,6 +30,8 @@
 
 #define ACTION_STATE_SEEKING	0
 #define ACTION_STATE_AVOIDANT	1
+
+#define PLAYER_SPEED 1
 
 float gridTopLeftX = -0.8f;
 float gridTopLeftY = 0.8f;
@@ -54,9 +59,6 @@ float lastCursorY = 300;
 float yaw = -90.0f;
 float pitch = 48.0f;
 
-const int numRows = 8;
-const int numColumns = 8;
-
 unsigned int cube_VAO_ID;
 unsigned int player_VAO_ID;
 
@@ -65,7 +67,7 @@ bool freeCamera = false;
 
 struct map {
 	bool initialized = false;
-	unsigned int grid[numColumns][numRows];
+	unsigned int grid[GRID_MAP_SIZE_Y][GRID_MAP_SIZE_X];
 };
 
 // This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
@@ -128,7 +130,7 @@ void moveNotPlayer() {
 			else if (diffToPlayerY < 0) prospectiveGridCoordY = theOther.gridCoordY + 1;
 		}
 	}
-	// TODO: todo, or not..
+	// TODO: Finish this. The Other can go off map when avoidant.
 	else if (theOther.actionState == ACTION_STATE_AVOIDANT) {
 		if (diffToPlayerX > diffToPlayerY) {
 			if		(diffToPlayerX > 0)	prospectiveGridCoordX = theOther.gridCoordX + 1;
@@ -181,14 +183,14 @@ void processKeyboardInput(GLFWwindow *window) {
 		int w_currentState = glfwGetKey(window, GLFW_KEY_W);
 		if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveYCoord = player.gridCoordY - 1;
+			int prospectiveYCoord = player.gridCoordY - PLAYER_SPEED;
 			if (prospectiveYCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0 &&
 				!isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
 				player.gridCoordY = prospectiveYCoord;
 			}
 			else if (prospectiveYCoord < 0) {
 				player.worldCoordY++;
-				player.gridCoordY = numRows - 1;
+				player.gridCoordY = GRID_MAP_SIZE_X - PLAYER_SPEED;
 			}
 		}
 		w_prevState = w_currentState;
@@ -196,13 +198,13 @@ void processKeyboardInput(GLFWwindow *window) {
 		int a_currentState = glfwGetKey(window, GLFW_KEY_A);
 		if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveXCoord = player.gridCoordX - 1;
+			int prospectiveXCoord = player.gridCoordX - PLAYER_SPEED;
 			if (prospectiveXCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
 				!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
 				player.gridCoordX = prospectiveXCoord;
 			} else if (prospectiveXCoord < 0) {
 				player.worldCoordX--;
-				player.gridCoordX = numColumns - 1;				
+				player.gridCoordX = GRID_MAP_SIZE_Y - PLAYER_SPEED;
 			}
 
 		}
@@ -211,11 +213,11 @@ void processKeyboardInput(GLFWwindow *window) {
 		int s_currentState = glfwGetKey(window, GLFW_KEY_S);
 		if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveYCoord = player.gridCoordY + 1;
-			if (prospectiveYCoord < numColumns && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
+			int prospectiveYCoord = player.gridCoordY + PLAYER_SPEED;
+			if (prospectiveYCoord < GRID_MAP_SIZE_Y && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
 				&& !isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
 				player.gridCoordY = prospectiveYCoord;
-			} else if (prospectiveYCoord == numRows) {
+			} else if (prospectiveYCoord == GRID_MAP_SIZE_X) {
 				player.worldCoordY--;
 				player.gridCoordY = 0;
 			}
@@ -226,11 +228,11 @@ void processKeyboardInput(GLFWwindow *window) {
 		int d_currentState = glfwGetKey(window, GLFW_KEY_D);
 		if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveXCoord = player.gridCoordX + 1;
-			if (prospectiveXCoord < numRows && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
+			int prospectiveXCoord = player.gridCoordX + PLAYER_SPEED;
+			if (prospectiveXCoord < GRID_MAP_SIZE_X && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
 				!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
 				player.gridCoordX = prospectiveXCoord;
-			} else if (prospectiveXCoord == numColumns) {
+			} else if (prospectiveXCoord == GRID_MAP_SIZE_Y) {
 				player.worldCoordX++;
 				player.gridCoordX = 0;
 			}
@@ -367,7 +369,6 @@ void createPlayerVertices() {
 		1,	7,	5
 	};
 
-
 	// TODO: think about pulling the these out into dedicated GPU loading function
 	glGenVertexArrays(1, &player_VAO_ID);
 
@@ -386,49 +387,86 @@ void createPlayerVertices() {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerIndices), playerIndices, GL_STATIC_DRAW);
 }
 
+void createMap(int worldMapX, int worldMapY, int openings) {
+	
+	int newGrid[GRID_MAP_SIZE_X][GRID_MAP_SIZE_Y] = {};
+
+	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
+		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
+			if (row		== 0	|| row		== GRID_MAP_SIZE_X - 1 ||
+				column	== 0	|| column	== GRID_MAP_SIZE_Y - 1) {
+				newGrid[row][column] = 1;
+			}
+		}
+	}
+	
+	// NOTE: Relies on even rows/columns to keep exits centered.
+	if (openings & LEFT_SIDE) { // up
+		std::cout << "LEFT SIDE" << std::endl;
+		newGrid[GRID_MAP_SIZE_X / 2 - 2][0] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2 - 1][0] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2][0] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2 + 1][0] = 0;
+	}
+
+	if (openings & RIGHT_SIDE) { // down
+		std::cout << "RIGHT SIDE" << std::endl;
+		newGrid[GRID_MAP_SIZE_X / 2 - 2][GRID_MAP_SIZE_Y - 1] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2 - 1][GRID_MAP_SIZE_Y - 1] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2][GRID_MAP_SIZE_Y - 1] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2 + 1][GRID_MAP_SIZE_Y - 1] = 0;		
+	}
+
+	if (openings & UP_SIDE) { // left
+		std::cout << "UP SIDE" << std::endl;
+		newGrid[0][GRID_MAP_SIZE_Y / 2 - 2] = 0;
+		newGrid[0][GRID_MAP_SIZE_Y / 2 - 1] = 0;
+		newGrid[0][GRID_MAP_SIZE_Y / 2] = 0;
+		newGrid[0][GRID_MAP_SIZE_Y / 2 + 1] = 0;
+	}
+
+	if (openings & DOWN_SIDE) { // right
+		std::cout << "DOWN SIDE" << std::endl;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 2] = 0;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 1] = 0;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2] = 0;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 + 1] = 0;
+	}
+
+	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
+		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
+			allMaps[worldMapX][worldMapY].grid[row][column] = newGrid[row][column];
+		}
+	}
+}
+
 void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere) {
 	// TODO: fix this directionToGetHere garbage, way too confusing
 
-	// create walled map
-	unsigned int newGrid[numRows][numColumns] = {
-		1, 1, 1, 1, 1, 1, 1, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 1, 1, 1, 1, 1, 1, 1
-	};
-
 	int newGridX;
-	int newGridY;	
+	int newGridY;
+	int openings;
 
-	// NOTE: hardcoding paths to other maps based on 8x8 grid structure
 	switch (directionToGetHere) {
 		case (UP_SIDE):
 			newGridX = attachedWorldMapX;
 			newGridY = attachedWorldMapY + 1;
-			newGrid[7][3] = 0;
-			newGrid[7][4] = 0;
+			openings = DOWN_SIDE;
 			break;
 		case (DOWN_SIDE):
 			newGridX = attachedWorldMapX;
 			newGridY = attachedWorldMapY - 1;
-			newGrid[0][3] = 0;
-			newGrid[0][4] = 0;
+			openings = UP_SIDE;
 			break;
 		case (LEFT_SIDE):
 			newGridX = attachedWorldMapX - 1;
 			newGridY = attachedWorldMapY;
-			newGrid[3][7] = 0;
-			newGrid[4][7] = 0;
+			openings = RIGHT_SIDE;
 			break;
 		case (RIGHT_SIDE):
 			newGridX = attachedWorldMapX + 1;
 			newGridY = attachedWorldMapY;
-			newGrid[3][0] = 0;
-			newGrid[4][0] = 0;
+			openings = LEFT_SIDE;
 			break;
 	}
 
@@ -437,8 +475,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 	// generate down
 	if (directionToGetHere != UP_SIDE) {
 		if (rand() % 4 == 2 && newGridY > 0 && !allMaps[newGridX][newGridY-1].initialized) {
-			newGrid[7][3] = 0;
-			newGrid[7][4] = 0;
+			openings |= DOWN_SIDE;
 			createAdjacentMaps(newGridX, newGridY, DOWN_SIDE);
 		}
 	}
@@ -446,8 +483,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 	// generate up
 	if (directionToGetHere != DOWN_SIDE) {
 		if (rand() % 4 == 2 && newGridY <= WORLD_MAP_SIZE_Y && !allMaps[newGridX][newGridY+1].initialized) {
-			newGrid[0][3] = 0;
-			newGrid[0][4] = 0;
+			openings |= UP_SIDE;
 			createAdjacentMaps(newGridX, newGridY, UP_SIDE);
 		}
 	}
@@ -455,8 +491,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 	// generate right
 	if (directionToGetHere != LEFT_SIDE) {
 		if (rand() % 4 == 2 && newGridX <= WORLD_MAP_SIZE_X && !allMaps[newGridX+1][newGridY].initialized) {
-			newGrid[3][7] = 0;
-			newGrid[4][7] = 0;
+			openings |= RIGHT_SIDE;
 			createAdjacentMaps(newGridX, newGridY, RIGHT_SIDE);
 		}
 	}
@@ -464,17 +499,12 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 	// generate left
 	if (directionToGetHere != RIGHT_SIDE) {
 		if (rand() % 4 == 2 && newGridX > 0 && !allMaps[newGridX-1][newGridY].initialized) {
-			newGrid[3][0] = 0;
-			newGrid[4][0] = 0;
+			openings |= LEFT_SIDE;
 			createAdjacentMaps(newGridX, newGridY, LEFT_SIDE);
 		}
 	}
 
-	for (int row = 0; row < numRows; row++) {
-		for (int column = 0; column < numColumns; column++) {
-			allMaps[newGridX][newGridY].grid[row][column] = newGrid[row][column];
-		}
-	}
+	createMap(newGridX, newGridY, openings);
 }
 
 int main() {
@@ -599,14 +629,14 @@ int main() {
 
 	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
-	
+
 	glm::vec3 cameraRight = glm::normalize(glm::cross(cameraUp, cameraDirection)); // remember: cross product gives you orthongonal vector to both input vectors
 
 	//glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
 
 	glm::mat4 view;
 	view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-	
+
 	unsigned int viewLoc = glGetUniformLocation(shaderProgram_ID, "view");
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
@@ -626,35 +656,19 @@ int main() {
 
 	createCubeVertices();
 	createPlayerVertices();
-	
+
 	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
 	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
 
 	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgram_ID, "colorIn");
-	
+
 	glm::vec3 currentColor = color1;
 
 	bool color = true;
 
 	// MAP GENERATION
-	unsigned int startingGrid[numRows][numColumns] = {
-		1, 1, 1, 0, 0, 1, 1, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 0, 0, 0, 0, 0, 0, 1,
-		1, 1, 1, 0, 0, 1, 1, 1
-	};
-
-	allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
-
-	for (int row = 0; row < numRows; row++) {
-		for (int column = 0; column < numColumns; column++) {
-			allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].grid[row][column] = startingGrid[row][column];
-		}
-	}
+	createMap(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP_SIDE | DOWN_SIDE | LEFT_SIDE | RIGHT_SIDE);
+	allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;	
 
 	srand((unsigned int)(glfwGetTime() * 10));
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP_SIDE);
@@ -662,6 +676,7 @@ int main() {
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT_SIDE);
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT_SIDE);
 
+	// CHARACTER INITIALIZATION
 	player.worldCoordX = PLAYER_WORLD_START_X;
 	player.worldCoordY = PLAYER_WORLD_START_Y;
 	player.gridCoordX = PLAYER_GRID_START_X;
@@ -699,10 +714,10 @@ int main() {
 
 		// DRAW CURRENT GRID (where the player currently is)
 		glBindVertexArray(cube_VAO_ID);
-		for (int row = 0; row < numRows; row++) {
+		for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
 			float yOffset = -0.5f * row;
 			
-			for (int column = 0; column < numColumns; column++) {
+			for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
 				float xOffset = 0.5f * column;
 
 				// position
