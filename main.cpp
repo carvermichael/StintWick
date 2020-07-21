@@ -19,11 +19,14 @@
 #define WORLD_MAP_SIZE_X 5
 #define WORLD_MAP_SIZE_Y 5
 
-#define PLAYER_WORLD_START_X 3
-#define PLAYER_WORLD_START_Y 3
+#define PLAYER_WORLD_START_X 2
+#define PLAYER_WORLD_START_Y 2
 
 #define PLAYER_GRID_START_X 4
 #define PLAYER_GRID_START_Y 4
+
+#define ACTION_STATE_SEEKING	0
+#define ACTION_STATE_AVOIDANT	1
 
 float gridTopLeftX = -0.8f;
 float gridTopLeftY = 0.8f;
@@ -35,6 +38,8 @@ unsigned int a_prevState = GLFW_RELEASE;
 unsigned int s_prevState = GLFW_RELEASE;
 unsigned int d_prevState = GLFW_RELEASE;
 unsigned int c_prevState = GLFW_RELEASE;
+unsigned int l_prevState = GLFW_RELEASE;
+unsigned int spacebar_prevState = GLFW_RELEASE;
 
 glm::vec3 cameraPos = glm::vec3(1.95f, -6.5f, 3.9f); // TODO: calculate this based on the center of the grid
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.77f, -0.62f);
@@ -63,19 +68,83 @@ struct map {
 	unsigned int grid[numColumns][numRows];
 };
 
-const int startingMapIndexX = 3;
-const int startingMapIndexY = 3;
-
-// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands.
+// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
 map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y] = {};
 
-int playerWorldCoordX = startingMapIndexX;
-int playerWorldCoordY = startingMapIndexY;
-int playerCoordX = PLAYER_GRID_START_X;
-int playerCoordY = PLAYER_GRID_START_Y;
+struct character {
+	int worldCoordX;
+	int worldCoordY;
+	int gridCoordX;
+	int gridCoordY;
+
+	int actionState;
+};
+
+character player;
+character theOther;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
+}
+
+bool isTheOtherHere(int worldX, int worldY, int gridX, int gridY) {
+	return	theOther.worldCoordX == worldX &&
+			theOther.worldCoordY == worldY &&
+			theOther.gridCoordX  == gridX  &&
+			theOther.gridCoordY  == gridY;
+}
+
+bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
+	return allMaps[player.worldCoordX][player.worldCoordY].grid[gridY][gridX] == 0;
+}
+
+void moveNotPlayer() {
+	if (theOther.worldCoordX != player.worldCoordX ||
+		theOther.worldCoordY != player.worldCoordY) return;
+
+	int diffToPlayerX = theOther.gridCoordX - player.gridCoordX;
+	int diffToPlayerY = theOther.gridCoordY - player.gridCoordY;
+
+	int prospectiveGridCoordX = theOther.gridCoordX;
+	int prospectiveGridCoordY = theOther.gridCoordY;
+
+	if (theOther.actionState == ACTION_STATE_SEEKING) {
+		
+		if (diffToPlayerX == 0 && diffToPlayerY == 0) return;
+		if (diffToPlayerX == 0 && abs(diffToPlayerY) == 1) return;
+		if (abs(diffToPlayerX) == 1 && diffToPlayerY == 0) return;
+
+		if (rand() % 2 == 0 && diffToPlayerX != 0) {
+			if (diffToPlayerX > 0)		prospectiveGridCoordX = theOther.gridCoordX - 1;
+			else if (diffToPlayerX < 0) prospectiveGridCoordX = theOther.gridCoordX + 1;
+		}
+		else {
+			if (diffToPlayerY == 0) {
+				if (diffToPlayerX > 0)		prospectiveGridCoordX = theOther.gridCoordX - 1;
+				else if (diffToPlayerX < 0) prospectiveGridCoordX = theOther.gridCoordX + 1;
+			}
+
+			if (diffToPlayerY > 0)		prospectiveGridCoordY = theOther.gridCoordY - 1;
+			else if (diffToPlayerY < 0) prospectiveGridCoordY = theOther.gridCoordY + 1;
+		}
+	}
+	// TODO: todo, or not..
+	else if (theOther.actionState == ACTION_STATE_AVOIDANT) {
+		if (diffToPlayerX > diffToPlayerY) {
+			if		(diffToPlayerX > 0)	prospectiveGridCoordX = theOther.gridCoordX + 1;
+			else if (diffToPlayerX < 0) prospectiveGridCoordX = theOther.gridCoordX - 1;
+
+			
+		}	else {
+			if (diffToPlayerY > 0)		prospectiveGridCoordY = theOther.gridCoordY + 1;
+			else if (diffToPlayerY < 0) prospectiveGridCoordY = theOther.gridCoordY - 1;
+		}
+	}
+
+	if (isMapSpaceEmpty(player.worldCoordX, player.worldCoordY, prospectiveGridCoordX, prospectiveGridCoordY)) {
+		theOther.gridCoordX = prospectiveGridCoordX;
+		theOther.gridCoordY = prospectiveGridCoordY;
+	}
 }
 
 void processKeyboardInput(GLFWwindow *window) {
@@ -111,54 +180,76 @@ void processKeyboardInput(GLFWwindow *window) {
 		//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
 		int w_currentState = glfwGetKey(window, GLFW_KEY_W);
 		if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
-			int prospectiveYCoord = playerCoordY - 1;
-			if (prospectiveYCoord >= 0 && allMaps[playerWorldCoordX][playerWorldCoordY].grid[prospectiveYCoord][playerCoordX] == 0) {
-				playerCoordY = prospectiveYCoord;
+			moveNotPlayer();
+			int prospectiveYCoord = player.gridCoordY - 1;
+			if (prospectiveYCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0 &&
+				!isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
+				player.gridCoordY = prospectiveYCoord;
 			}
 			else if (prospectiveYCoord < 0) {
-				playerWorldCoordY++;
-				playerCoordY = numRows - 1;				
+				player.worldCoordY++;
+				player.gridCoordY = numRows - 1;
 			}
 		}
 		w_prevState = w_currentState;
 
 		int a_currentState = glfwGetKey(window, GLFW_KEY_A);
 		if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
-			int prospectiveXCoord = playerCoordX - 1;
-			if (prospectiveXCoord >= 0 && allMaps[playerWorldCoordX][playerWorldCoordY].grid[playerCoordY][prospectiveXCoord] == 0) {
-				playerCoordX = prospectiveXCoord;
+			moveNotPlayer();
+			int prospectiveXCoord = player.gridCoordX - 1;
+			if (prospectiveXCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
+				!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
+				player.gridCoordX = prospectiveXCoord;
 			} else if (prospectiveXCoord < 0) {
-				playerWorldCoordX--;
-				playerCoordX = numColumns - 1;				
+				player.worldCoordX--;
+				player.gridCoordX = numColumns - 1;				
 			}
+
 		}
 		a_prevState = a_currentState;
 
 		int s_currentState = glfwGetKey(window, GLFW_KEY_S);
 		if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
-			int prospectiveYCoord = playerCoordY + 1;
-			if (prospectiveYCoord < numColumns && allMaps[playerWorldCoordX][playerWorldCoordY].grid[prospectiveYCoord][playerCoordX] == 0) {
-				playerCoordY = prospectiveYCoord;
+			moveNotPlayer();
+			int prospectiveYCoord = player.gridCoordY + 1;
+			if (prospectiveYCoord < numColumns && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
+				&& !isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
+				player.gridCoordY = prospectiveYCoord;
 			} else if (prospectiveYCoord == numRows) {
-				playerWorldCoordY--;
-				playerCoordY = 0;				
+				player.worldCoordY--;
+				player.gridCoordY = 0;
 			}
+
 		}
 		s_prevState = s_currentState;
 
 		int d_currentState = glfwGetKey(window, GLFW_KEY_D);
 		if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
-			int prospectiveXCoord = playerCoordX + 1;
-			if (prospectiveXCoord < numRows && allMaps[playerWorldCoordX][playerWorldCoordY].grid[playerCoordY][prospectiveXCoord] == 0) {
-				playerCoordX = prospectiveXCoord;
+			moveNotPlayer();
+			int prospectiveXCoord = player.gridCoordX + 1;
+			if (prospectiveXCoord < numRows && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
+				!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
+				player.gridCoordX = prospectiveXCoord;
 			} else if (prospectiveXCoord == numColumns) {
-				playerWorldCoordX++;
-				playerCoordX = 0;				
+				player.worldCoordX++;
+				player.gridCoordX = 0;
 			}
 		}
 		d_prevState = d_currentState;
-	}
-	
+
+		int spacebar_currentState = glfwGetKey(window, GLFW_KEY_SPACE);
+		if (spacebar_currentState == GLFW_PRESS && spacebar_prevState == GLFW_RELEASE) {
+			moveNotPlayer();
+		}
+		spacebar_prevState = spacebar_currentState;
+
+		int l_currentState = glfwGetKey(window, GLFW_KEY_L);
+		if (l_currentState == GLFW_PRESS && l_prevState == GLFW_RELEASE) {
+			if		(theOther.actionState == ACTION_STATE_AVOIDANT)	theOther.actionState = ACTION_STATE_SEEKING;
+			else if (theOther.actionState == ACTION_STATE_SEEKING)	theOther.actionState = ACTION_STATE_AVOIDANT;
+		}
+		l_prevState = l_currentState;
+	}	
 }
 
 void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
@@ -296,7 +387,7 @@ void createPlayerVertices() {
 }
 
 void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere) {
-	// TODO: fix this directionToGetHere garbage, too confusing
+	// TODO: fix this directionToGetHere garbage, way too confusing
 
 	// create walled map
 	unsigned int newGrid[numRows][numColumns] = {
@@ -343,7 +434,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 
 	allMaps[newGridX][newGridY].initialized = true;
 		
-	// generate up
+	// generate down
 	if (directionToGetHere != UP_SIDE) {
 		if (rand() % 4 == 2 && newGridY > 0 && !allMaps[newGridX][newGridY-1].initialized) {
 			newGrid[7][3] = 0;
@@ -352,7 +443,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 		}
 	}
 
-	// generate down
+	// generate up
 	if (directionToGetHere != DOWN_SIDE) {
 		if (rand() % 4 == 2 && newGridY <= WORLD_MAP_SIZE_Y && !allMaps[newGridX][newGridY+1].initialized) {
 			newGrid[0][3] = 0;
@@ -361,7 +452,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 		}
 	}
 
-	// generate left
+	// generate right
 	if (directionToGetHere != LEFT_SIDE) {
 		if (rand() % 4 == 2 && newGridX <= WORLD_MAP_SIZE_X && !allMaps[newGridX+1][newGridY].initialized) {
 			newGrid[3][7] = 0;
@@ -370,7 +461,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 		}
 	}
 
-	// generate right
+	// generate left
 	if (directionToGetHere != RIGHT_SIDE) {
 		if (rand() % 4 == 2 && newGridX > 0 && !allMaps[newGridX-1][newGridY].initialized) {
 			newGrid[3][0] = 0;
@@ -565,12 +656,24 @@ int main() {
 		}
 	}
 
-	srand((unsigned int)(glfwGetTime() * 100));
+	srand((unsigned int)(glfwGetTime() * 10));
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP_SIDE);
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN_SIDE);
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT_SIDE);
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT_SIDE);
 
+	player.worldCoordX = PLAYER_WORLD_START_X;
+	player.worldCoordY = PLAYER_WORLD_START_Y;
+	player.gridCoordX = PLAYER_GRID_START_X;
+	player.gridCoordY = PLAYER_GRID_START_Y;
+
+	theOther.worldCoordX = PLAYER_WORLD_START_X;
+	theOther.worldCoordY = PLAYER_WORLD_START_Y;
+	theOther.gridCoordX = 1;
+	theOther.gridCoordY = 2;
+
+	character* characters[2] = { &player, &theOther };
+	
 	lastFrameTime = (float)glfwGetTime();
 
 	glm::mat4 model2 = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, 0.0f, 0.0f));
@@ -592,9 +695,9 @@ int main() {
 
 		// Clear color and "z-buffer"
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.0f, 0.7f, 0.3f, 1.0f);		
+		glClearColor(0.0f, 0.7f, 0.3f, 1.0f);	
 
-		// DRAW GRID
+		// DRAW CURRENT GRID (where the player currently is)
 		glBindVertexArray(cube_VAO_ID);
 		for (int row = 0; row < numRows; row++) {
 			float yOffset = -0.5f * row;
@@ -607,7 +710,7 @@ int main() {
 				glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
 				
 				// color
-				if (allMaps[playerWorldCoordX][playerWorldCoordY].grid[row][column] == 0) {
+				if (allMaps[player.worldCoordX][player.worldCoordY].grid[row][column] == 0) {
 					glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
 				}
 				else {
@@ -618,15 +721,29 @@ int main() {
 			}
 		}
 
-		// DRAW PLAYER
-		float yOffset = -0.5f * playerCoordY;
-		float xOffset = 0.5f * playerCoordX ;
+		// DRAW CHARACTERS
+		int numCharacters = sizeof(characters) / sizeof(character*);
+		for (int i = 0; i < numCharacters; i++) {
+			character currentCharacter = *characters[i];
 
-		glBindVertexArray(player_VAO_ID);
-		glUniform3f(colorUniformLocation, 0.0f, 0.45f, 0.03f);
-		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.5f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);		
+			if (currentCharacter.worldCoordX != player.worldCoordX || currentCharacter.worldCoordY != player.worldCoordY) continue;
+
+			float yOffset = -0.5f * currentCharacter.gridCoordY;
+			float xOffset = 0.5f * currentCharacter.gridCoordX;
+
+			glBindVertexArray(player_VAO_ID);
+
+			if (i == 0) {
+				glUniform3f(colorUniformLocation, 0.0f, 0.45f, 0.03f);
+			}
+			else {
+				glUniform3f(colorUniformLocation, 0.3f, 1.0f, 0.03f);
+			}
+			
+			glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.5f));
+			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+		}
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;
