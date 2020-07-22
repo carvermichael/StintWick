@@ -11,16 +11,19 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define UP_SIDE		1
-#define DOWN_SIDE	2
-#define LEFT_SIDE	4
-#define RIGHT_SIDE	8
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
+
+#define UP		1
+#define DOWN	2
+#define LEFT	4
+#define RIGHT	8
 
 #define WORLD_MAP_SIZE_X 5
 #define WORLD_MAP_SIZE_Y 5
 
-#define GRID_MAP_SIZE_X	16
-#define GRID_MAP_SIZE_Y	16
+#define GRID_MAP_SIZE_X	20
+#define GRID_MAP_SIZE_Y	20
 
 #define PLAYER_WORLD_START_X 2
 #define PLAYER_WORLD_START_Y 2
@@ -33,10 +36,12 @@
 
 #define PLAYER_SPEED 1
 
+glm::vec3 cameraPos;
+glm::vec3 cameraFront;
+glm::vec3 cameraUp;
+
 float gridTopLeftX = -0.8f;
 float gridTopLeftY = 0.8f;
-
-float sizeOfSide = 0.2f;
 
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
@@ -45,10 +50,6 @@ unsigned int d_prevState = GLFW_RELEASE;
 unsigned int c_prevState = GLFW_RELEASE;
 unsigned int l_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
-
-glm::vec3 cameraPos = glm::vec3(1.95f, -6.5f, 3.9f); // TODO: calculate this based on the center of the grid
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.77f, -0.62f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
@@ -79,6 +80,7 @@ struct character {
 	int gridCoordX;
 	int gridCoordY;
 
+	int directionFacing;
 	int actionState;
 };
 
@@ -98,6 +100,58 @@ bool isTheOtherHere(int worldX, int worldY, int gridX, int gridY) {
 
 bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
 	return allMaps[player.worldCoordX][player.worldCoordY].grid[gridY][gridX] == 0;
+}
+
+void movePlayer(int direction) {
+	player.directionFacing = direction;
+
+	if (direction & UP) {
+		int prospectiveYCoord = player.gridCoordY - PLAYER_SPEED;
+		if (prospectiveYCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0 &&
+			!isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
+			player.gridCoordY = prospectiveYCoord;
+		}
+		else if (prospectiveYCoord < 0) {
+			player.worldCoordY++;
+			player.gridCoordY = GRID_MAP_SIZE_X - PLAYER_SPEED;
+		}
+	}
+
+	if (direction & DOWN) {
+		int prospectiveYCoord = player.gridCoordY + PLAYER_SPEED;
+		if (prospectiveYCoord < GRID_MAP_SIZE_Y && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
+			&& !isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
+			player.gridCoordY = prospectiveYCoord;			
+		}
+		else if (prospectiveYCoord == GRID_MAP_SIZE_X) {
+			player.worldCoordY--;
+			player.gridCoordY = 0;
+		}
+	}
+
+	if (direction & LEFT) {
+		int prospectiveXCoord = player.gridCoordX - PLAYER_SPEED;
+		if (prospectiveXCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
+			!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
+			player.gridCoordX = prospectiveXCoord;
+		}
+		else if (prospectiveXCoord < 0) {
+			player.worldCoordX--;
+			player.gridCoordX = GRID_MAP_SIZE_Y - PLAYER_SPEED;
+		}
+	}
+
+	if (direction & RIGHT) {
+		int prospectiveXCoord = player.gridCoordX + PLAYER_SPEED;
+		if (prospectiveXCoord < GRID_MAP_SIZE_X && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
+			!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
+			player.gridCoordX = prospectiveXCoord;
+		}
+		else if (prospectiveXCoord == GRID_MAP_SIZE_Y) {
+			player.worldCoordX++;
+			player.gridCoordX = 0;
+		}
+	}
 }
 
 void moveNotPlayer() {
@@ -183,59 +237,28 @@ void processKeyboardInput(GLFWwindow *window) {
 		int w_currentState = glfwGetKey(window, GLFW_KEY_W);
 		if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveYCoord = player.gridCoordY - PLAYER_SPEED;
-			if (prospectiveYCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0 &&
-				!isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
-				player.gridCoordY = prospectiveYCoord;
-			}
-			else if (prospectiveYCoord < 0) {
-				player.worldCoordY++;
-				player.gridCoordY = GRID_MAP_SIZE_X - PLAYER_SPEED;
-			}
+			movePlayer(UP);
 		}
 		w_prevState = w_currentState;
 
 		int a_currentState = glfwGetKey(window, GLFW_KEY_A);
 		if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveXCoord = player.gridCoordX - PLAYER_SPEED;
-			if (prospectiveXCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
-				!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
-				player.gridCoordX = prospectiveXCoord;
-			} else if (prospectiveXCoord < 0) {
-				player.worldCoordX--;
-				player.gridCoordX = GRID_MAP_SIZE_Y - PLAYER_SPEED;
-			}
-
+			movePlayer(LEFT);
 		}
 		a_prevState = a_currentState;
 
 		int s_currentState = glfwGetKey(window, GLFW_KEY_S);
 		if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveYCoord = player.gridCoordY + PLAYER_SPEED;
-			if (prospectiveYCoord < GRID_MAP_SIZE_Y && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
-				&& !isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
-				player.gridCoordY = prospectiveYCoord;
-			} else if (prospectiveYCoord == GRID_MAP_SIZE_X) {
-				player.worldCoordY--;
-				player.gridCoordY = 0;
-			}
-
+			movePlayer(DOWN);
 		}
 		s_prevState = s_currentState;
 
 		int d_currentState = glfwGetKey(window, GLFW_KEY_D);
 		if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
 			moveNotPlayer();
-			int prospectiveXCoord = player.gridCoordX + PLAYER_SPEED;
-			if (prospectiveXCoord < GRID_MAP_SIZE_X && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
-				!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
-				player.gridCoordX = prospectiveXCoord;
-			} else if (prospectiveXCoord == GRID_MAP_SIZE_Y) {
-				player.worldCoordX++;
-				player.gridCoordX = 0;
-			}
+			movePlayer(RIGHT);
 		}
 		d_prevState = d_currentState;
 
@@ -401,7 +424,7 @@ void createMap(int worldMapX, int worldMapY, int openings) {
 	}
 	
 	// NOTE: Relies on even rows/columns to keep exits centered.
-	if (openings & LEFT_SIDE) { // up
+	if (openings & LEFT) { // up
 		std::cout << "LEFT SIDE" << std::endl;
 		newGrid[GRID_MAP_SIZE_X / 2 - 2][0] = 0;
 		newGrid[GRID_MAP_SIZE_X / 2 - 1][0] = 0;
@@ -409,7 +432,7 @@ void createMap(int worldMapX, int worldMapY, int openings) {
 		newGrid[GRID_MAP_SIZE_X / 2 + 1][0] = 0;
 	}
 
-	if (openings & RIGHT_SIDE) { // down
+	if (openings & RIGHT) { // down
 		std::cout << "RIGHT SIDE" << std::endl;
 		newGrid[GRID_MAP_SIZE_X / 2 - 2][GRID_MAP_SIZE_Y - 1] = 0;
 		newGrid[GRID_MAP_SIZE_X / 2 - 1][GRID_MAP_SIZE_Y - 1] = 0;
@@ -417,7 +440,7 @@ void createMap(int worldMapX, int worldMapY, int openings) {
 		newGrid[GRID_MAP_SIZE_X / 2 + 1][GRID_MAP_SIZE_Y - 1] = 0;		
 	}
 
-	if (openings & UP_SIDE) { // left
+	if (openings & UP) { // left
 		std::cout << "UP SIDE" << std::endl;
 		newGrid[0][GRID_MAP_SIZE_Y / 2 - 2] = 0;
 		newGrid[0][GRID_MAP_SIZE_Y / 2 - 1] = 0;
@@ -425,7 +448,7 @@ void createMap(int worldMapX, int worldMapY, int openings) {
 		newGrid[0][GRID_MAP_SIZE_Y / 2 + 1] = 0;
 	}
 
-	if (openings & DOWN_SIDE) { // right
+	if (openings & DOWN) { // right
 		std::cout << "DOWN SIDE" << std::endl;
 		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 2] = 0;
 		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 1] = 0;
@@ -448,59 +471,59 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 	int openings;
 
 	switch (directionToGetHere) {
-		case (UP_SIDE):
+		case (UP):
 			newGridX = attachedWorldMapX;
 			newGridY = attachedWorldMapY + 1;
-			openings = DOWN_SIDE;
+			openings = DOWN;
 			break;
-		case (DOWN_SIDE):
+		case (DOWN):
 			newGridX = attachedWorldMapX;
 			newGridY = attachedWorldMapY - 1;
-			openings = UP_SIDE;
+			openings = UP;
 			break;
-		case (LEFT_SIDE):
+		case (LEFT):
 			newGridX = attachedWorldMapX - 1;
 			newGridY = attachedWorldMapY;
-			openings = RIGHT_SIDE;
+			openings = RIGHT;
 			break;
-		case (RIGHT_SIDE):
+		case (RIGHT):
 			newGridX = attachedWorldMapX + 1;
 			newGridY = attachedWorldMapY;
-			openings = LEFT_SIDE;
+			openings = LEFT;
 			break;
 	}
 
 	allMaps[newGridX][newGridY].initialized = true;
 		
 	// generate down
-	if (directionToGetHere != UP_SIDE) {
+	if (directionToGetHere != UP) {
 		if (rand() % 4 == 2 && newGridY > 0 && !allMaps[newGridX][newGridY-1].initialized) {
-			openings |= DOWN_SIDE;
-			createAdjacentMaps(newGridX, newGridY, DOWN_SIDE);
+			openings |= DOWN;
+			createAdjacentMaps(newGridX, newGridY, DOWN);
 		}
 	}
 
 	// generate up
-	if (directionToGetHere != DOWN_SIDE) {
+	if (directionToGetHere != DOWN) {
 		if (rand() % 4 == 2 && newGridY <= WORLD_MAP_SIZE_Y && !allMaps[newGridX][newGridY+1].initialized) {
-			openings |= UP_SIDE;
-			createAdjacentMaps(newGridX, newGridY, UP_SIDE);
+			openings |= UP;
+			createAdjacentMaps(newGridX, newGridY, UP);
 		}
 	}
 
 	// generate right
-	if (directionToGetHere != LEFT_SIDE) {
+	if (directionToGetHere != LEFT) {
 		if (rand() % 4 == 2 && newGridX <= WORLD_MAP_SIZE_X && !allMaps[newGridX+1][newGridY].initialized) {
-			openings |= RIGHT_SIDE;
-			createAdjacentMaps(newGridX, newGridY, RIGHT_SIDE);
+			openings |= RIGHT;
+			createAdjacentMaps(newGridX, newGridY, RIGHT);
 		}
 	}
 
 	// generate left
-	if (directionToGetHere != RIGHT_SIDE) {
+	if (directionToGetHere != RIGHT) {
 		if (rand() % 4 == 2 && newGridX > 0 && !allMaps[newGridX-1][newGridY].initialized) {
-			openings |= LEFT_SIDE;
-			createAdjacentMaps(newGridX, newGridY, LEFT_SIDE);
+			openings |= LEFT;
+			createAdjacentMaps(newGridX, newGridY, LEFT);
 		}
 	}
 
@@ -520,7 +543,7 @@ int main() {
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif // __APPLE__	
 
-	GLFWwindow* window = glfwCreateWindow(800, 600, "GridGame1", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "GridGame1", NULL, NULL);
 	if (window == NULL) {
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -617,40 +640,40 @@ int main() {
 	glDeleteShader(fragmentShader);
 
 	// start of 3D stuffs
-	// creating a model matrix
-	glm::mat4 model = glm::mat4(1.0f);
-	glm::mat4 identityModel = glm::mat4(1.0f);
-	model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	unsigned int modelLoc = glGetUniformLocation(shaderProgram_ID, "model");
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
+	unsigned int viewLoc = glGetUniformLocation(shaderProgram_ID, "view");
+	unsigned int projectionLoc = glGetUniformLocation(shaderProgram_ID, "projection");
+	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgram_ID, "colorIn");
+	
 	// creating a view matrix with camera
 	// setting up camera
-
+	float midGridX =  0.5f * (GRID_MAP_SIZE_X / 2);
+	float midGridY = -0.5f * (GRID_MAP_SIZE_Y * 2);
+	
+	cameraPos = glm::vec3(midGridX, midGridY, 10.0f);
+	cameraFront = glm::vec3(0.0f, 1.0f, 3.0f);
+	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	
 	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+
 	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
-
 	glm::vec3 cameraRight = glm::normalize(glm::cross(cameraUp, cameraDirection)); // remember: cross product gives you orthongonal vector to both input vectors
-
-	//glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
 
 	glm::mat4 view;
 	view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-	unsigned int viewLoc = glGetUniformLocation(shaderProgram_ID, "view");
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
 	// aaaaand the projection matrix
 	glm::mat4 projection;
-	projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgram_ID, "projection");
+	projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);	
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 	// initializing viewport and setting callback for window resizing
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouseInputCallback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	glViewport(0, 0, 800, 600);
+	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -660,21 +683,19 @@ int main() {
 	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
 	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
 
-	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgram_ID, "colorIn");
-
 	glm::vec3 currentColor = color1;
 
 	bool color = true;
 
 	// MAP GENERATION
-	createMap(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP_SIDE | DOWN_SIDE | LEFT_SIDE | RIGHT_SIDE);
+	createMap(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT);
 	allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;	
 
 	srand((unsigned int)(glfwGetTime() * 10));
-	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP_SIDE);
-	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN_SIDE);
-	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT_SIDE);
-	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT_SIDE);
+	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP);
+	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN);
+	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT);
+	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT);
 
 	// CHARACTER INITIALIZATION
 	player.worldCoordX = PLAYER_WORLD_START_X;
@@ -689,9 +710,7 @@ int main() {
 
 	character* characters[2] = { &player, &theOther };
 	
-	lastFrameTime = (float)glfwGetTime();
-
-	glm::mat4 model2 = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, 0.0f, 0.0f));
+	lastFrameTime = (float)glfwGetTime();	
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
