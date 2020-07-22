@@ -58,7 +58,7 @@ float lastCursorX = 400;
 float lastCursorY = 300;
 
 float yaw = -90.0f;
-float pitch = 48.0f;
+float pitch = 45.0f;
 
 unsigned int cube_VAO_ID;
 unsigned int player_VAO_ID;
@@ -310,15 +310,15 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 void createCubeVertices() {
 	// NOTE: These coords are in local space
 	float cubeVertices[] = {
-		0.5, 0.5, 0.5,
-		0.0, 0.5, 0.5,
-		0.5, 0.0, 0.5,
-		0.0, 0.0, 0.5,
+		0.5,  0.0, 0.5,
+		0.0,  0.0, 0.5,
+		0.5, -0.5, 0.5,
+		0.0, -0.5, 0.5,
 
-		0.5, 0.5, 0.0,
-		0.0, 0.5, 0.0,
-		0.5, 0.0, 0.0,
-		0.0, 0.0, 0.0
+		0.5,  0.0, 0.0,
+		0.0,  0.0, 0.0,
+		0.5, -0.5, 0.0,
+		0.0, -0.5, 0.0
 	};
 
 	unsigned int cubeIndices[] = {
@@ -647,17 +647,24 @@ int main() {
 	
 	// creating a view matrix with camera
 	// setting up camera
-	float midGridX =  0.5f * (GRID_MAP_SIZE_X / 2);
-	float midGridY = -0.5f * (GRID_MAP_SIZE_Y * 2);
+	float midGridX	  =  0.5f * (GRID_MAP_SIZE_X / 2);
+	float bottomGridY = -0.5f * (GRID_MAP_SIZE_Y * 2);
 	
-	cameraPos = glm::vec3(midGridX, midGridY, 10.0f);
-	cameraFront = glm::vec3(0.0f, 1.0f, 3.0f);
-	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	cameraPos = glm::vec3(midGridX, bottomGridY, (float)GRID_MAP_SIZE_X / 1.5);
 	
-	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+	
+	glm::vec3 cameraDirection;
 
-	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
-	glm::vec3 cameraRight = glm::normalize(glm::cross(cameraUp, cameraDirection)); // remember: cross product gives you orthongonal vector to both input vectors
+	// TODO: grok this calculation of cameraDirection
+	cameraDirection.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	cameraDirection.y = sin(glm::radians(pitch));
+	cameraDirection.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+
+	cameraFront = glm::normalize(cameraDirection);
+	glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection)); // remember: cross product gives you orthongonal vector to both input vectors
+
+	cameraUp = glm::normalize(glm::cross(cameraDirection, cameraRight));
 
 	glm::mat4 view;
 	view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
