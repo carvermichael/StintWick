@@ -31,6 +31,37 @@
 
 #define PLAYER_SPEED 1
 
+struct map {
+	bool initialized = false;
+	unsigned int grid[GRID_MAP_SIZE_Y][GRID_MAP_SIZE_X];
+};
+
+struct character {
+	int worldCoordX;
+	int worldCoordY;
+	int gridCoordX;
+	int gridCoordY;
+
+	int shaderProgramID;
+
+	int directionFacing;
+	int actionState;
+
+	int hitPoints;
+	int strength;
+};
+
+struct worldState {
+	// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
+	map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
+	bool storePlaced = false;
+	bool someOtherThingPlaced = false;
+
+	character player;
+	character theOther;
+};
+
+
 #define CONSTANTS 0
 #endif // !CONSTANTS
 

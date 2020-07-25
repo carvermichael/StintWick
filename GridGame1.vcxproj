@@ -131,6 +131,7 @@
     <ClCompile Include="..\..\..\tools\OpenGLTutorialDependencies\src\glad.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="shader.cpp" />
+    <ClCompile Include="worldGeneration.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.frag" />
@@ -139,6 +140,7 @@
   <ItemGroup>
     <ClInclude Include="constants.h" />
     <ClInclude Include="shader.h" />
+    <ClInclude Include="worldGeneration.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
