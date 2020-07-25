@@ -19,11 +19,17 @@
 #define LEFT	4
 #define RIGHT	8
 
+// Room Types
+#define NORMAL			0
+#define STORE			1
+#define SOMEOTHERTHING	2
+
 #define WORLD_MAP_SIZE_X 5
 #define WORLD_MAP_SIZE_Y 5
 
-#define GRID_MAP_SIZE_X	20
-#define GRID_MAP_SIZE_Y	20
+// maps must be even and square
+#define GRID_MAP_SIZE_X	8
+#define GRID_MAP_SIZE_Y	8
 
 #define PLAYER_WORLD_START_X 2
 #define PLAYER_WORLD_START_Y 2
@@ -71,8 +77,15 @@ struct map {
 	unsigned int grid[GRID_MAP_SIZE_Y][GRID_MAP_SIZE_X];
 };
 
-// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
-map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y] = {};
+struct worldState {
+	// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
+	map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
+
+	bool storePlaced = false;
+	bool someOtherThingPlaced = false;
+};
+
+worldState world;
 
 struct character {
 	int worldCoordX;
@@ -99,7 +112,7 @@ bool isTheOtherHere(int worldX, int worldY, int gridX, int gridY) {
 }
 
 bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
-	return allMaps[player.worldCoordX][player.worldCoordY].grid[gridY][gridX] == 0;
+	return world.allMaps[player.worldCoordX][player.worldCoordY].grid[gridY][gridX] == 0;
 }
 
 void movePlayer(int direction) {
@@ -107,7 +120,7 @@ void movePlayer(int direction) {
 
 	if (direction & UP) {
 		int prospectiveYCoord = player.gridCoordY - PLAYER_SPEED;
-		if (prospectiveYCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0 &&
+		if (prospectiveYCoord >= 0 && world.allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0 &&
 			!isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
 			player.gridCoordY = prospectiveYCoord;
 		}
@@ -119,7 +132,7 @@ void movePlayer(int direction) {
 
 	if (direction & DOWN) {
 		int prospectiveYCoord = player.gridCoordY + PLAYER_SPEED;
-		if (prospectiveYCoord < GRID_MAP_SIZE_Y && allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
+		if (prospectiveYCoord < GRID_MAP_SIZE_Y && world.allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
 			&& !isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
 			player.gridCoordY = prospectiveYCoord;			
 		}
@@ -131,7 +144,7 @@ void movePlayer(int direction) {
 
 	if (direction & LEFT) {
 		int prospectiveXCoord = player.gridCoordX - PLAYER_SPEED;
-		if (prospectiveXCoord >= 0 && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
+		if (prospectiveXCoord >= 0 && world.allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
 			!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
 			player.gridCoordX = prospectiveXCoord;
 		}
@@ -143,7 +156,7 @@ void movePlayer(int direction) {
 
 	if (direction & RIGHT) {
 		int prospectiveXCoord = player.gridCoordX + PLAYER_SPEED;
-		if (prospectiveXCoord < GRID_MAP_SIZE_X && allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
+		if (prospectiveXCoord < GRID_MAP_SIZE_X && world.allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
 			!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
 			player.gridCoordX = prospectiveXCoord;
 		}
@@ -410,7 +423,7 @@ void createPlayerVertices() {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerIndices), playerIndices, GL_STATIC_DRAW);
 }
 
-void createMap(int worldMapX, int worldMapY, int openings) {
+void createMap(int worldMapX, int worldMapY, int openings, int roomType) {
 	
 	int newGrid[GRID_MAP_SIZE_X][GRID_MAP_SIZE_Y] = {};
 
@@ -425,7 +438,6 @@ void createMap(int worldMapX, int worldMapY, int openings) {
 	
 	// NOTE: Relies on even rows/columns to keep exits centered.
 	if (openings & LEFT) { // up
-		std::cout << "LEFT SIDE" << std::endl;
 		newGrid[GRID_MAP_SIZE_X / 2 - 2][0] = 0;
 		newGrid[GRID_MAP_SIZE_X / 2 - 1][0] = 0;
 		newGrid[GRID_MAP_SIZE_X / 2][0] = 0;
@@ -433,15 +445,13 @@ void createMap(int worldMapX, int worldMapY, int openings) {
 	}
 
 	if (openings & RIGHT) { // down
-		std::cout << "RIGHT SIDE" << std::endl;
 		newGrid[GRID_MAP_SIZE_X / 2 - 2][GRID_MAP_SIZE_Y - 1] = 0;
 		newGrid[GRID_MAP_SIZE_X / 2 - 1][GRID_MAP_SIZE_Y - 1] = 0;
 		newGrid[GRID_MAP_SIZE_X / 2][GRID_MAP_SIZE_Y - 1] = 0;
-		newGrid[GRID_MAP_SIZE_X / 2 + 1][GRID_MAP_SIZE_Y - 1] = 0;		
+		newGrid[GRID_MAP_SIZE_X / 2 + 1][GRID_MAP_SIZE_Y - 1] = 0;	
 	}
 
 	if (openings & UP) { // left
-		std::cout << "UP SIDE" << std::endl;
 		newGrid[0][GRID_MAP_SIZE_Y / 2 - 2] = 0;
 		newGrid[0][GRID_MAP_SIZE_Y / 2 - 1] = 0;
 		newGrid[0][GRID_MAP_SIZE_Y / 2] = 0;
@@ -449,16 +459,29 @@ void createMap(int worldMapX, int worldMapY, int openings) {
 	}
 
 	if (openings & DOWN) { // right
-		std::cout << "DOWN SIDE" << std::endl;
 		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 2] = 0;
 		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 1] = 0;
 		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2] = 0;
 		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 + 1] = 0;
 	}
 
+	if (roomType == STORE) {
+		newGrid[2][GRID_MAP_SIZE_Y / 2 - 2] = 1;
+		newGrid[2][GRID_MAP_SIZE_Y / 2 - 1] = 1;
+		newGrid[2][GRID_MAP_SIZE_Y / 2] = 1;
+		newGrid[2][GRID_MAP_SIZE_Y / 2 + 1] = 1;
+	}
+
+	if (roomType == SOMEOTHERTHING) {
+		newGrid[2][GRID_MAP_SIZE_Y / 2 - 1] = 1;
+		newGrid[3][GRID_MAP_SIZE_Y / 2 - 1] = 1;
+		newGrid[4][GRID_MAP_SIZE_Y / 2 - 1] = 1;
+		newGrid[5][GRID_MAP_SIZE_Y / 2 + 0] = 1;
+	}
+
 	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
-			allMaps[worldMapX][worldMapY].grid[row][column] = newGrid[row][column];
+			world.allMaps[worldMapX][worldMapY].grid[row][column] = newGrid[row][column];
 		}
 	}
 }
@@ -493,11 +516,12 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 			break;
 	}
 
-	allMaps[newGridX][newGridY].initialized = true;
-		
+	world.allMaps[newGridX][newGridY].initialized = true;
+	int roomType = NORMAL;
+
 	// generate down
 	if (directionToGetHere != UP) {
-		if (rand() % 4 == 2 && newGridY > 0 && !allMaps[newGridX][newGridY-1].initialized) {
+		if (rand() % 4 == 2 && newGridY > 0 && !world.allMaps[newGridX][newGridY-1].initialized) {
 			openings |= DOWN;
 			createAdjacentMaps(newGridX, newGridY, DOWN);
 		}
@@ -505,7 +529,10 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 
 	// generate up
 	if (directionToGetHere != DOWN) {
-		if (rand() % 4 == 2 && newGridY <= WORLD_MAP_SIZE_Y && !allMaps[newGridX][newGridY+1].initialized) {
+		if (rand() % 10 == 3 && !world.storePlaced) {
+			roomType = STORE;
+			world.storePlaced = true;
+		} else if (rand() % 4 == 2 && newGridY <= WORLD_MAP_SIZE_Y && !world.allMaps[newGridX][newGridY+1].initialized) {
 			openings |= UP;
 			createAdjacentMaps(newGridX, newGridY, UP);
 		}
@@ -513,7 +540,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 
 	// generate right
 	if (directionToGetHere != LEFT) {
-		if (rand() % 4 == 2 && newGridX <= WORLD_MAP_SIZE_X && !allMaps[newGridX+1][newGridY].initialized) {
+		if (rand() % 4 == 2 && newGridX <= WORLD_MAP_SIZE_X && !world.allMaps[newGridX+1][newGridY].initialized) {
 			openings |= RIGHT;
 			createAdjacentMaps(newGridX, newGridY, RIGHT);
 		}
@@ -521,13 +548,17 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 
 	// generate left
 	if (directionToGetHere != RIGHT) {
-		if (rand() % 4 == 2 && newGridX > 0 && !allMaps[newGridX-1][newGridY].initialized) {
+		if (rand() % 10 == 3 && !world.someOtherThingPlaced) {
+			roomType = SOMEOTHERTHING;
+			world.someOtherThingPlaced = true;
+		}
+		if (rand() % 4 == 2 && newGridX > 0 && !world.allMaps[newGridX-1][newGridY].initialized) {
 			openings |= LEFT;
 			createAdjacentMaps(newGridX, newGridY, LEFT);
 		}
 	}
 
-	createMap(newGridX, newGridY, openings);
+	createMap(newGridX, newGridY, openings, roomType);
 }
 
 int main() {
@@ -695,8 +726,8 @@ int main() {
 	bool color = true;
 
 	// MAP GENERATION
-	createMap(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT);
-	allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;	
+	createMap(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
+	world.allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
 
 	srand((unsigned int)(glfwGetTime() * 10));
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP);
@@ -751,7 +782,7 @@ int main() {
 				glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
 				
 				// color
-				if (allMaps[player.worldCoordX][player.worldCoordY].grid[row][column] == 0) {
+				if (world.allMaps[player.worldCoordX][player.worldCoordY].grid[row][column] == 0) {
 					glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
 				}
 				else {
@@ -769,7 +800,7 @@ int main() {
 
 			if (currentCharacter.worldCoordX != player.worldCoordX || currentCharacter.worldCoordY != player.worldCoordY) continue;
 
-			float yOffset = -0.5f * currentCharacter.gridCoordY;
+			float yOffset = -0.5f * currentCharacter.gridCoordY - 0.5f;
 			float xOffset = 0.5f * currentCharacter.gridCoordX;
 
 			glBindVertexArray(player_VAO_ID);
