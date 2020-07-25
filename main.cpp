@@ -11,43 +11,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
-
-#define UP		1
-#define DOWN	2
-#define LEFT	4
-#define RIGHT	8
-
-// Room Types
-#define NORMAL			0
-#define STORE			1
-#define SOMEOTHERTHING	2
-
-#define WORLD_MAP_SIZE_X 5
-#define WORLD_MAP_SIZE_Y 5
-
-// maps must be even and square
-#define GRID_MAP_SIZE_X	8
-#define GRID_MAP_SIZE_Y	8
-
-#define PLAYER_WORLD_START_X 2
-#define PLAYER_WORLD_START_Y 2
-
-#define PLAYER_GRID_START_X 4
-#define PLAYER_GRID_START_Y 4
-
-#define ACTION_STATE_SEEKING	0
-#define ACTION_STATE_AVOIDANT	1
-
-#define PLAYER_SPEED 1
+#include "constants.h"
+#include "shader.h"
 
 glm::vec3 cameraPos;
 glm::vec3 cameraFront;
 glm::vec3 cameraUp;
-
-float gridTopLeftX = -0.8f;
-float gridTopLeftY = 0.8f;
 
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
@@ -56,6 +25,7 @@ unsigned int d_prevState = GLFW_RELEASE;
 unsigned int c_prevState = GLFW_RELEASE;
 unsigned int l_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
+unsigned int enter_prevState = GLFW_RELEASE;
 
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
@@ -77,142 +47,174 @@ struct map {
 	unsigned int grid[GRID_MAP_SIZE_Y][GRID_MAP_SIZE_X];
 };
 
-struct worldState {
-	// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
-	map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
-
-	bool storePlaced = false;
-	bool someOtherThingPlaced = false;
-};
-
-worldState world;
-
 struct character {
 	int worldCoordX;
 	int worldCoordY;
 	int gridCoordX;
 	int gridCoordY;
 
+	int shaderProgramID;
+
 	int directionFacing;
 	int actionState;
+
+	int hitPoints;
+	int strength;
 };
 
-character player;
-character theOther;
+struct worldState {
+	// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
+	map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
+	bool storePlaced = false;
+	bool someOtherThingPlaced = false;
+
+	character player;
+	character theOther;
+};
+
+worldState world;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
 bool isTheOtherHere(int worldX, int worldY, int gridX, int gridY) {
-	return	theOther.worldCoordX == worldX &&
-			theOther.worldCoordY == worldY &&
-			theOther.gridCoordX  == gridX  &&
-			theOther.gridCoordY  == gridY;
+	return	world.theOther.worldCoordX == worldX &&
+			world.theOther.worldCoordY == worldY &&
+			world.theOther.gridCoordX  == gridX  &&
+			world.theOther.gridCoordY  == gridY;
 }
 
 bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
-	return world.allMaps[player.worldCoordX][player.worldCoordY].grid[gridY][gridX] == 0;
+	return world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[gridY][gridX] == 0;
 }
 
 void movePlayer(int direction) {
-	player.directionFacing = direction;
+	world.player.directionFacing = direction;
 
 	if (direction & UP) {
-		int prospectiveYCoord = player.gridCoordY - PLAYER_SPEED;
-		if (prospectiveYCoord >= 0 && world.allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0 &&
-			!isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
-			player.gridCoordY = prospectiveYCoord;
+		int prospectiveYCoord = world.player.gridCoordY - PLAYER_SPEED;
+		if (prospectiveYCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoordX] == 0 &&
+			!isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoordX, prospectiveYCoord)) {
+			world.player.gridCoordY = prospectiveYCoord;
 		}
 		else if (prospectiveYCoord < 0) {
-			player.worldCoordY++;
-			player.gridCoordY = GRID_MAP_SIZE_X - PLAYER_SPEED;
+			world.player.worldCoordY++;
+			world.player.gridCoordY = GRID_MAP_SIZE_X - PLAYER_SPEED;
 		}
 	}
 
 	if (direction & DOWN) {
-		int prospectiveYCoord = player.gridCoordY + PLAYER_SPEED;
-		if (prospectiveYCoord < GRID_MAP_SIZE_Y && world.allMaps[player.worldCoordX][player.worldCoordY].grid[prospectiveYCoord][player.gridCoordX] == 0
-			&& !isTheOtherHere(player.worldCoordX, player.worldCoordY, player.gridCoordX, prospectiveYCoord)) {
-			player.gridCoordY = prospectiveYCoord;			
+		int prospectiveYCoord = world.player.gridCoordY + PLAYER_SPEED;
+		if (prospectiveYCoord < GRID_MAP_SIZE_Y && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoordX] == 0
+			&& !isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoordX, prospectiveYCoord)) {
+			world.player.gridCoordY = prospectiveYCoord;			
 		}
 		else if (prospectiveYCoord == GRID_MAP_SIZE_X) {
-			player.worldCoordY--;
-			player.gridCoordY = 0;
+			world.player.worldCoordY--;
+			world.player.gridCoordY = 0;
 		}
 	}
 
 	if (direction & LEFT) {
-		int prospectiveXCoord = player.gridCoordX - PLAYER_SPEED;
-		if (prospectiveXCoord >= 0 && world.allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
-			!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
-			player.gridCoordX = prospectiveXCoord;
+		int prospectiveXCoord = world.player.gridCoordX - PLAYER_SPEED;
+		if (prospectiveXCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoordY][prospectiveXCoord] == 0 &&
+			!isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoordY)) {
+			world.player.gridCoordX = prospectiveXCoord;
 		}
 		else if (prospectiveXCoord < 0) {
-			player.worldCoordX--;
-			player.gridCoordX = GRID_MAP_SIZE_Y - PLAYER_SPEED;
+			world.player.worldCoordX--;
+			world.player.gridCoordX = GRID_MAP_SIZE_Y - PLAYER_SPEED;
 		}
 	}
 
 	if (direction & RIGHT) {
-		int prospectiveXCoord = player.gridCoordX + PLAYER_SPEED;
-		if (prospectiveXCoord < GRID_MAP_SIZE_X && world.allMaps[player.worldCoordX][player.worldCoordY].grid[player.gridCoordY][prospectiveXCoord] == 0 &&
-			!isTheOtherHere(player.worldCoordX, player.worldCoordY, prospectiveXCoord, player.gridCoordY)) {
-			player.gridCoordX = prospectiveXCoord;
+		int prospectiveXCoord = world.player.gridCoordX + PLAYER_SPEED;
+		if (prospectiveXCoord < GRID_MAP_SIZE_X && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoordY][prospectiveXCoord] == 0 &&
+			!isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoordY)) {
+			world.player.gridCoordX = prospectiveXCoord;
 		}
 		else if (prospectiveXCoord == GRID_MAP_SIZE_Y) {
-			player.worldCoordX++;
-			player.gridCoordX = 0;
+			world.player.worldCoordX++;
+			world.player.gridCoordX = 0;
 		}
 	}
 }
 
-void moveNotPlayer() {
-	if (theOther.worldCoordX != player.worldCoordX ||
-		theOther.worldCoordY != player.worldCoordY) return;
+void attack() {
+	int xAttack = world.player.gridCoordX;
+	int yAttack = world.player.gridCoordY;
 
-	int diffToPlayerX = theOther.gridCoordX - player.gridCoordX;
-	int diffToPlayerY = theOther.gridCoordY - player.gridCoordY;
+	switch (world.player.directionFacing) {
+		case (UP):
+			yAttack--;
+			break;
+		case (DOWN):
+			yAttack++;
+			break;
+		case (LEFT):
+			xAttack--;
+			break;
+		case (RIGHT):
+			xAttack++;
+			break;
+	}
 
-	int prospectiveGridCoordX = theOther.gridCoordX;
-	int prospectiveGridCoordY = theOther.gridCoordY;
+	if (isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, xAttack, yAttack)) {
+		world.theOther.hitPoints -= world.player.strength;
+		if (world.theOther.hitPoints <= 0) {
+			world.theOther.worldCoordX = 20;
+			world.theOther.worldCoordY = 20;
+		}
+	}
+}
 
-	if (theOther.actionState == ACTION_STATE_SEEKING) {
+void moveTheOther() {
+	if (world.theOther.worldCoordX != world.player.worldCoordX ||
+		world.theOther.worldCoordY != world.player.worldCoordY) return;
+
+	int diffToPlayerX = world.theOther.gridCoordX - world.player.gridCoordX;
+	int diffToPlayerY = world.theOther.gridCoordY - world.player.gridCoordY;
+
+	int prospectiveGridCoordX = world.theOther.gridCoordX;
+	int prospectiveGridCoordY = world.theOther.gridCoordY;
+
+	if (world.theOther.actionState == ACTION_STATE_SEEKING) {
 		
 		if (diffToPlayerX == 0 && diffToPlayerY == 0) return;
 		if (diffToPlayerX == 0 && abs(diffToPlayerY) == 1) return;
 		if (abs(diffToPlayerX) == 1 && diffToPlayerY == 0) return;
 
 		if (rand() % 2 == 0 && diffToPlayerX != 0) {
-			if (diffToPlayerX > 0)		prospectiveGridCoordX = theOther.gridCoordX - 1;
-			else if (diffToPlayerX < 0) prospectiveGridCoordX = theOther.gridCoordX + 1;
+			if (diffToPlayerX > 0)		prospectiveGridCoordX = world.theOther.gridCoordX - 1;
+			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.theOther.gridCoordX + 1;
 		}
 		else {
 			if (diffToPlayerY == 0) {
-				if (diffToPlayerX > 0)		prospectiveGridCoordX = theOther.gridCoordX - 1;
-				else if (diffToPlayerX < 0) prospectiveGridCoordX = theOther.gridCoordX + 1;
+				if (diffToPlayerX > 0)		prospectiveGridCoordX = world.theOther.gridCoordX - 1;
+				else if (diffToPlayerX < 0) prospectiveGridCoordX = world.theOther.gridCoordX + 1;
 			}
 
-			if (diffToPlayerY > 0)		prospectiveGridCoordY = theOther.gridCoordY - 1;
-			else if (diffToPlayerY < 0) prospectiveGridCoordY = theOther.gridCoordY + 1;
+			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.theOther.gridCoordY - 1;
+			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.theOther.gridCoordY + 1;
 		}
 	}
 	// TODO: Finish this. The Other can go off map when avoidant.
-	else if (theOther.actionState == ACTION_STATE_AVOIDANT) {
+	else if (world.theOther.actionState == ACTION_STATE_AVOIDANT) {
 		if (diffToPlayerX > diffToPlayerY) {
-			if		(diffToPlayerX > 0)	prospectiveGridCoordX = theOther.gridCoordX + 1;
-			else if (diffToPlayerX < 0) prospectiveGridCoordX = theOther.gridCoordX - 1;
+			if		(diffToPlayerX > 0)	prospectiveGridCoordX = world.theOther.gridCoordX + 1;
+			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.theOther.gridCoordX - 1;
 
 			
 		}	else {
-			if (diffToPlayerY > 0)		prospectiveGridCoordY = theOther.gridCoordY + 1;
-			else if (diffToPlayerY < 0) prospectiveGridCoordY = theOther.gridCoordY - 1;
+			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.theOther.gridCoordY + 1;
+			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.theOther.gridCoordY - 1;
 		}
 	}
 
-	if (isMapSpaceEmpty(player.worldCoordX, player.worldCoordY, prospectiveGridCoordX, prospectiveGridCoordY)) {
-		theOther.gridCoordX = prospectiveGridCoordX;
-		theOther.gridCoordY = prospectiveGridCoordY;
+	if (isMapSpaceEmpty(world.player.worldCoordX, world.player.worldCoordY, prospectiveGridCoordX, prospectiveGridCoordY)) {
+		world.theOther.gridCoordX = prospectiveGridCoordX;
+		world.theOther.gridCoordY = prospectiveGridCoordY;
 	}
 }
 
@@ -249,42 +251,48 @@ void processKeyboardInput(GLFWwindow *window) {
 		//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
 		int w_currentState = glfwGetKey(window, GLFW_KEY_W);
 		if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
-			moveNotPlayer();
+			moveTheOther();
 			movePlayer(UP);
 		}
 		w_prevState = w_currentState;
 
 		int a_currentState = glfwGetKey(window, GLFW_KEY_A);
 		if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
-			moveNotPlayer();
+			moveTheOther();
 			movePlayer(LEFT);
 		}
 		a_prevState = a_currentState;
 
 		int s_currentState = glfwGetKey(window, GLFW_KEY_S);
 		if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
-			moveNotPlayer();
+			moveTheOther();
 			movePlayer(DOWN);
 		}
 		s_prevState = s_currentState;
 
 		int d_currentState = glfwGetKey(window, GLFW_KEY_D);
 		if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
-			moveNotPlayer();
+			moveTheOther();
 			movePlayer(RIGHT);
 		}
 		d_prevState = d_currentState;
 
 		int spacebar_currentState = glfwGetKey(window, GLFW_KEY_SPACE);
 		if (spacebar_currentState == GLFW_PRESS && spacebar_prevState == GLFW_RELEASE) {
-			moveNotPlayer();
+			moveTheOther();
 		}
 		spacebar_prevState = spacebar_currentState;
 
+		int enter_currentState = glfwGetKey(window, GLFW_KEY_ENTER);
+		if (enter_currentState == GLFW_PRESS && enter_prevState == GLFW_RELEASE) {
+			attack();
+		}
+		enter_prevState = enter_currentState;
+
 		int l_currentState = glfwGetKey(window, GLFW_KEY_L);
 		if (l_currentState == GLFW_PRESS && l_prevState == GLFW_RELEASE) {
-			if		(theOther.actionState == ACTION_STATE_AVOIDANT)	theOther.actionState = ACTION_STATE_SEEKING;
-			else if (theOther.actionState == ACTION_STATE_SEEKING)	theOther.actionState = ACTION_STATE_AVOIDANT;
+			if		(world.theOther.actionState == ACTION_STATE_AVOIDANT)	world.theOther.actionState = ACTION_STATE_SEEKING;
+			else if (world.theOther.actionState == ACTION_STATE_SEEKING)	world.theOther.actionState = ACTION_STATE_AVOIDANT;
 		}
 		l_prevState = l_currentState;
 	}	
@@ -423,7 +431,7 @@ void createPlayerVertices() {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerIndices), playerIndices, GL_STATIC_DRAW);
 }
 
-void createMap(int worldMapX, int worldMapY, int openings, int roomType) {
+void createSingleGrid(int worldMapX, int worldMapY, int openings, int roomType) {
 	
 	int newGrid[GRID_MAP_SIZE_X][GRID_MAP_SIZE_Y] = {};
 
@@ -558,7 +566,7 @@ void createAdjacentMaps(int attachedWorldMapX, int attachedWorldMapY, int direct
 		}
 	}
 
-	createMap(newGridX, newGridY, openings, roomType);
+	createSingleGrid(newGridX, newGridY, openings, roomType);
 }
 
 int main() {
@@ -590,91 +598,19 @@ int main() {
 	// setting up Vertex Array Object (VAO)
 	unsigned int grid_VAO_ID;
 	glGenVertexArrays(1, &grid_VAO_ID);
-
 	glBindVertexArray(grid_VAO_ID);
 
 	// ------------- SHADERS -------------
 
-	// setting up vertex shader
-	unsigned int vertexShader;
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-
-	// loading vertex shader file for compilation
-	std::string vertexCode;
-	std::ifstream vShaderFile;
-	vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	vShaderFile.open("vertexShader.vert");
-	std::stringstream vShaderStream;
-	vShaderStream << vShaderFile.rdbuf();
-	vShaderFile.close();
-	vertexCode = vShaderStream.str();
-	const char* vShaderCode = vertexCode.c_str();
-
-	glShaderSource(vertexShader, 1, &vShaderCode, NULL);
-	glCompileShader(vertexShader);
-
-	int success;
-	char infoLog[512];
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-
-	if (!success) {
-		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-		std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-	}
-
-	// setting up the fragment shaders
-	unsigned int fragmentShader;
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-
-	std::string fragmentCode;
-	std::ifstream fShaderFile;
-	fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	fShaderFile.open("fragmentShader.frag");
-	std::stringstream fShaderStream;
-	fShaderStream << fShaderFile.rdbuf();
-	fShaderFile.close();
-	fragmentCode = fShaderStream.str();
-	const char* fShaderCode = fragmentCode.c_str();
-
-	glShaderSource(fragmentShader, 1, &fShaderCode, NULL);
-	glCompileShader(fragmentShader);
-
-	success = 0;
-	memset(infoLog, 0, sizeof(infoLog));
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-
-	if (!success) {
-		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-		std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-	}
-
-	// initializing shader program/pipeline, attaching compiled shaders, initialization, linking, and shader cleanup
-	unsigned int shaderProgram_ID;
-	shaderProgram_ID = glCreateProgram();
-
-	glAttachShader(shaderProgram_ID, vertexShader);
-	glAttachShader(shaderProgram_ID, fragmentShader);
-	glLinkProgram(shaderProgram_ID);
-
-	success = 0;
-	memset(infoLog, 0, sizeof(infoLog));
-	glGetProgramiv(shaderProgram_ID, GL_LINK_STATUS, &success);
-
-	if (!success) {
-		glGetProgramInfoLog(shaderProgram_ID, 512, NULL, infoLog);
-		std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-	}
-
-	glUseProgram(shaderProgram_ID);
-
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
+	unsigned int vertexShaderID = initializeVertexShader("vertexShader.vert");
+	unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");	
+	unsigned int shaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
 
 	// start of 3D stuffs
-	unsigned int modelLoc = glGetUniformLocation(shaderProgram_ID, "model");
-	unsigned int viewLoc = glGetUniformLocation(shaderProgram_ID, "view");
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgram_ID, "projection");
-	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgram_ID, "colorIn");
+	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
+	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
+	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
+	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
 	
 	// creating a view matrix with camera
 	// setting up camera
@@ -726,7 +662,7 @@ int main() {
 	bool color = true;
 
 	// MAP GENERATION
-	createMap(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
+	createSingleGrid(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
 	world.allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
 
 	srand((unsigned int)(glfwGetTime() * 10));
@@ -736,17 +672,21 @@ int main() {
 	createAdjacentMaps(PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT);
 
 	// CHARACTER INITIALIZATION
-	player.worldCoordX = PLAYER_WORLD_START_X;
-	player.worldCoordY = PLAYER_WORLD_START_Y;
-	player.gridCoordX = PLAYER_GRID_START_X;
-	player.gridCoordY = PLAYER_GRID_START_Y;
+	world.player.worldCoordX = PLAYER_WORLD_START_X;
+	world.player.worldCoordY = PLAYER_WORLD_START_Y;
+	world.player.gridCoordX = PLAYER_GRID_START_X;
+	world.player.gridCoordY = PLAYER_GRID_START_Y;
+	world.player.strength = 1;
+	world.player.hitPoints = 20;
 
-	theOther.worldCoordX = PLAYER_WORLD_START_X;
-	theOther.worldCoordY = PLAYER_WORLD_START_Y;
-	theOther.gridCoordX = 1;
-	theOther.gridCoordY = 2;
+	world.theOther.worldCoordX = PLAYER_WORLD_START_X;
+	world.theOther.worldCoordY = PLAYER_WORLD_START_Y;
+	world.theOther.gridCoordX = 1;
+	world.theOther.gridCoordY = 2;
+	world.theOther.hitPoints = 3;
+	world.theOther.strength = 1;
 
-	character* characters[2] = { &player, &theOther };
+	character* characters[2] = { &world.player, &world.theOther };
 	
 	lastFrameTime = (float)glfwGetTime();	
 
@@ -782,7 +722,7 @@ int main() {
 				glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
 				
 				// color
-				if (world.allMaps[player.worldCoordX][player.worldCoordY].grid[row][column] == 0) {
+				if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] == 0) {
 					glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
 				}
 				else {
@@ -798,7 +738,7 @@ int main() {
 		for (int i = 0; i < numCharacters; i++) {
 			character currentCharacter = *characters[i];
 
-			if (currentCharacter.worldCoordX != player.worldCoordX || currentCharacter.worldCoordY != player.worldCoordY) continue;
+			if (currentCharacter.worldCoordX != world.player.worldCoordX || currentCharacter.worldCoordY != world.player.worldCoordY) continue;
 
 			float yOffset = -0.5f * currentCharacter.gridCoordY - 0.5f;
 			float xOffset = 0.5f * currentCharacter.gridCoordX;

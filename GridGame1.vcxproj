@@ -130,10 +130,15 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\tools\OpenGLTutorialDependencies\src\glad.c" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="shader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.frag" />
     <None Include="vertexShader.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="constants.h" />
+    <ClInclude Include="shader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
