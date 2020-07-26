@@ -132,7 +132,6 @@
     <ClCompile Include="camera.h" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="shader.cpp" />
-    <ClCompile Include="worldGeneration.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.frag" />
