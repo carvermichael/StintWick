@@ -1,6 +1,21 @@
 #include "constants.h"
+#include "worldState.h"
 #include <stdlib.h>
 #include <glfw3.h>
+
+void createSingleGrid(worldState *world, int worldMapX, int worldMapY, int openings, int roomType);
+void createAdjacentMaps(worldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere);
+
+void generateWorldMap(worldState *world) {
+	createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
+	world->allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
+
+	srand((unsigned int)(glfwGetTime() * 10));
+	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP);
+	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN);
+	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT);
+	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT);
+}
 
 void createSingleGrid(worldState *world, int worldMapX, int worldMapY, int openings, int roomType) {
 
@@ -141,14 +156,3 @@ void createAdjacentMaps(worldState *world, int attachedWorldMapX, int attachedWo
 	createSingleGrid(world, newGridX, newGridY, openings, roomType);
 }
 
-void generateWorld(worldState *world) {
-	// MAP GENERATION
-	createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
-	world->allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
-
-	srand((unsigned int)(glfwGetTime() * 10));
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP);
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN);
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT);
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT);
-}

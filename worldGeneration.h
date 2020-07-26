@@ -1,10 +1,7 @@
 #if !defined(WORLDGENERATION)
 #include "constants.h"
 
-
-void generateWorld(worldState *world);
-
-
+void generateWorldMap(worldState *world);
 
 #define WORLDGENERATION
 #endif

@@ -11,13 +11,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "camera.h"
+#include "worldState.h"
 #include "constants.h"
 #include "shader.h"
 #include "worldGeneration.h"
-
-glm::vec3 cameraPos;
-glm::vec3 cameraFront;
-glm::vec3 cameraUp;
 
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
@@ -33,9 +31,6 @@ float lastFrameTime = 0.0f;
 
 float lastCursorX = 400;
 float lastCursorY = 300;
-
-float yaw = -90.0f;
-float pitch = 45.0f;
 
 unsigned int cube_VAO_ID;
 unsigned int player_VAO_ID;
@@ -203,17 +198,17 @@ void processKeyboardInput(GLFWwindow *window) {
 	if (freeCamera) {
 		const float cameraSpeed = 5.0f * deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			cameraPos += cameraSpeed * cameraFront;
+			world.camera.moveForward(deltaTime);		
 		}
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			cameraPos -= cameraSpeed * cameraFront;
+			world.camera.moveBack(deltaTime);
 		}
 		// strafe movement
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+			world.camera.moveLeft(deltaTime);
 		}
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+			world.camera.moveRight(deltaTime);			
 		}
 	}
 	else {
@@ -271,7 +266,6 @@ void processKeyboardInput(GLFWwindow *window) {
 
 void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	if (freeCamera) {
-		// what is the unit for offsets here? is it really degrees?
 		if (firstMouse)
 		{
 			lastCursorX = (float)xPos;
@@ -285,17 +279,7 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 		lastCursorX = (float)xPos;
 		lastCursorY = (float)yPos;
 
-		const float sensitivity = 0.1f;
-		xOffset *= sensitivity;
-		yOffset *= sensitivity;
-
-		yaw += xOffset;
-		pitch += yOffset;
-
-		if (pitch > 89.0f)
-			pitch = 89.0f;
-		if (pitch < -89.0f)
-			pitch = -89.0f;
+		world.camera.adjustYawAndPitch(xOffset, yOffset);		
 	}
 }
 
@@ -402,8 +386,6 @@ void createPlayerVertices() {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerIndices), playerIndices, GL_STATIC_DRAW);
 }
 
-
-
 int main() {
 	// ------------ INIT STUFF -------------
 
@@ -436,7 +418,6 @@ int main() {
 	glBindVertexArray(grid_VAO_ID);
 
 	// ------------- SHADERS -------------
-
 	unsigned int vertexShaderID = initializeVertexShader("vertexShader.vert");
 	unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");	
 	unsigned int shaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
@@ -447,32 +428,8 @@ int main() {
 	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
 	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
 	
-	// creating a view matrix with camera
-	// setting up camera
-	float midGridX	  =  0.5f * (GRID_MAP_SIZE_X / 2);
-	float bottomGridY = -0.5f * (GRID_MAP_SIZE_Y * 2);
+	world.camera.initialize();
 	
-	cameraPos = glm::vec3(midGridX, bottomGridY, (float)GRID_MAP_SIZE_X / 1.5);
-	
-	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-	
-	glm::vec3 cameraDirection;
-
-	// TODO: grok this calculation of cameraDirection
-	cameraDirection.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-	cameraDirection.y = sin(glm::radians(pitch));
-	cameraDirection.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-
-	cameraFront = glm::normalize(cameraDirection);
-	glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection)); // remember: cross product gives you orthongonal vector to both input vectors
-
-	cameraUp = glm::normalize(glm::cross(cameraDirection, cameraRight));
-
-	glm::mat4 view;
-	view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
 	// aaaaand the projection matrix
 	glm::mat4 projection;
 	projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);	
@@ -494,9 +451,7 @@ int main() {
 
 	glm::vec3 currentColor = color1;
 
-	bool color = true;
-
-	generateWorld(&world);
+	generateWorldMap(&world);
 
 	// CHARACTER INITIALIZATION
 	world.player.worldCoordX = PLAYER_WORLD_START_X;
@@ -513,7 +468,7 @@ int main() {
 	world.theOther.hitPoints = 3;
 	world.theOther.strength = 1;
 
-	character* characters[2] = { &world.player, &world.theOther };
+	Character* characters[2] = { &world.player, &world.theOther };
 	
 	lastFrameTime = (float)glfwGetTime();	
 
@@ -521,20 +476,14 @@ int main() {
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window);
 		
-		glfwPollEvents();		
+		glfwPollEvents();
 
-		// Move camera
-		cameraDirection.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		cameraDirection.y = sin(glm::radians(pitch));
-		cameraDirection.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-		cameraFront = glm::normalize(cameraDirection);
-
-		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		glm::mat4 view = world.camera.generateView();
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
-		// Clear color and "z-buffer"
+		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.0f, 0.7f, 0.3f, 1.0f);	
+		glClearColor(0.0f, 0.7f, 0.3f, 1.0f);
 
 		// DRAW CURRENT GRID (where the player currently is)
 		glBindVertexArray(cube_VAO_ID);
@@ -561,9 +510,9 @@ int main() {
 		}
 
 		// DRAW CHARACTERS
-		int numCharacters = sizeof(characters) / sizeof(character*);
+		int numCharacters = sizeof(characters) / sizeof(Character*);
 		for (int i = 0; i < numCharacters; i++) {
-			character currentCharacter = *characters[i];
+			Character currentCharacter = *characters[i];
 
 			if (currentCharacter.worldCoordX != world.player.worldCoordX || currentCharacter.worldCoordY != world.player.worldCoordY) continue;
 

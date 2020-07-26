@@ -129,6 +129,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\tools\OpenGLTutorialDependencies\src\glad.c" />
+    <ClCompile Include="camera.h" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="shader.cpp" />
     <ClCompile Include="worldGeneration.cpp" />
@@ -141,6 +142,7 @@
     <ClInclude Include="constants.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="worldGeneration.h" />
+    <ClInclude Include="worldState.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
