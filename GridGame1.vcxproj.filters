@@ -35,6 +35,12 @@
     <None Include="vertexShader.vert">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="textVertexShader.vert">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="textFragmentShader.frag">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="constants.h">
