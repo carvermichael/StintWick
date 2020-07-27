@@ -131,7 +131,6 @@
     <ClCompile Include="..\..\..\tools\OpenGLTutorialDependencies\src\glad.c" />
     <ClCompile Include="camera.h" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="shader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.frag" />
