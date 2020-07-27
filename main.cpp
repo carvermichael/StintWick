@@ -21,6 +21,8 @@
 #include "shader.h"
 #include "worldGeneration.h"
 
+void addTextToBox(std::string newText);
+
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
 unsigned int s_prevState = GLFW_RELEASE;
@@ -195,7 +197,12 @@ void processKeyboardInput(GLFWwindow *window) {
 	}
 	int c_currentState = glfwGetKey(window, GLFW_KEY_C);
 	if (c_currentState == GLFW_PRESS && c_prevState == GLFW_RELEASE) {
-		freeCamera = !freeCamera;		
+		freeCamera = !freeCamera;
+		if (freeCamera) {
+			addTextToBox("Camera Free");
+		} else {
+			addTextToBox("Camera Locked");
+		}
 	}
 	c_prevState = c_currentState;
 	
@@ -261,8 +268,14 @@ void processKeyboardInput(GLFWwindow *window) {
 
 		int l_currentState = glfwGetKey(window, GLFW_KEY_L);
 		if (l_currentState == GLFW_PRESS && l_prevState == GLFW_RELEASE) {
-			if		(world.theOther.actionState == ACTION_STATE_AVOIDANT)	world.theOther.actionState = ACTION_STATE_SEEKING;
-			else if (world.theOther.actionState == ACTION_STATE_SEEKING)	world.theOther.actionState = ACTION_STATE_AVOIDANT;
+			if (world.theOther.actionState == ACTION_STATE_AVOIDANT) {
+				addTextToBox("AI Set To AVOIDANT");
+				world.theOther.actionState = ACTION_STATE_SEEKING;
+			}
+			else if (world.theOther.actionState == ACTION_STATE_SEEKING) {
+				addTextToBox("AI Set To SEEKING");
+				world.theOther.actionState = ACTION_STATE_AVOIDANT;
+			}
 		}
 		l_prevState = l_currentState;
 	}	
@@ -398,8 +411,8 @@ struct TextCharacter {
 };
 
 std::map<char, TextCharacter> textCharacters;
-
 unsigned int textVAOID, textVBOID;
+unsigned int textShaderProgramID;
 
 // TODO: try doing this without std::string
 void renderText(unsigned int shaderProgramID, std::string text, float x, float y, float scale, glm::vec3 color) {
@@ -448,6 +461,43 @@ void renderText(unsigned int shaderProgramID, std::string text, float x, float y
 
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+#define LIMIT_LINES 4
+
+struct TextBox {
+	std::string lines[LIMIT_LINES];
+	unsigned int startingLineIndex = 0;
+};
+
+TextBox textBox = {};
+
+void renderTextBox() {
+	unsigned int numLinesRendered = 0;
+	unsigned int currentLineIndex = textBox.startingLineIndex;
+	float x = 0.0f, y = 0.0f;
+
+	while (numLinesRendered < LIMIT_LINES) {
+		renderText(textShaderProgramID, textBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+
+		currentLineIndex++;
+		if (currentLineIndex >= LIMIT_LINES) {
+			currentLineIndex = 0;
+		}
+
+		y += 20.0f;
+
+		numLinesRendered++;
+	}
+}
+
+void addTextToBox(std::string newText) {
+	textBox.lines[textBox.startingLineIndex] = newText;
+
+	textBox.startingLineIndex++;
+	if (textBox.startingLineIndex >= LIMIT_LINES) {
+		textBox.startingLineIndex = 0;
+	}
 }
 
 int main() {
@@ -595,7 +645,7 @@ int main() {
 	//// TEXT SHADER PROGRAM
 	unsigned int textVertexShaderID = initializeVertexShader("textVertexShader.vert");
 	unsigned int textFragShaderID   = initializeFragmentShader("textFragmentShader.frag");
-	unsigned int textShaderProgramID = createShaderProgram(textVertexShaderID, textFragShaderID);
+	textShaderProgramID = createShaderProgram(textVertexShaderID, textFragShaderID);
 
 	// need alpha blending for text transparency
 	glEnable(GL_BLEND);
@@ -634,7 +684,7 @@ int main() {
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.0f, 0.7f, 0.3f, 1.0f);
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
 		// DRAW CURRENT GRID (where the player currently is)
 		glUseProgram(shaderProgramID);
@@ -686,7 +736,7 @@ int main() {
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 		}
 
-		renderText(textShaderProgramID, "AWWWWWW YEAH", 10.0f, 10.0f, 1.0f, glm::vec3(1.0f, 0.5f, 0.89f));
+		renderTextBox();
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;
