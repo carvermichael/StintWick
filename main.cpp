@@ -1,6 +1,8 @@
 #include <glad/glad.h>
 #include <glfw3.h>
 
+#include <time.h>
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -565,6 +567,11 @@ int main() {
 
 	glm::vec3 currentColor = color1;
 
+	// set seed and generate map
+	unsigned int seed = time(NULL); // seconds since Jan 1, 2000
+	srand(seed);
+	addTextToBox("seed: " + std::to_string(seed));
+	
 	generateWorldMap(&world);
 
 	// CHARACTER INITIALIZATION

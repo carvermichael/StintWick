@@ -11,7 +11,6 @@ void generateWorldMap(worldState *world) {
 	createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
 	world->allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
 
-	srand((unsigned int)(glfwGetTime() * 10));
 	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP);
 	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN);
 	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT);
