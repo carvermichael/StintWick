@@ -582,7 +582,7 @@ int main() {
 		TextCharacter textCharacter = {
 			texture,
 			glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-			glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap_top),
+			glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
 			face->glyph->advance.x
 		};
 
@@ -621,8 +621,7 @@ int main() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-	// game loop
-	
+	// game loop	
 	while (!glfwWindowShouldClose(window)) {
 		glUseProgram(shaderProgramID);
 		
