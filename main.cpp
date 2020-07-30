@@ -17,6 +17,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include "mesh.h"
 #include "camera.h"
 #include "worldState.h"
 #include "constants.h"
@@ -47,6 +48,9 @@ bool firstMouse = true;
 bool freeCamera = false;
 
 worldState world = {};
+std::vector<WorldObject> worldObjects;
+
+unsigned int shaderProgramID;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -337,7 +341,6 @@ void createCubeVertices() {
 	};
 	
 	glGenVertexArrays(1, &cube_VAO_ID);
-
 	glBindVertexArray(cube_VAO_ID);
 
 	unsigned int cube_VBO_ID;
@@ -417,7 +420,7 @@ unsigned int textVAOID, textVBOID;
 unsigned int textShaderProgramID;
 
 // TODO: try doing this without std::string
-void renderText(unsigned int shaderProgramID, std::string text, float x, float y, float scale, glm::vec3 color) {
+void drawText(unsigned int shaderProgramID, std::string text, float x, float y, float scale, glm::vec3 color) {
 
 	glUseProgram(shaderProgramID);
 	unsigned int textColorLoc = glGetUniformLocation(shaderProgramID, "textColor");
@@ -474,13 +477,13 @@ struct TextBox {
 
 TextBox textBox = {};
 
-void renderTextBox() {
+void drawTextBox() {
 	unsigned int numLinesRendered = 0;
 	unsigned int currentLineIndex = textBox.startingLineIndex;
 	float x = 0.0f, y = 0.0f;
 
 	while (numLinesRendered < LIMIT_LINES) {
-		renderText(textShaderProgramID, textBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+		drawText(textShaderProgramID, textBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
 
 		currentLineIndex++;
 		if (currentLineIndex >= LIMIT_LINES) {
@@ -501,6 +504,140 @@ void addTextToBox(std::string newText) {
 		textBox.startingLineIndex = 0;
 	}
 }
+
+void drawGrid() {
+	glUseProgram(shaderProgramID);
+	glBindVertexArray(cube_VAO_ID);
+
+	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
+	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
+
+	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
+	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
+	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
+	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
+
+	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
+		float yOffset = -0.5f * row;
+
+		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
+			float xOffset = 0.5f * column;
+
+			// position
+			glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.0f));
+			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+
+			// color
+			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] == 0) {
+				glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
+			}
+			else {
+				glUniform3f(colorUniformLocation, color2.r, color2.g, color2.b);
+			}
+
+			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+		}
+	}
+}
+
+void drawCharacters(Character *characters[]) {
+	int numCharacters = 2;
+
+	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
+	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
+	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
+	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
+
+	for (int i = 0; i < numCharacters; i++) {
+		Character currentCharacter = *characters[i];
+
+		if (currentCharacter.worldCoordX != world.player.worldCoordX || currentCharacter.worldCoordY != world.player.worldCoordY) continue;
+
+		float yOffset = -0.5f * currentCharacter.gridCoordY - 0.5f;
+		float xOffset = 0.5f * currentCharacter.gridCoordX;
+
+		glBindVertexArray(player_VAO_ID);
+
+		if (i == 0) {
+			glUniform3f(colorUniformLocation, 0.0f, 0.45f, 0.03f);
+		}
+		else {
+			glUniform3f(colorUniformLocation, 0.3f, 1.0f, 0.03f);
+		}
+
+		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.5f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+	}
+}
+
+void generateObjectsFromDungeonScene() {
+	Assimp::Importer importer;
+	const aiScene *dungeonScene = importer.ReadFile("dungeonScene.fbx", aiProcess_CalcTangentSpace |
+		aiProcess_Triangulate |
+		aiProcess_JoinIdenticalVertices |
+		aiProcess_SortByPType); // TODO: figure out which processing flags you might want on load here (using example's default for now)
+
+	if (!dungeonScene) {
+		std::cout << importer.GetErrorString() << std::endl;
+	}
+
+	aiNode *rootNode = dungeonScene->mRootNode;
+
+	for (unsigned int i = 0; i < rootNode->mNumChildren; i++) {
+		WorldObject worldObject;
+
+		aiNode *child = rootNode->mChildren[i];
+
+		for (unsigned int j = 0; j < child->mNumMeshes; j++) {
+			Mesh mesh;
+			aiMesh *inputMesh = dungeonScene->mMeshes[child->mMeshes[j]];
+
+			createMesh(&mesh, inputMesh, dungeonScene);
+
+			worldObject.meshes.push_back(mesh);
+		}
+
+		worldObjects.push_back(worldObject);
+	}
+}
+
+void drawWorldObjects() {
+
+	float xOffset = 0.0f;
+	float yOffset = 0.0f;
+
+	glUseProgram(shaderProgramID);
+
+	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
+	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
+
+	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
+	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
+	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
+	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
+
+	glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
+
+	for (int i = 0; i < worldObjects.size(); i++) {
+		WorldObject *worldObject = &worldObjects[i];
+
+		yOffset += -0.5f;
+		xOffset += 0.5f;
+
+		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.0f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+
+		for (int j = 0; j < worldObject->meshes.size(); j++) {
+			Mesh *mesh = &worldObject->meshes[j];
+
+			glBindVertexArray(mesh->VAO_ID);
+
+			glDrawElements(GL_TRIANGLES, mesh->indices.size() / 3, GL_UNSIGNED_INT, 0);
+		}
+	}
+}
+
 
 int main() {
 	// ------------ INIT STUFF -------------
@@ -536,7 +673,7 @@ int main() {
 	// ------------- SHADERS -------------
 	unsigned int vertexShaderID = initializeVertexShader("vertexShader.vert");
 	unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");	
-	unsigned int shaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
+	shaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
 
 	// start of 3D stuffs
 	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
@@ -562,13 +699,8 @@ int main() {
 	createCubeVertices();
 	createPlayerVertices();
 
-	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
-	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
-
-	glm::vec3 currentColor = color1;
-
 	// set seed and generate map
-	unsigned int seed = time(NULL); // seconds since Jan 1, 2000
+	unsigned int seed = (unsigned int)time(NULL); // seconds since Jan 1, 2000
 	srand(seed);
 	addTextToBox("seed: " + std::to_string(seed));
 	
@@ -678,6 +810,8 @@ int main() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
+	generateObjectsFromDungeonScene();
+
 	// game loop	
 	while (!glfwWindowShouldClose(window)) {
 		glUseProgram(shaderProgramID);
@@ -693,57 +827,11 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-		// DRAW CURRENT GRID (where the player currently is)
-		glUseProgram(shaderProgramID);
-		glBindVertexArray(cube_VAO_ID);
-		
-		for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
-			float yOffset = -0.5f * row;
-			
-			for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
-				float xOffset = 0.5f * column;
+		drawWorldObjects();
 
-				// position
-				glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.0f));
-				glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-				
-				// color
-				if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] == 0) {
-					glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
-				}
-				else {
-					glUniform3f(colorUniformLocation, color2.r, color2.g, color2.b);
-				}
-				
-				glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-			}
-		}
-
-		// DRAW CHARACTERS
-		int numCharacters = sizeof(characters) / sizeof(Character*);
-		for (int i = 0; i < numCharacters; i++) {
-			Character currentCharacter = *characters[i];
-
-			if (currentCharacter.worldCoordX != world.player.worldCoordX || currentCharacter.worldCoordY != world.player.worldCoordY) continue;
-
-			float yOffset = -0.5f * currentCharacter.gridCoordY - 0.5f;
-			float xOffset = 0.5f * currentCharacter.gridCoordX;
-
-			glBindVertexArray(player_VAO_ID);
-
-			if (i == 0) {
-				glUniform3f(colorUniformLocation, 0.0f, 0.45f, 0.03f);
-			}
-			else {
-				glUniform3f(colorUniformLocation, 0.3f, 1.0f, 0.03f);
-			}
-			
-			glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.5f));
-			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-		}
-
-		renderTextBox();
+		//drawGrid();
+		//drawCharacters(characters);
+		drawTextBox();
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;

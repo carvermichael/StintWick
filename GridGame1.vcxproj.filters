@@ -52,5 +52,8 @@
     <ClInclude Include="worldState.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="mesh.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
