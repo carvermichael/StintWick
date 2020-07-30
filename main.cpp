@@ -24,6 +24,18 @@
 #include "shader.h"
 #include "worldGeneration.h"
 
+struct WorldObject {
+	std::vector<Mesh> meshes;
+};
+
+struct Texture {
+	unsigned int ID;
+	std::string fileName;
+	std::string type;
+};
+
+std::vector<Texture> textures;
+
 void addTextToBox(std::string newText);
 
 unsigned int w_prevState = GLFW_RELEASE;
@@ -571,25 +583,156 @@ void drawCharacters(Character *characters[]) {
 	}
 }
 
+void inspectMaterials(aiScene const *scene) {
+	unsigned int numMats = scene->mNumMaterials;
+
+	std::cout << "------- Total # Mats: " + std::to_string(numMats) << " -------" << std::endl;
+
+	for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
+		aiMaterial *mat = scene->mMaterials[i];
+		
+		std::cout << "------- Material #" + std::to_string(i) + " -------" << std::endl;
+		
+		unsigned int ambientCount = mat->GetTextureCount(aiTextureType_AMBIENT);
+		unsigned int diffuseCount = mat->GetTextureCount(aiTextureType_DIFFUSE);
+		unsigned int specularCount = mat->GetTextureCount(aiTextureType_SPECULAR);
+
+		std::cout << "ambientCount: "  + std::to_string(ambientCount) << std::endl;
+		std::cout << "diffuseCount: "  + std::to_string(diffuseCount) << std::endl;
+		std::cout << "specularCount: " + std::to_string(specularCount) << std::endl;
+		
+		/*
+			aiMaterialProperty **properties = mat->mProperties;
+			for (unsigned int j = 0; j < mat->mNumProperties; j++) {
+				aiMaterialProperty property = *properties[j];
+			}
+		*/
+	}
+}
+
+bool isTextureAlreadyLoaded(std::string fileName) {
+
+	for (unsigned int i = 0; i < textures.size(); i++) {
+		if (textures[i].fileName == fileName) return true;
+	}
+
+	return false;
+}
+
+std::string replaceSpacesWithUnderscores(std::string *input) {
+	
+	std::string str = *input;
+
+	for (int i = 0; i < str.size(); i++) {
+		if (str[i] == ' ') {
+			str[i] = '_';
+		}
+	}
+	
+	return str;
+}
+
+void loadSingleTexture(unsigned int *textureID, std::string fileName, std::string texturePath) {
+	int textureWidth, textureHeight, textureNRChannels;
+	
+	std::string filePath = texturePath + fileName;
+	filePath = replaceSpacesWithUnderscores(&filePath);
+	
+	unsigned char *textureData = stbi_load(filePath.c_str(), &textureWidth, &textureHeight, &textureNRChannels, 0);
+
+	if (!textureData) {
+		std::cout << "Failed to load texture: " + filePath << std::endl;
+		return;
+	}
+	else {
+		std::cout << "Successfully loaded texture: " + filePath << std::endl;
+	}
+
+	GLenum format;
+	if (textureNRChannels == 1)
+		format = GL_RED;
+	else if (textureNRChannels == 3)
+		format = GL_RGB;
+	else if (textureNRChannels == 4)
+		format = GL_RGBA;
+
+	glGenTextures(1, textureID);
+
+	glBindTexture(GL_TEXTURE_2D, *textureID);
+	glTexImage2D(GL_TEXTURE_2D, 0, format, textureWidth, textureHeight, 0, format, GL_UNSIGNED_BYTE, textureData);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	stbi_image_free(textureData);
+}
+
+void loadMaterialTextures(aiMaterial *mat, aiTextureType aiTexType, std::string texType, std::string texturePath) {
+	unsigned int textureCount = mat->GetTextureCount(aiTexType);
+	for (unsigned int i = 0; i < textureCount; i++) {
+
+		aiString fileName;
+		mat->GetTexture(aiTexType, i, &fileName);
+
+		std::string fileNameString = fileName.C_Str();
+		fileNameString = fileNameString.substr(fileNameString.find_last_of('\\') + 1, fileNameString.size() - 1);
+		if (isTextureAlreadyLoaded(fileNameString)) continue;
+
+		Texture texture;
+		texture.fileName = fileNameString;
+		texture.type = texType;
+
+		loadSingleTexture(&texture.ID, texture.fileName, texturePath);
+
+		textures.push_back(texture);
+	}
+}
+
+void loadTexturesFromScene(const aiScene *scene, std::string texturePath) {
+
+	for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
+		aiMaterial *mat = scene->mMaterials[i];
+		
+		loadMaterialTextures(mat, aiTextureType_AMBIENT, "ambient", texturePath);
+		loadMaterialTextures(mat, aiTextureType_DIFFUSE, "diffuse", texturePath);
+		loadMaterialTextures(mat, aiTextureType_SPECULAR, "specular", texturePath);
+	}
+}
+
 void generateObjectsFromDungeonScene() {
 	Assimp::Importer importer;
-	const aiScene *dungeonScene = importer.ReadFile("dungeonScene.fbx", aiProcess_CalcTangentSpace |
+	std::string dungeonPath = "dungeon/source/scene.fbx"; // can't find any textures on this one, not sure why... fbx issue?
+	std::string wallsPath = "fantasy-walls-and-floors-2/source/decors2.blend";
+	std::string modularDungeonTexturePath = "dungeon-modular-set/textures/";
+	std::string modularDungeonScenePath = "dungeon-modular-set/source/Dungeon 2 final.fbx";
+
+	const aiScene *dungeonScene = importer.ReadFile(modularDungeonScenePath, aiProcess_ValidateDataStructure | aiProcess_CalcTangentSpace |
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
-		aiProcess_SortByPType); // TODO: figure out which processing flags you might want on load here (using example's default for now)
+		aiProcess_SortByPType); // TODO: figure out which processing flags you might want here (using example's default for now)
 
 	if (!dungeonScene) {
 		std::cout << importer.GetErrorString() << std::endl;
 	}
 
+	loadTexturesFromScene(dungeonScene, modularDungeonTexturePath);
+
 	aiNode *rootNode = dungeonScene->mRootNode;
 
-	for (unsigned int i = 0; i < rootNode->mNumChildren; i++) {
-		WorldObject worldObject;
+	//bool hasTextures = dungeonScene->HasTextures();
+	//inspectMaterials(dungeonScene);
 
+	for (unsigned int i = 0; i < rootNode->mNumChildren; i++) {
 		aiNode *child = rootNode->mChildren[i];
 
-		for (unsigned int j = 0; j < child->mNumMeshes; j++) {
+		unsigned int numMeshes = child->mNumMeshes;
+		aiString childName = child->mName;
+
+		//std::cout << childName.C_Str() << std::endl;
+		//std::cout << std::to_string(child->mNumChildren) << std::endl;
+
+		if (numMeshes == 0) continue; // skip stuff like camera and light sources
+
+		WorldObject worldObject;
+		for (unsigned int j = 0; j < numMeshes; j++) {
 			Mesh mesh;
 			aiMesh *inputMesh = dungeonScene->mMeshes[child->mMeshes[j]];
 
@@ -681,7 +824,7 @@ int main() {
 	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
 	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
 	
-	world.camera.initialize();
+	world.camera.initializeForGrid();
 	
 	// aaaaand the projection matrix
 	glm::mat4 projection;
@@ -827,10 +970,10 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-		drawWorldObjects();
+		//drawWorldObjects();
 
-		//drawGrid();
-		//drawCharacters(characters);
+		drawGrid();
+		drawCharacters(characters);
 		drawTextBox();
 
 		float currentFrame = (float)glfwGetTime();

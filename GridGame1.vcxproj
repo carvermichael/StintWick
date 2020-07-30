@@ -142,6 +142,7 @@
     <ClInclude Include="constants.h" />
     <ClInclude Include="mesh.h" />
     <ClInclude Include="shader.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="worldGeneration.h" />
     <ClInclude Include="worldState.h" />
   </ItemGroup>
