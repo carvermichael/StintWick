@@ -424,10 +424,10 @@ void createPlayerAndTheOtherModels() {
 
 	playerMesh.setupVAO();
 	playerMesh.shaderProgramID = regularShaderProgramID;
-	glm::vec3 color = glm::vec3(0.0f, 0.45f, 0.03f);
+	glm::vec3 color = glm::vec3(0.0f, 0.52f, 0.9f);
 	playerMesh.material.diffuse.r = color.x;
 	playerMesh.material.diffuse.g = color.y;
-	playerMesh.material.diffuse.b = color.z;	
+	playerMesh.material.diffuse.b = color.z;
 
 	playerModel.meshes.push_back(playerMesh);
 
@@ -441,7 +441,7 @@ void createPlayerAndTheOtherModels() {
 
 	theOtherMesh.setupVAO();
 	theOtherMesh.shaderProgramID = regularShaderProgramID;
-	glm::vec3 color2 = glm::vec3(0.0f, 0.45f, 0.03f);
+	glm::vec3 color2 = glm::vec3(1.0f, 1.00f, 0.5f); 
 	theOtherMesh.material.diffuse.r = color2.x;
 	theOtherMesh.material.diffuse.g = color2.y;
 	theOtherMesh.material.diffuse.b = color2.z;
@@ -572,6 +572,10 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	// TODO: Upon loading a model, we need to flip the model by 90 degrees, to "stand it up",
+	//		 then probably need to normalize the vertices.
+	//wallModel = Model("assets/redditThing/Wall_Modular.obj", regularShaderProgramID);
+
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		glUseProgram(regularShaderProgramID);
@@ -586,7 +590,7 @@ int main() {
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 
 		drawGrid();
 		drawThePlayer();

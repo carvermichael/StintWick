@@ -191,12 +191,12 @@ struct Mesh {
 		setupVAO();
 	}
 
-	void draw(glm::vec3 offset) {
+	void draw(glm::vec3 worldOffset) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 
 		unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
-		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), offset);
+		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), worldOffset);
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
 
 		// TODO: set material uniforms correctly and do the lighting thing
@@ -204,7 +204,7 @@ struct Mesh {
 		glUniform3f(colorInLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
 
 		// TODO: get the number of triangles to draw correctly
-		glDrawElements(GL_TRIANGLES, 3200, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, 320, GL_UNSIGNED_INT, 0);
 	}
 
 	void setupVAO() {
@@ -282,9 +282,9 @@ struct Model {
 		}
 	}
 
-	void draw(glm::vec3 offset) {
+	void draw(glm::vec3 worldOffset) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(offset);
+			meshes[i].draw(worldOffset);
 		}
 	}
 };
