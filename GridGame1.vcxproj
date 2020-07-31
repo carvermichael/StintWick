@@ -143,6 +143,7 @@
     <ClInclude Include="model.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="textBox.h" />
     <ClInclude Include="worldGeneration.h" />
     <ClInclude Include="worldState.h" />
   </ItemGroup>

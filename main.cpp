@@ -23,13 +23,9 @@
 #include "constants.h"
 #include "shader.h"
 #include "worldGeneration.h"
+#include "textBox.h"
 
-struct WorldObject {
-	std::vector<Mesh> meshes;
-};
-
-void addTextToBox(std::string newText);
-
+// TODO: combine previous state
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
 unsigned int s_prevState = GLFW_RELEASE;
@@ -45,16 +41,17 @@ float lastFrameTime = 0.0f;
 float lastCursorX = 400;
 float lastCursorY = 300;
 
-unsigned int cube_VAO_ID;
-unsigned int player_VAO_ID;
-
 bool firstMouse = true;
 bool freeCamera = false;
 
-worldState world = {};
-std::vector<WorldObject> worldObjects;
+WorldState world = {};
 
-unsigned int shaderProgramID;
+Model playerModel;
+Model theOtherModel;
+Model floorModel;
+Model wallModel;
+
+unsigned int regularShaderProgramID;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -310,8 +307,11 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	}
 }
 
-void createCubeVertices() {
+void createGridFloorAndWallModels() {
 	// NOTE: These coords are in local space
+	// TODO: add cube normals
+	// TODO: add materials??
+	
 	float cubeVertices[] = {
 		0.5,  0.0, 0.5,
 		0.0,  0.0, 0.5,
@@ -344,24 +344,41 @@ void createCubeVertices() {
 		1,	7,	5
 	};
 	
-	glGenVertexArrays(1, &cube_VAO_ID);
-	glBindVertexArray(cube_VAO_ID);
+	Mesh floorMesh;	
+	Mesh wallMesh;
 
-	unsigned int cube_VBO_ID;
-	glGenBuffers(1, &cube_VBO_ID);
-	glBindBuffer(GL_ARRAY_BUFFER, cube_VBO_ID);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
+	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+		floorMesh.vertices.push_back(cubeVertices[i]);
+		wallMesh.vertices.push_back(cubeVertices[i]);
+	}
 
-	unsigned int cube_EBO_ID;
-	glGenBuffers(1, &cube_EBO_ID);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_EBO_ID);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIndices), cubeIndices, GL_STATIC_DRAW);
+	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
+		floorMesh.indices.push_back(cubeIndices[i]);
+		wallMesh.indices.push_back(cubeIndices[i]);
+	}
+	
+	floorMesh.setupVAO();
+	floorMesh.shaderProgramID = regularShaderProgramID;
+	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
+	floorMesh.material.diffuse.r = color1.x;
+	floorMesh.material.diffuse.g = color1.y;
+	floorMesh.material.diffuse.b = color1.z;
+
+	wallMesh.setupVAO();
+	wallMesh.shaderProgramID = regularShaderProgramID;
+	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
+	wallMesh.material.diffuse.r = color2.x;
+	wallMesh.material.diffuse.g = color2.y;
+	wallMesh.material.diffuse.b = color2.z;
+
+	floorModel.meshes.push_back(floorMesh);
+	wallModel.meshes.push_back(wallMesh);	
 }
 
-void createPlayerVertices() {
+void createPlayerAndTheOtherModels() {
 	// NOTE: These coords are in local space
+	// TODO: add normals
+	// TODO: add materials??
 	float playerVertices[] = {
 		0.5, 0.5, 0.25,
 		0.0, 0.5, 0.25,
@@ -394,253 +411,80 @@ void createPlayerVertices() {
 		1,	7,	5
 	};
 
-	// TODO: think about pulling the these out into dedicated GPU loading function
-	glGenVertexArrays(1, &player_VAO_ID);
+	Mesh playerMesh;
+	Mesh theOtherMesh;
 
-	glBindVertexArray(player_VAO_ID);
-
-	unsigned int player_VBO_ID;
-	glGenBuffers(1, &player_VBO_ID);
-	glBindBuffer(GL_ARRAY_BUFFER, player_VBO_ID);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(playerVertices), playerVertices, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	unsigned int player_EBO_ID;
-	glGenBuffers(1, &player_EBO_ID);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, player_EBO_ID);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerIndices), playerIndices, GL_STATIC_DRAW);
-}
-
-struct TextCharacter {
-	unsigned int textureID;
-	glm::ivec2	 size;
-	glm::ivec2	 bearing;
-	unsigned int advance;
-};
-
-std::map<char, TextCharacter> textCharacters;
-unsigned int textVAOID, textVBOID;
-unsigned int textShaderProgramID;
-
-// TODO: try doing this without std::string
-void drawText(unsigned int shaderProgramID, std::string text, float x, float y, float scale, glm::vec3 color) {
-
-	glUseProgram(shaderProgramID);
-	unsigned int textColorLoc = glGetUniformLocation(shaderProgramID, "textColor");
-	glUniform3f(textColorLoc, color.x, color.y, color.z);
-
-	glm::mat4 textProjection = glm::ortho(0.0f, (float)SCREEN_WIDTH, 0.0f, (float)SCREEN_HEIGHT);
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindVertexArray(textVAOID);
-
-	std::string::const_iterator c;
-	for (c = text.begin(); c != text.end(); c++) {
-		TextCharacter ch = textCharacters[*c];
-
-		float xPos = x + ch.bearing.x * scale;
-		float yPos = y - (ch.size.y - ch.bearing.y) * scale;
-
-		float w = ch.size.x * scale;
-		float h = ch.size.y * scale;
-
-		float vertices[6][4] = {
-			xPos,		yPos + h, 0.0f, 0.0f,
-			xPos,		yPos,	  0.0f, 1.0f,
-			xPos + w,	yPos,     1.0f, 1.0f,
-
-			xPos,		yPos + h, 0.0f, 0.0f,
-			xPos + w,	yPos,	  1.0f, 1.0f,
-			xPos + w,	yPos + h, 1.0f, 0.0f,
-		};
-
-		glBindTexture(GL_TEXTURE_2D, ch.textureID);
-
-		glBindBuffer(GL_ARRAY_BUFFER, textVBOID);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		x += (ch.advance >> 6) * scale; // bit shift changes unit to pixels
+	for (int i = 0; i < sizeof(playerVertices) / sizeof(float); i++) {
+		playerMesh.vertices.push_back(playerVertices[i]);
 	}
 
-	glBindVertexArray(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-#define LIMIT_LINES 4
-
-struct TextBox {
-	std::string lines[LIMIT_LINES];
-	unsigned int startingLineIndex = 0;
-};
-
-TextBox textBox = {};
-
-void drawTextBox() {
-	unsigned int numLinesRendered = 0;
-	unsigned int currentLineIndex = textBox.startingLineIndex;
-	float x = 0.0f, y = 0.0f;
-
-	while (numLinesRendered < LIMIT_LINES) {
-		drawText(textShaderProgramID, textBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
-
-		currentLineIndex++;
-		if (currentLineIndex >= LIMIT_LINES) {
-			currentLineIndex = 0;
-		}
-
-		y += 20.0f;
-
-		numLinesRendered++;
+	for (int i = 0; i < sizeof(playerIndices) / sizeof(unsigned int); i++) {
+		playerMesh.indices.push_back(playerIndices[i]);
 	}
-}
 
-void addTextToBox(std::string newText) {
-	textBox.lines[textBox.startingLineIndex] = newText;
+	playerMesh.setupVAO();
+	playerMesh.shaderProgramID = regularShaderProgramID;
+	glm::vec3 color = glm::vec3(0.0f, 0.45f, 0.03f);
+	playerMesh.material.diffuse.r = color.x;
+	playerMesh.material.diffuse.g = color.y;
+	playerMesh.material.diffuse.b = color.z;	
 
-	textBox.startingLineIndex++;
-	if (textBox.startingLineIndex >= LIMIT_LINES) {
-		textBox.startingLineIndex = 0;
+	playerModel.meshes.push_back(playerMesh);
+
+	for (int i = 0; i < sizeof(playerVertices) / sizeof(float); i++) {
+		theOtherMesh.vertices.push_back(playerVertices[i]);
 	}
+
+	for (int i = 0; i < sizeof(playerIndices) / sizeof(unsigned int); i++) {
+		theOtherMesh.indices.push_back(playerIndices[i]);
+	}
+
+	theOtherMesh.setupVAO();
+	theOtherMesh.shaderProgramID = regularShaderProgramID;
+	glm::vec3 color2 = glm::vec3(0.0f, 0.45f, 0.03f);
+	theOtherMesh.material.diffuse.r = color2.x;
+	theOtherMesh.material.diffuse.g = color2.y;
+	theOtherMesh.material.diffuse.b = color2.z;
+
+	theOtherModel.meshes.push_back(theOtherMesh);
 }
 
 void drawGrid() {
-	glUseProgram(shaderProgramID);
-	glBindVertexArray(cube_VAO_ID);
-
-	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
-	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
-
-	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
-	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
-	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
-
+	
+	float zOffset = 0.0f;
 	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
 		float yOffset = -0.5f * row;
 
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
 			float xOffset = 0.5f * column;
 
-			// position
-			glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.0f));
-			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-
-			// color
 			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] == 0) {
-				glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
+				floorModel.draw(glm::vec3(xOffset, yOffset, zOffset));
 			}
 			else {
-				glUniform3f(colorUniformLocation, color2.r, color2.g, color2.b);
+				wallModel.draw(glm::vec3(xOffset, yOffset, zOffset));
 			}
-
-			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 		}
 	}
 }
 
-void drawCharacters(Character *characters[]) {
-	int numCharacters = 2;
+void drawThePlayer() {
+	float zOffset = 0.5f;
+	float yOffset = -0.5f * world.player.gridCoordY - 0.5f;
+	float xOffset = 0.5f * world.player.gridCoordX;
 
-	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
-	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
-	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
-
-	for (int i = 0; i < numCharacters; i++) {
-		Character currentCharacter = *characters[i];
-
-		if (currentCharacter.worldCoordX != world.player.worldCoordX || currentCharacter.worldCoordY != world.player.worldCoordY) continue;
-
-		float yOffset = -0.5f * currentCharacter.gridCoordY - 0.5f;
-		float xOffset = 0.5f * currentCharacter.gridCoordX;
-
-		glBindVertexArray(player_VAO_ID);
-
-		if (i == 0) {
-			glUniform3f(colorUniformLocation, 0.0f, 0.45f, 0.03f);
-		}
-		else {
-			glUniform3f(colorUniformLocation, 0.3f, 1.0f, 0.03f);
-		}
-
-		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.5f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-	}
+	playerModel.draw(glm::vec3(xOffset, yOffset, zOffset));
 }
 
-//void generateKnightFromScene() {
-//	char knightScenePath[] = "sample_scene.fbx";
-//	
-//	Assimp::Importer importer;
-//
-//	const aiScene *scene = importer.ReadFile(knightScenePath, aiProcess_ValidateDataStructure | aiProcess_CalcTangentSpace |
-//		aiProcess_Triangulate |
-//		aiProcess_JoinIdenticalVertices |
-//		aiProcess_SortByPType); // TODO: figure out which processing flags you might want here (using example's default for now)
-//
-//	if (!scene) {
-//		std::cout << importer.GetErrorString() << std::endl;
-//	}
-//	
-//	aiNode *rootNode = scene->mRootNode;
-//	aiNode *firstChild = rootNode->mChildren[1];
-//	
-//	unsigned int numMeshes = firstChild->mNumMeshes;
-//	
-//	WorldObject worldObject;
-//	for (unsigned int j = 0; j < numMeshes; j++) {
-//		Mesh mesh;
-//		aiMesh *inputMesh = scene->mMeshes[firstChild->mMeshes[j]];
-//
-//		createMesh(&mesh, inputMesh, "knight_texture.tga");
-//		worldObject.meshes.push_back(mesh);
-//	}
-//
-//	worldObjects.push_back(worldObject);
-//}
+void drawTheOther() {
+	if (world.theOther.worldCoordX != world.player.worldCoordX || world.theOther.worldCoordY != world.player.worldCoordY) return;
+	
+	float zOffset = 0.5f;
+	float yOffset = -0.5f * world.theOther.gridCoordY - 0.5f;
+	float xOffset = 0.5f * world.theOther.gridCoordX;
 
-//void drawWorldObjects() {
-//
-//	float xOffset = 0.0f;
-//	float yOffset = 0.0f;
-//
-//	glUseProgram(shaderProgramID);
-//
-//	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
-//	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
-//
-//	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
-//	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
-//	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
-//	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
-//
-//	glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
-//
-//	for (int i = 0; i < worldObjects.size(); i++) {
-//		WorldObject *worldObject = &worldObjects[i];
-//
-//		yOffset += -0.5f;
-//		xOffset += 0.5f;
-//
-//		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.0f));
-//		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-//
-//		for (int j = 0; j < worldObject->meshes.size(); j++) {
-//			Mesh *mesh = &worldObject->meshes[j];
-//
-//			glBindVertexArray(mesh->VAO_ID);
-//
-//			glDrawElements(GL_TRIANGLES, mesh->indices.size() / 3, GL_UNSIGNED_INT, 0);
-//		}
-//	}
-//}
+	theOtherModel.draw(glm::vec3(xOffset, yOffset, zOffset));
+}
 
 int main() {
 	// ------------ INIT STUFF -------------
@@ -668,24 +512,19 @@ int main() {
 		return -1;
 	}
 
-	// setting up Vertex Array Object (VAO)
-	unsigned int grid_VAO_ID;
-	glGenVertexArrays(1, &grid_VAO_ID);
-	glBindVertexArray(grid_VAO_ID);
-
 	// ------------- SHADERS -------------
 	unsigned int vertexShaderID = initializeVertexShader("vertexShader.vert");
-	unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");	
-	shaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
+	unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");
+	regularShaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
 
 	// start of 3D stuffs
-	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
-	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
-	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
+	unsigned int modelLoc = glGetUniformLocation(regularShaderProgramID, "model");
+	unsigned int viewLoc = glGetUniformLocation(regularShaderProgramID, "view");
+	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
+	unsigned int colorUniformLocation = glGetUniformLocation(regularShaderProgramID, "colorIn");
 	
-	//world.camera.initializeForGrid();
-	world.camera.initialize();
+	world.camera.initializeForGrid();
+	//world.camera.initialize();
 	
 	// aaaaand the projection matrix
 	glm::mat4 projection;
@@ -700,8 +539,8 @@ int main() {
 
 	glEnable(GL_DEPTH_TEST);
 
-	createCubeVertices();
-	createPlayerVertices();
+	createGridFloorAndWallModels();
+	createPlayerAndTheOtherModels();
 
 	// set seed and generate map
 	unsigned int seed = (unsigned int)time(NULL); // seconds since Jan 1, 2000
@@ -725,105 +564,23 @@ int main() {
 	world.theOther.hitPoints = 3;
 	world.theOther.strength = 1;
 
-	Character* characters[2] = { &world.player, &world.theOther };
-	
 	lastFrameTime = (float)glfwGetTime();
 
-	// TEXT RENDERING
-	FT_Library ft;
-	if (FT_Init_FreeType(&ft)) {
-		std::cout << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
-	}
-
-	FT_Face face;
-	if (FT_New_Face(ft, "arial.ttf", 0, &face)) {
-		std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
-	}
-
-	// 0 for width means dynamically adjust based on height
-	FT_Set_Pixel_Sizes(face, 0, 48);
-
-	// generate a texture for each ASCII character
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // disable byte-alignment restriction
-
-	for (unsigned char c = 0; c < 128; c++) {
-		if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-			std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
-		}
-
-		// generate texture
-		unsigned int texture;
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexImage2D(
-			GL_TEXTURE_2D,
-			0,
-			GL_RED,
-			face->glyph->bitmap.width,
-			face->glyph->bitmap.rows,
-			0,
-			GL_RED,
-			GL_UNSIGNED_BYTE,
-			face->glyph->bitmap.buffer
-		);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		TextCharacter textCharacter = {
-			texture,
-			glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-			glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-			face->glyph->advance.x
-		};
-
-		textCharacters.insert(std::pair<char, TextCharacter>(c, textCharacter));
-	}
-
-	FT_Done_Face(face);
-	FT_Done_FreeType(ft);
-
-	//// TEXT SHADER PROGRAM
-	unsigned int textVertexShaderID = initializeVertexShader("textVertexShader.vert");
-	unsigned int textFragShaderID   = initializeFragmentShader("textFragmentShader.frag");
-	textShaderProgramID = createShaderProgram(textVertexShaderID, textFragShaderID);
+	initializeTextBox();
 
 	// need alpha blending for text transparency
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// reserving data for text on gpu
-	glGenVertexArrays(1, &textVAOID);
-	glGenBuffers(1, &textVBOID);
-	glBindVertexArray(textVAOID);
-	glBindBuffer(GL_ARRAY_BUFFER, textVBOID);
-
-	/*
-		Note the NULL:
-		So far, in other calls like this, we give a pointer to the data at the same time we describe the data.
-		However, this time we're going to create each text character's vertices on the fly (as they each have their
-		own spacial needs. So, this first Data call just describes the data, and the subData call later sends along
-		the vertices. -- carver (7-27-20)
-	*/
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-	
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	Model ourModel("assets/redditThing/Barrel.obj");
-
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
-		glUseProgram(shaderProgramID);
+		glUseProgram(regularShaderProgramID);
 		
 		processKeyboardInput(window);
 		
 		glfwPollEvents();
 
+		// TODO: This needs to be done somewhere else. Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
 		glm::mat4 view = world.camera.generateView();
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
@@ -831,15 +588,10 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-		//drawWorldObjects();
+		drawGrid();
+		drawThePlayer();
+		drawTheOther();
 
-		//drawKnight();
-		//drawWorldObjects();		
-
-		ourModel.draw(shaderProgramID);
-
-		//drawGrid();
-		//drawCharacters(characters);
 		drawTextBox();
 
 		float currentFrame = (float)glfwGetTime();

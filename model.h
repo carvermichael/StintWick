@@ -10,6 +10,8 @@
 #include <assimp/postprocess.h>
 #include <vector>
 
+// no textures with the new low poly models, just material colors
+/*
 struct Texture {
 
 	unsigned int ID;
@@ -46,6 +48,7 @@ struct Texture {
 		stbi_image_free(textureData);
 	}
 };
+*/
 
 struct Material {
 
@@ -68,8 +71,13 @@ struct Mesh {
 	Material material;
 
 	unsigned int VAO_ID;
+	unsigned int shaderProgramID;
 
-	Mesh(aiMesh *inputMesh, const aiScene *scene) {
+	Mesh() {};
+
+	Mesh(aiMesh *inputMesh, const aiScene *scene, unsigned int shaderProgramID) {
+
+		this->shaderProgramID = shaderProgramID;
 
 		// Question: Is loading the vertices, texCoords, and normals in these three loops faster or slower than a single loop? My intuition says faster,
 		//			 'cause the data is accessed more sequentially than in the case of a single loop.
@@ -118,39 +126,6 @@ struct Mesh {
 				this->indices.push_back(face.mIndices[j]);
 			}
 		}
-
-		// VAO setup
-		glGenVertexArrays(1, &this->VAO_ID);
-		glBindVertexArray(this->VAO_ID);
-
-		unsigned int VerticesVBO_ID;
-		glGenBuffers(1, &VerticesVBO_ID);
-		glBindBuffer(GL_ARRAY_BUFFER, VerticesVBO_ID);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(this->vertices[0]) * this->vertices.size(), &this->vertices[0], GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(0);
-
-		// no textures with the new low poly models, just material colors
-		/*
-		unsigned int TexCoordsVBO_ID;
-		glGenBuffers(1, &TexCoordsVBO_ID);
-		glBindBuffer(GL_ARRAY_BUFFER, TexCoordsVBO_ID);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(this->texCoords[0]) * this->texCoords.size(), &this->texCoords[0], GL_STATIC_DRAW);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(1);
-		*/
-
-		unsigned int NormalsVBO_ID;
-		glGenBuffers(1, &NormalsVBO_ID);
-		glBindBuffer(GL_ARRAY_BUFFER, NormalsVBO_ID);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(this->normals[0]) * this->normals.size(), &this->normals[0], GL_STATIC_DRAW);
-		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(2);
-
-		unsigned int EBO_ID;
-		glGenBuffers(1, &EBO_ID);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(this->indices[0]) * this->indices.size(), &this->indices[0], GL_STATIC_DRAW);
 
 		// TODO: tangents and bitangents, when you know what those are about
 
@@ -212,30 +187,82 @@ struct Mesh {
 			this->textures.push_back(texture);
 		}
 		*/
+
+		setupVAO();
 	}
 
-	// TODO: shaderProgramID should be a member here
-	void draw(unsigned int shaderProgramID) {
+	void draw(glm::vec3 offset) {
+		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 
 		unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
-		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), offset);
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
 
 		// TODO: set material uniforms correctly and do the lighting thing
 		unsigned int colorInLoc = glGetUniformLocation(shaderProgramID, "colorIn");
 		glUniform3f(colorInLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
 
+		// TODO: get the number of triangles to draw correctly
 		glDrawElements(GL_TRIANGLES, 3200, GL_UNSIGNED_INT, 0);
+	}
+
+	void setupVAO() {
+		if (vertices.size() == 0) {
+			std::cout << "ERROR: Mesh VAO setup invoked without vertices" << std::endl;
+			return;
+		}
+		
+		if (vertices.size() == 0) {
+			std::cout << "ERROR: Mesh VAO setup invoked without indices" << std::endl;
+			return;
+		}
+
+		glGenVertexArrays(1, &this->VAO_ID);
+		glBindVertexArray(this->VAO_ID);
+
+		unsigned int VerticesVBO_ID;
+		glGenBuffers(1, &VerticesVBO_ID);
+		glBindBuffer(GL_ARRAY_BUFFER, VerticesVBO_ID);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(this->vertices[0]) * this->vertices.size(), &this->vertices[0], GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+
+		// no textures with the new low poly models, just material colors
+		/*
+		unsigned int TexCoordsVBO_ID;
+		glGenBuffers(1, &TexCoordsVBO_ID);
+		glBindBuffer(GL_ARRAY_BUFFER, TexCoordsVBO_ID);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(this->texCoords[0]) * this->texCoords.size(), &this->texCoords[0], GL_STATIC_DRAW);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		*/
+
+		// TODO: guarantee normals are created for all objects
+		if (normals.size() > 0) {
+			unsigned int NormalsVBO_ID;
+			glGenBuffers(1, &NormalsVBO_ID);
+			glBindBuffer(GL_ARRAY_BUFFER, NormalsVBO_ID);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(this->normals[0]) * this->normals.size(), &this->normals[0], GL_STATIC_DRAW);
+			glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+			glEnableVertexAttribArray(2);
+		}
+
+		unsigned int EBO_ID;
+		glGenBuffers(1, &EBO_ID);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(this->indices[0]) * this->indices.size(), &this->indices[0], GL_STATIC_DRAW);
 	}
 };
 
 struct Model {
 
 	std::vector<Mesh> meshes;
-	std::string directory;
+	//std::string directory;
 
-	Model(std::string path)
+	Model() {}
+
+	Model(std::string path, unsigned int shaderProgramID)
 	{
 		Assimp::Importer import;
 		const aiScene *scene = import.ReadFile(path, aiProcess_EmbedTextures | aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -245,19 +272,19 @@ struct Model {
 			std::cout << "ERROR::ASSIMP::" << import.GetErrorString() << std::endl;
 			return;
 		}
-		directory = path.substr(0, path.find_last_of('/'));
+		//directory = path.substr(0, path.find_last_of('/'));
 
-		for (int i = 0; i < scene->mNumMeshes; i++) {
+		for (unsigned int i = 0; i < scene->mNumMeshes; i++) {
 			aiMesh *inputMesh = scene->mMeshes[i];
 
-			Mesh mesh(inputMesh, scene);
+			Mesh mesh(inputMesh, scene, shaderProgramID);
 			this->meshes.push_back(mesh);
 		}
 	}
 
-	void draw(unsigned int shaderProgramID) {
+	void draw(glm::vec3 offset) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(shaderProgramID);
+			meshes[i].draw(offset);
 		}
 	}
 };

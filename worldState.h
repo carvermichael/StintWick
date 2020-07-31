@@ -14,7 +14,7 @@ struct Character {
 	int gridCoordX;
 	int gridCoordY;
 
-	int shaderProgramID;
+	Model *model;
 
 	int directionFacing;
 	int actionState;
@@ -23,7 +23,7 @@ struct Character {
 	int strength;
 };
 
-struct worldState {
+struct WorldState {
 	// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
 	Map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
 	bool storePlaced = false;

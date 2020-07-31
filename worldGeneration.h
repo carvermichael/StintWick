@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <glfw3.h>
 
-void createSingleGrid(worldState *world, int worldMapX, int worldMapY, int openings, int roomType);
-void createAdjacentMaps(worldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere);
+void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openings, int roomType);
+void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere);
 
-void generateWorldMap(worldState *world) {
+void generateWorldMap(WorldState *world) {
 	createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
 	world->allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
 
@@ -17,7 +17,7 @@ void generateWorldMap(worldState *world) {
 	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT);
 }
 
-void createSingleGrid(worldState *world, int worldMapX, int worldMapY, int openings, int roomType) {
+void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openings, int roomType) {
 
 	int newGrid[GRID_MAP_SIZE_X][GRID_MAP_SIZE_Y] = {};
 
@@ -80,7 +80,7 @@ void createSingleGrid(worldState *world, int worldMapX, int worldMapY, int openi
 	}
 }
 
-void createAdjacentMaps(worldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere) {
+void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere) {
 	// TODO: fix this directionToGetHere garbage, way too confusing
 
 	int newGridX;
