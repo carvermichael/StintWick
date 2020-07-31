@@ -19,7 +19,7 @@ struct Camera {
 	float pitch = 45.0f;
 
 	void initialize() {
-		speed = 100.0f;
+		//speed = 100.0f;
 		
 		position = glm::vec3(0.0f, 0.0f, 3.0f);
 

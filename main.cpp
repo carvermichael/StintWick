@@ -17,7 +17,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include "mesh.h"
+#include "model.h"
 #include "camera.h"
 #include "worldState.h"
 #include "constants.h"
@@ -27,14 +27,6 @@
 struct WorldObject {
 	std::vector<Mesh> meshes;
 };
-
-struct Texture {
-	unsigned int ID;
-	std::string fileName;
-	std::string type;
-};
-
-std::vector<Texture> textures;
 
 void addTextToBox(std::string newText);
 
@@ -583,204 +575,72 @@ void drawCharacters(Character *characters[]) {
 	}
 }
 
-void inspectMaterials(aiScene const *scene) {
-	unsigned int numMats = scene->mNumMaterials;
+//void generateKnightFromScene() {
+//	char knightScenePath[] = "sample_scene.fbx";
+//	
+//	Assimp::Importer importer;
+//
+//	const aiScene *scene = importer.ReadFile(knightScenePath, aiProcess_ValidateDataStructure | aiProcess_CalcTangentSpace |
+//		aiProcess_Triangulate |
+//		aiProcess_JoinIdenticalVertices |
+//		aiProcess_SortByPType); // TODO: figure out which processing flags you might want here (using example's default for now)
+//
+//	if (!scene) {
+//		std::cout << importer.GetErrorString() << std::endl;
+//	}
+//	
+//	aiNode *rootNode = scene->mRootNode;
+//	aiNode *firstChild = rootNode->mChildren[1];
+//	
+//	unsigned int numMeshes = firstChild->mNumMeshes;
+//	
+//	WorldObject worldObject;
+//	for (unsigned int j = 0; j < numMeshes; j++) {
+//		Mesh mesh;
+//		aiMesh *inputMesh = scene->mMeshes[firstChild->mMeshes[j]];
+//
+//		createMesh(&mesh, inputMesh, "knight_texture.tga");
+//		worldObject.meshes.push_back(mesh);
+//	}
+//
+//	worldObjects.push_back(worldObject);
+//}
 
-	std::cout << "------- Total # Mats: " + std::to_string(numMats) << " -------" << std::endl;
-
-	for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
-		aiMaterial *mat = scene->mMaterials[i];
-		
-		std::cout << "------- Material #" + std::to_string(i) + " -------" << std::endl;
-		
-		unsigned int ambientCount = mat->GetTextureCount(aiTextureType_AMBIENT);
-		unsigned int diffuseCount = mat->GetTextureCount(aiTextureType_DIFFUSE);
-		unsigned int specularCount = mat->GetTextureCount(aiTextureType_SPECULAR);
-
-		std::cout << "ambientCount: "  + std::to_string(ambientCount) << std::endl;
-		std::cout << "diffuseCount: "  + std::to_string(diffuseCount) << std::endl;
-		std::cout << "specularCount: " + std::to_string(specularCount) << std::endl;
-		
-		/*
-			aiMaterialProperty **properties = mat->mProperties;
-			for (unsigned int j = 0; j < mat->mNumProperties; j++) {
-				aiMaterialProperty property = *properties[j];
-			}
-		*/
-	}
-}
-
-bool isTextureAlreadyLoaded(std::string fileName) {
-
-	for (unsigned int i = 0; i < textures.size(); i++) {
-		if (textures[i].fileName == fileName) return true;
-	}
-
-	return false;
-}
-
-std::string replaceSpacesWithUnderscores(std::string *input) {
-	
-	std::string str = *input;
-
-	for (int i = 0; i < str.size(); i++) {
-		if (str[i] == ' ') {
-			str[i] = '_';
-		}
-	}
-	
-	return str;
-}
-
-void loadSingleTexture(unsigned int *textureID, std::string fileName, std::string texturePath) {
-	int textureWidth, textureHeight, textureNRChannels;
-	
-	std::string filePath = texturePath + fileName;
-	filePath = replaceSpacesWithUnderscores(&filePath);
-	
-	unsigned char *textureData = stbi_load(filePath.c_str(), &textureWidth, &textureHeight, &textureNRChannels, 0);
-
-	if (!textureData) {
-		std::cout << "Failed to load texture: " + filePath << std::endl;
-		return;
-	}
-	else {
-		std::cout << "Successfully loaded texture: " + filePath << std::endl;
-	}
-
-	GLenum format;
-	if (textureNRChannels == 1)
-		format = GL_RED;
-	else if (textureNRChannels == 3)
-		format = GL_RGB;
-	else if (textureNRChannels == 4)
-		format = GL_RGBA;
-
-	glGenTextures(1, textureID);
-
-	glBindTexture(GL_TEXTURE_2D, *textureID);
-	glTexImage2D(GL_TEXTURE_2D, 0, format, textureWidth, textureHeight, 0, format, GL_UNSIGNED_BYTE, textureData);
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	stbi_image_free(textureData);
-}
-
-void loadMaterialTextures(aiMaterial *mat, aiTextureType aiTexType, std::string texType, std::string texturePath) {
-	unsigned int textureCount = mat->GetTextureCount(aiTexType);
-	for (unsigned int i = 0; i < textureCount; i++) {
-
-		aiString fileName;
-		mat->GetTexture(aiTexType, i, &fileName);
-
-		std::string fileNameString = fileName.C_Str();
-		fileNameString = fileNameString.substr(fileNameString.find_last_of('\\') + 1, fileNameString.size() - 1);
-		if (isTextureAlreadyLoaded(fileNameString)) continue;
-
-		Texture texture;
-		texture.fileName = fileNameString;
-		texture.type = texType;
-
-		loadSingleTexture(&texture.ID, texture.fileName, texturePath);
-
-		textures.push_back(texture);
-	}
-}
-
-void loadTexturesFromScene(const aiScene *scene, std::string texturePath) {
-
-	for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
-		aiMaterial *mat = scene->mMaterials[i];
-		
-		loadMaterialTextures(mat, aiTextureType_AMBIENT, "ambient", texturePath);
-		loadMaterialTextures(mat, aiTextureType_DIFFUSE, "diffuse", texturePath);
-		loadMaterialTextures(mat, aiTextureType_SPECULAR, "specular", texturePath);
-	}
-}
-
-void generateObjectsFromDungeonScene() {
-	Assimp::Importer importer;
-	std::string dungeonPath = "dungeon/source/scene.fbx"; // can't find any textures on this one, not sure why... fbx issue?
-	std::string wallsPath = "fantasy-walls-and-floors-2/source/decors2.blend";
-	std::string modularDungeonTexturePath = "dungeon-modular-set/textures/";
-	std::string modularDungeonScenePath = "dungeon-modular-set/source/Dungeon 2 final.fbx";
-
-	const aiScene *dungeonScene = importer.ReadFile(modularDungeonScenePath, aiProcess_ValidateDataStructure | aiProcess_CalcTangentSpace |
-		aiProcess_Triangulate |
-		aiProcess_JoinIdenticalVertices |
-		aiProcess_SortByPType); // TODO: figure out which processing flags you might want here (using example's default for now)
-
-	if (!dungeonScene) {
-		std::cout << importer.GetErrorString() << std::endl;
-	}
-
-	loadTexturesFromScene(dungeonScene, modularDungeonTexturePath);
-
-	aiNode *rootNode = dungeonScene->mRootNode;
-
-	//bool hasTextures = dungeonScene->HasTextures();
-	//inspectMaterials(dungeonScene);
-
-	for (unsigned int i = 0; i < rootNode->mNumChildren; i++) {
-		aiNode *child = rootNode->mChildren[i];
-
-		unsigned int numMeshes = child->mNumMeshes;
-		aiString childName = child->mName;
-
-		//std::cout << childName.C_Str() << std::endl;
-		//std::cout << std::to_string(child->mNumChildren) << std::endl;
-
-		if (numMeshes == 0) continue; // skip stuff like camera and light sources
-
-		WorldObject worldObject;
-		for (unsigned int j = 0; j < numMeshes; j++) {
-			Mesh mesh;
-			aiMesh *inputMesh = dungeonScene->mMeshes[child->mMeshes[j]];
-
-			createMesh(&mesh, inputMesh, dungeonScene);
-
-			worldObject.meshes.push_back(mesh);
-		}
-
-		worldObjects.push_back(worldObject);
-	}
-}
-
-void drawWorldObjects() {
-
-	float xOffset = 0.0f;
-	float yOffset = 0.0f;
-
-	glUseProgram(shaderProgramID);
-
-	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
-	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
-
-	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
-	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
-	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
-
-	glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
-
-	for (int i = 0; i < worldObjects.size(); i++) {
-		WorldObject *worldObject = &worldObjects[i];
-
-		yOffset += -0.5f;
-		xOffset += 0.5f;
-
-		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.0f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-
-		for (int j = 0; j < worldObject->meshes.size(); j++) {
-			Mesh *mesh = &worldObject->meshes[j];
-
-			glBindVertexArray(mesh->VAO_ID);
-
-			glDrawElements(GL_TRIANGLES, mesh->indices.size() / 3, GL_UNSIGNED_INT, 0);
-		}
-	}
-}
-
+//void drawWorldObjects() {
+//
+//	float xOffset = 0.0f;
+//	float yOffset = 0.0f;
+//
+//	glUseProgram(shaderProgramID);
+//
+//	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
+//	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
+//
+//	unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
+//	unsigned int viewLoc = glGetUniformLocation(shaderProgramID, "view");
+//	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
+//	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
+//
+//	glUniform3f(colorUniformLocation, color1.r, color1.g, color1.b);
+//
+//	for (int i = 0; i < worldObjects.size(); i++) {
+//		WorldObject *worldObject = &worldObjects[i];
+//
+//		yOffset += -0.5f;
+//		xOffset += 0.5f;
+//
+//		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(xOffset, yOffset, 0.0f));
+//		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+//
+//		for (int j = 0; j < worldObject->meshes.size(); j++) {
+//			Mesh *mesh = &worldObject->meshes[j];
+//
+//			glBindVertexArray(mesh->VAO_ID);
+//
+//			glDrawElements(GL_TRIANGLES, mesh->indices.size() / 3, GL_UNSIGNED_INT, 0);
+//		}
+//	}
+//}
 
 int main() {
 	// ------------ INIT STUFF -------------
@@ -824,7 +684,8 @@ int main() {
 	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
 	unsigned int colorUniformLocation = glGetUniformLocation(shaderProgramID, "colorIn");
 	
-	world.camera.initializeForGrid();
+	//world.camera.initializeForGrid();
+	world.camera.initialize();
 	
 	// aaaaand the projection matrix
 	glm::mat4 projection;
@@ -953,9 +814,9 @@ int main() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
-	generateObjectsFromDungeonScene();
+	Model ourModel("assets/redditThing/Barrel.obj");
 
-	// game loop	
+	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		glUseProgram(shaderProgramID);
 		
@@ -972,8 +833,13 @@ int main() {
 
 		//drawWorldObjects();
 
-		drawGrid();
-		drawCharacters(characters);
+		//drawKnight();
+		//drawWorldObjects();		
+
+		ourModel.draw(shaderProgramID);
+
+		//drawGrid();
+		//drawCharacters(characters);
 		drawTextBox();
 
 		float currentFrame = (float)glfwGetTime();

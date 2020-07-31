@@ -52,10 +52,10 @@
     <ClInclude Include="worldState.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="mesh.h">
+    <ClInclude Include="stb_image.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="stb_image.h">
+    <ClInclude Include="model.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
