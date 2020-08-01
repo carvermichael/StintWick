@@ -6,6 +6,8 @@
 struct Map {
 	bool initialized = false;
 	unsigned int grid[GRID_MAP_SIZE_Y][GRID_MAP_SIZE_X];
+
+	int openings;
 };
 
 struct Character {

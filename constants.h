@@ -17,8 +17,8 @@
 #define WORLD_MAP_SIZE_Y 5
 
 // maps must be even and square
-#define GRID_MAP_SIZE_X	8
-#define GRID_MAP_SIZE_Y	8
+#define GRID_MAP_SIZE_X	12
+#define GRID_MAP_SIZE_Y	12
 
 #define PLAYER_WORLD_START_X 2
 #define PLAYER_WORLD_START_Y 2

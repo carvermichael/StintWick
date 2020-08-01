@@ -10,6 +10,8 @@
 #include <assimp/postprocess.h>
 #include <vector>
 
+#include "constants.h"
+
 // no textures with the new low poly models, just material colors
 /*
 struct Texture {
@@ -65,17 +67,23 @@ struct Mesh {
 	std::vector<float> normals;
 	std::vector<unsigned int> indices;
 
+	float scaleFactor;
+
 	// no textures with the new low poly models, just material colors
 	//std::vector<Texture> textures;
 
 	Material material;
 
 	unsigned int VAO_ID;
+	unsigned int verticesVBO_ID;
+	unsigned int normalsVBO_ID;
+	unsigned int EBO_ID;
+
 	unsigned int shaderProgramID;
 
 	Mesh() {};
 
-	Mesh(aiMesh *inputMesh, const aiScene *scene, unsigned int shaderProgramID) {
+	Mesh(aiMesh *inputMesh, const aiScene *scene, unsigned int shaderProgramID, float inputScale) {
 
 		this->shaderProgramID = shaderProgramID;
 
@@ -84,13 +92,15 @@ struct Mesh {
 
 		const unsigned int numVertices = inputMesh->mNumVertices; // Does this make it easier on the compiler?
 
+		scaleFactor = inputScale;
+
 		// vertices
 		for (unsigned int i = 0; i < numVertices; i++) {
 			aiVector3D vector3D = inputMesh->mVertices[i];
-
-			this->vertices.push_back(vector3D.x);
-			this->vertices.push_back(vector3D.y);
-			this->vertices.push_back(vector3D.z);
+			
+			this->vertices.push_back(vector3D.x * scaleFactor);
+			this->vertices.push_back(vector3D.y * scaleFactor);
+			this->vertices.push_back(vector3D.z * scaleFactor);
 		}
 
 		// no textures with the new low poly models, just material colors
@@ -107,10 +117,10 @@ struct Mesh {
 		// normals
 		for (unsigned int i = 0; i < numVertices; i++) {
 			aiVector3D vector3D = inputMesh->mNormals[i];
-
-			this->normals.push_back(vector3D.x);
-			this->normals.push_back(vector3D.y);
-			this->normals.push_back(vector3D.z);
+			
+			this->normals.push_back(vector3D.x * scaleFactor);
+			this->normals.push_back(vector3D.y * scaleFactor);
+			this->normals.push_back(vector3D.z * scaleFactor);
 		}
 
 		// indices
@@ -191,20 +201,56 @@ struct Mesh {
 		setupVAO();
 	}
 
-	void draw(glm::vec3 worldOffset) {
+	void draw(glm::vec3 worldOffset, int directionFacing) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 
 		unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
 		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), worldOffset);
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+		
+		//current_model = glm::rotate(current_model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		
+		if (directionFacing == LEFT) {
+			current_model = glm::rotate(current_model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+		else if (directionFacing == RIGHT) {
+			current_model = glm::rotate(current_model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+		else if (directionFacing == UP) {
+			current_model = glm::rotate(current_model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));		
 
 		// TODO: set material uniforms correctly and do the lighting thing
 		unsigned int colorInLoc = glGetUniformLocation(shaderProgramID, "colorIn");
 		glUniform3f(colorInLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
 
 		// TODO: get the number of triangles to draw correctly
-		glDrawElements(GL_TRIANGLES, 320, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, 3200, GL_UNSIGNED_INT, 0);
+	}
+
+	void scale(float scale) {
+		scaleFactor = scale;
+		
+		for (int i = 0; i < vertices.size(); i++) {
+			vertices[i] *= scaleFactor;
+		}
+
+		for (int i = 0; i < normals.size(); i++) {
+			normals[i] *= scaleFactor;
+		}
+
+		// Probably a better way to make this transformation in place with openGL.
+		reloadToVBOs();
+	}
+
+	void reloadToVBOs() {
+		glBindBuffer(GL_ARRAY_BUFFER, verticesVBO_ID);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(this->vertices[0]) * this->vertices.size(), &this->vertices[0]);
+
+		glBindBuffer(GL_ARRAY_BUFFER, normalsVBO_ID);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(this->normals[0]) * this->normals.size(), &this->normals[0]);
 	}
 
 	void setupVAO() {
@@ -221,9 +267,8 @@ struct Mesh {
 		glGenVertexArrays(1, &this->VAO_ID);
 		glBindVertexArray(this->VAO_ID);
 
-		unsigned int VerticesVBO_ID;
-		glGenBuffers(1, &VerticesVBO_ID);
-		glBindBuffer(GL_ARRAY_BUFFER, VerticesVBO_ID);
+		glGenBuffers(1, &verticesVBO_ID);
+		glBindBuffer(GL_ARRAY_BUFFER, verticesVBO_ID);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(this->vertices[0]) * this->vertices.size(), &this->vertices[0], GL_STATIC_DRAW);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(0);
@@ -240,15 +285,13 @@ struct Mesh {
 
 		// TODO: guarantee normals are created for all objects
 		if (normals.size() > 0) {
-			unsigned int NormalsVBO_ID;
-			glGenBuffers(1, &NormalsVBO_ID);
-			glBindBuffer(GL_ARRAY_BUFFER, NormalsVBO_ID);
+			glGenBuffers(1, &normalsVBO_ID);
+			glBindBuffer(GL_ARRAY_BUFFER, normalsVBO_ID);
 			glBufferData(GL_ARRAY_BUFFER, sizeof(this->normals[0]) * this->normals.size(), &this->normals[0], GL_STATIC_DRAW);
 			glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 			glEnableVertexAttribArray(2);
 		}
 
-		unsigned int EBO_ID;
 		glGenBuffers(1, &EBO_ID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(this->indices[0]) * this->indices.size(), &this->indices[0], GL_STATIC_DRAW);
@@ -260,9 +303,11 @@ struct Model {
 	std::vector<Mesh> meshes;
 	//std::string directory;
 
+	int directionFacing = DOWN;
+
 	Model() {}
 
-	Model(std::string path, unsigned int shaderProgramID)
+	Model(std::string path, unsigned int shaderProgramID, float scale)
 	{
 		Assimp::Importer import;
 		const aiScene *scene = import.ReadFile(path, aiProcess_EmbedTextures | aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -277,14 +322,20 @@ struct Model {
 		for (unsigned int i = 0; i < scene->mNumMeshes; i++) {
 			aiMesh *inputMesh = scene->mMeshes[i];
 
-			Mesh mesh(inputMesh, scene, shaderProgramID);
+			Mesh mesh(inputMesh, scene, shaderProgramID, scale);
 			this->meshes.push_back(mesh);
 		}
 	}
 
 	void draw(glm::vec3 worldOffset) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(worldOffset);
+			meshes[i].draw(worldOffset, directionFacing);
+		}
+	}
+
+	void scale(float scaleFactor) {
+		for (int i = 0; i < meshes.size(); i++) {
+			meshes[i].scale(scaleFactor);
 		}
 	}
 };

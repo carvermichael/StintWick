@@ -78,6 +78,8 @@ void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openi
 			world->allMaps[worldMapX][worldMapY].grid[row][column] = newGrid[row][column];
 		}
 	}
+
+	world->allMaps[worldMapX][worldMapY].openings = openings;
 }
 
 void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere) {

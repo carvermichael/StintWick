@@ -32,6 +32,7 @@ unsigned int s_prevState = GLFW_RELEASE;
 unsigned int d_prevState = GLFW_RELEASE;
 unsigned int c_prevState = GLFW_RELEASE;
 unsigned int l_prevState = GLFW_RELEASE;
+unsigned int m_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
 unsigned int enter_prevState = GLFW_RELEASE;
 
@@ -48,8 +49,12 @@ WorldState world = {};
 
 Model playerModel;
 Model theOtherModel;
+
 Model floorModel;
+
 Model wallModel;
+Model decorativeWallModel;
+Model wallCoverModel;
 
 unsigned int regularShaderProgramID;
 
@@ -228,6 +233,18 @@ void processKeyboardInput(GLFWwindow *window) {
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 			world.camera.moveRight(deltaTime);			
 		}
+
+		int l_currentState = glfwGetKey(window, GLFW_KEY_L);
+		if (l_currentState == GLFW_PRESS && l_prevState == GLFW_RELEASE) {
+			wallModel.scale(1.1f);
+		}
+		l_prevState = l_currentState;
+
+		int m_currentState = glfwGetKey(window, GLFW_KEY_M);
+		if (m_currentState == GLFW_PRESS && m_prevState == GLFW_RELEASE) {
+			wallModel.scale(0.89f);
+		}
+		m_prevState = m_currentState;
 	}
 	else {
 		// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
@@ -450,19 +467,41 @@ void createPlayerAndTheOtherModels() {
 }
 
 void drawGrid() {
-	
+
 	float zOffset = 0.0f;
 	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
 		float yOffset = -0.5f * row;
 
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
 			float xOffset = 0.5f * column;
+			glm::vec3 offset = glm::vec3(xOffset, yOffset, zOffset);
 
-			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] == 0) {
-				floorModel.draw(glm::vec3(xOffset, yOffset, zOffset));
-			}
-			else {
-				wallModel.draw(glm::vec3(xOffset, yOffset, zOffset));
+			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
+				floorModel.draw(offset);
+				
+				/*
+				if (row == GRID_MAP_SIZE_X - 1) {
+					wallModel.directionFacing = UP;
+					wallModel.draw(offset);
+				}
+				if (row == 0) {
+					wallModel.directionFacing = DOWN;
+					wallModel.draw(offset);
+				}
+				if (column == GRID_MAP_SIZE_Y - 1) {
+					wallModel.directionFacing = LEFT;
+					wallModel.draw(offset);
+				}
+				if (column == 0) {
+					wallModel.directionFacing = RIGHT;
+					wallModel.draw(offset);
+				}
+				*/
+				
+			} else {
+				if (row != 0 && row != GRID_MAP_SIZE_X - 1 && column != 0 && column != GRID_MAP_SIZE_Y - 1) {
+					floorModel.draw(offset);
+				}
 			}
 		}
 	}
@@ -523,9 +562,6 @@ int main() {
 	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
 	unsigned int colorUniformLocation = glGetUniformLocation(regularShaderProgramID, "colorIn");
 	
-	world.camera.initializeForGrid();
-	//world.camera.initialize();
-	
 	// aaaaand the projection matrix
 	glm::mat4 projection;
 	projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);	
@@ -572,29 +608,36 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// TODO: Upon loading a model, we need to flip the model by 90 degrees, to "stand it up",
-	//		 then probably need to normalize the vertices.
-	//wallModel = Model("assets/redditThing/Wall_Modular.obj", regularShaderProgramID);
+	//world.camera.initializeForGrid();
+	world.camera.initialize();
+
+	Model barrelModel = Model("assets/redditThing/Wall_Modular.obj", regularShaderProgramID, 0.5f);
+	Model brickModel = Model("assets/redditThing/Brick.obj", regularShaderProgramID, 0.5f);
+	Model pedestal2Model = Model("assets/redditThing/Pedestal2.obj", regularShaderProgramID, 0.5f);
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
-		glUseProgram(regularShaderProgramID);
-		
 		processKeyboardInput(window);
 		
 		glfwPollEvents();
 
-		// TODO: This needs to be done somewhere else. Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
+		glUseProgram(regularShaderProgramID);
+		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
+		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
 		glm::mat4 view = world.camera.generateView();
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+		glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
 
-		drawGrid();
-		drawThePlayer();
-		drawTheOther();
+		barrelModel.draw(glm::vec3(0.0f, 0.0f, 0.0f));
+		brickModel.draw(glm::vec3(3.0f, 0.0f, 0.0f));
+		pedestal2Model.draw(glm::vec3(6.0f, 0.0f, 0.0f));
+
+		//drawGrid();
+		//drawThePlayer();
+		//drawTheOther();
 
 		drawTextBox();
 
