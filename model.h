@@ -12,46 +12,6 @@
 
 #include "constants.h"
 
-// no textures with the new low poly models, just material colors
-/*
-struct Texture {
-
-	unsigned int ID;
-	std::string fileName;
-	std::string type;
-
-	Texture(std::string inputFileName, std::string type) {
-		int textureWidth, textureHeight, textureNRChannels;
-
-		unsigned char *textureData = stbi_load(inputFileName.c_str(), &textureWidth, &textureHeight, &textureNRChannels, 0);
-
-		if (!textureData) {
-			std::cout << "Failed to load texture: " + fileName << std::endl;
-			return;
-		}
-		else {
-			std::cout << "Successfully loaded texture: " + fileName << std::endl;
-		}
-
-		GLenum format;
-		if (textureNRChannels == 1)
-			format = GL_RED;
-		else if (textureNRChannels == 3)
-			format = GL_RGB;
-		else if (textureNRChannels == 4)
-			format = GL_RGBA;
-
-		glGenTextures(1, &this->ID);
-
-		glBindTexture(GL_TEXTURE_2D, this->ID);
-		glTexImage2D(GL_TEXTURE_2D, 0, format, textureWidth, textureHeight, 0, format, GL_UNSIGNED_BYTE, textureData);
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		stbi_image_free(textureData);
-	}
-};
-*/
-
 struct Material {
 
 	glm::vec3 ambient;
@@ -69,9 +29,6 @@ struct Mesh {
 
 	float scaleFactor;
 
-	// no textures with the new low poly models, just material colors
-	//std::vector<Texture> textures;
-
 	Material material;
 
 	unsigned int VAO_ID;
@@ -82,7 +39,10 @@ struct Mesh {
 	unsigned int shaderProgramID;
 
 	Mesh() {};
-
+	
+	// Not using right now. Creating own geometry for the time being.
+	
+	/*
 	Mesh(aiMesh *inputMesh, const aiScene *scene, unsigned int shaderProgramID, float inputScale) {
 
 		this->shaderProgramID = shaderProgramID;
@@ -103,17 +63,7 @@ struct Mesh {
 			this->vertices.push_back(vector3D.z * scaleFactor);
 		}
 
-		// no textures with the new low poly models, just material colors
-		// texCoords
-		/*
-		for (unsigned int i = 0; i < numVertices; i++) {
-			aiVector3D vector3D = inputMesh->mTextureCoords[0][i]; // can have 8 sets of texCoords...only need the first
-
-			this->texCoords.push_back(vector3D.x);
-			this->texCoords.push_back(vector3D.y);
-		}
-		*/
-
+		
 		// normals
 		for (unsigned int i = 0; i < numVertices; i++) {
 			aiVector3D vector3D = inputMesh->mNormals[i];
@@ -166,7 +116,7 @@ struct Mesh {
 		material.specular.z = specularColor.b;
 
 		// no textures with the new low poly models, just material colors
-		/*
+		
 		unsigned int ambientTextureCount = mat->GetTextureCount(aiTextureType_AMBIENT);
 		for (unsigned int i = 0; i < ambientTextureCount; i++) {
 			aiString path;
@@ -196,11 +146,12 @@ struct Mesh {
 			Texture texture(path.C_Str(), "specular");
 			this->textures.push_back(texture);
 		}
-		*/
+		
 
 		setupVAO();
 	}
-
+	
+	*/
 	void draw(glm::vec3 worldOffset, int directionFacing) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
@@ -222,12 +173,34 @@ struct Mesh {
 
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));		
 
-		// TODO: set material uniforms correctly and do the lighting thing
-		unsigned int colorInLoc = glGetUniformLocation(shaderProgramID, "colorIn");
-		glUniform3f(colorInLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
+		//unsigned int lightPosLoc = glGetUniformLocation(shaderProgramID, "lightPos");
+		//glUniform3f(lightPosLoc, light.pos.x, light.pos.y, light.pos.z);
+
+		//unsigned int lightColorLoc = glGetUniformLocation(shaderProgramID, "lightColor");
+		//glUniform3f(lightColorLoc, light.diffuse.x, light.diffuse.y, light.diffuse.z);
+
+		//unsigned int objectColorLoc = glGetUniformLocation(shaderProgramID, "objectColor");
+		//glUniform3f(objectColorLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
+
+		 //TODO: set material uniforms correctly and do the lighting thing
+		unsigned int objectAmbientLoc = glGetUniformLocation(shaderProgramID, "objectAmbient");
+		glUniform3f(objectAmbientLoc, material.ambient.x, material.ambient.y, material.ambient.z);
+		
+		unsigned int objectDiffuseLoc = glGetUniformLocation(shaderProgramID, "objectDiffuse");
+		glUniform3f(objectDiffuseLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
+
+		unsigned int lightPosLoc = glGetUniformLocation(shaderProgramID, "lightPos");
+		glUniform3f(lightPosLoc, light.pos.x, light.pos.y, light.pos.z);
+		
+		unsigned int lightAmbientLoc = glGetUniformLocation(shaderProgramID, "lightAmbient");
+		glUniform3f(lightAmbientLoc, light.ambient.x, light.ambient.y, light.ambient.z);
+		
+		unsigned int lightDiffuseLoc = glGetUniformLocation(shaderProgramID, "lightDiffuse");
+		glUniform3f(lightDiffuseLoc, light.diffuse.x, light.diffuse.y, light.diffuse.z);
 
 		// TODO: get the number of triangles to draw correctly
 		glDrawElements(GL_TRIANGLES, 3200, GL_UNSIGNED_INT, 0);
+		//glDrawArrays(GL_TRIANGLES, 0, 36);
 	}
 
 	void scale(float scale) {
@@ -237,10 +210,6 @@ struct Mesh {
 			vertices[i] *= scaleFactor;
 		}
 
-		for (int i = 0; i < normals.size(); i++) {
-			normals[i] *= scaleFactor;
-		}
-
 		// Probably a better way to make this transformation in place with openGL.
 		reloadToVBOs();
 	}
@@ -248,9 +217,6 @@ struct Mesh {
 	void reloadToVBOs() {
 		glBindBuffer(GL_ARRAY_BUFFER, verticesVBO_ID);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(this->vertices[0]) * this->vertices.size(), &this->vertices[0]);
-
-		glBindBuffer(GL_ARRAY_BUFFER, normalsVBO_ID);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(this->normals[0]) * this->normals.size(), &this->normals[0]);
 	}
 
 	void setupVAO() {
@@ -270,27 +236,10 @@ struct Mesh {
 		glGenBuffers(1, &verticesVBO_ID);
 		glBindBuffer(GL_ARRAY_BUFFER, verticesVBO_ID);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(this->vertices[0]) * this->vertices.size(), &this->vertices[0], GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0); // points
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float))); // normals
 		glEnableVertexAttribArray(0);
-
-		// no textures with the new low poly models, just material colors
-		/*
-		unsigned int TexCoordsVBO_ID;
-		glGenBuffers(1, &TexCoordsVBO_ID);
-		glBindBuffer(GL_ARRAY_BUFFER, TexCoordsVBO_ID);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(this->texCoords[0]) * this->texCoords.size(), &this->texCoords[0], GL_STATIC_DRAW);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(1);
-		*/
-
-		// TODO: guarantee normals are created for all objects
-		if (normals.size() > 0) {
-			glGenBuffers(1, &normalsVBO_ID);
-			glBindBuffer(GL_ARRAY_BUFFER, normalsVBO_ID);
-			glBufferData(GL_ARRAY_BUFFER, sizeof(this->normals[0]) * this->normals.size(), &this->normals[0], GL_STATIC_DRAW);
-			glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-			glEnableVertexAttribArray(2);
-		}
 
 		glGenBuffers(1, &EBO_ID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
@@ -307,6 +256,7 @@ struct Model {
 
 	Model() {}
 
+	/*
 	Model(std::string path, unsigned int shaderProgramID, float scale)
 	{
 		Assimp::Importer import;
@@ -326,6 +276,7 @@ struct Model {
 			this->meshes.push_back(mesh);
 		}
 	}
+	*/
 
 	void draw(glm::vec3 worldOffset) {
 		for (int i = 0; i < meshes.size(); i++) {

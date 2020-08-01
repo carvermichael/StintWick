@@ -17,6 +17,16 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+struct Light {
+
+	glm::vec3 pos;
+	glm::vec3 ambient;
+	glm::vec3 diffuse;
+
+};
+
+Light light;
+
 #include "model.h"
 #include "camera.h"
 #include "worldState.h"
@@ -51,12 +61,14 @@ Model playerModel;
 Model theOtherModel;
 
 Model floorModel;
+Model lightCube;
 
 Model wallModel;
 Model decorativeWallModel;
 Model wallCoverModel;
 
 unsigned int regularShaderProgramID;
+unsigned int lightShaderProgramID;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -324,108 +336,325 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	}
 }
 
-void createGridFloorAndWallModels() {
-	// NOTE: These coords are in local space
-	// TODO: add cube normals
-	// TODO: add materials??
+void createLightCube() {
 	
-	float cubeVertices[] = {
-		0.5,  0.0, 0.5,
-		0.0,  0.0, 0.5,
-		0.5, -0.5, 0.5,
-		0.0, -0.5, 0.5,
+	float vertices[] = {
+		// top
+		// 1, 2, 3, 4
+		0.0f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
+		0.5f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
+		0.5f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
 
-		0.5,  0.0, 0.0,
-		0.0,  0.0, 0.0,
-		0.5, -0.5, 0.0,
-		0.0, -0.5, 0.0
+		// bottom
+		// 5, 6, 7, 8
+		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+
+		// left
+		// 1, 4, 5, 8
+		0.0f, 0.5f, 0.5f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.5f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
+
+		// right
+		// 2, 3, 6, 7
+		0.5f, 0.5f, 0.5f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.0f, 0.5f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
+
+		// front
+		// 4, 3, 8, 7
+		0.0f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+
+		// back		
+		// 1, 2, 5, 6
+		0.0f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
 	};
 
-	unsigned int cubeIndices[] = {
-		0,	1,	2,
-		1,	3,	2,
+	unsigned int indices[] = {
+		// top
+		0, 1, 3,
+		1, 2, 3,
 
-		4,	5,	6,
-		5,	7,	6,
+		// bottom
+		4, 5, 7,
+		5, 6, 7,
 
-		0,	1,	4,
-		1,	5,	4,
+		// left
+		0, 3, 4,
+		3, 4, 7,
 
-		2,	3,	7,
-		2,	7,	6,
+		// right
+		1, 2, 5,
+		2, 5, 6,
 
-		0,	2,	6,
-		0,	6,	4,
+		// front
+		3, 2, 7,
+		2, 7, 6,
 
-		1,	3,	7,
-		1,	7,	5
+		// back
+		0, 1, 4,
+		1, 4, 5
+	};
+
+	Mesh lightMesh;
+	
+	for (int i = 0; i < sizeof(vertices) / sizeof(float); i++) {
+		lightMesh.vertices.push_back(vertices[i]);
+	}
+
+	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
+		lightMesh.indices.push_back(indices[i]);		
+	}
+
+	lightMesh.setupVAO();
+	lightMesh.shaderProgramID = lightShaderProgramID;
+	glm::vec3 color1 = glm::vec3(1.0f, 1.0f, 1.0f);
+	lightMesh.material.diffuse.x = color1.x;
+	lightMesh.material.diffuse.y = color1.y;
+	lightMesh.material.diffuse.z = color1.z;	
+
+	lightCube.meshes.push_back(lightMesh);
+}
+
+void createGridFloorAndWallModels() {
+	// NOTE: These coords are in local space
+	// TODO: add materials??
+	
+	float floorVertices[] = {
+		// top
+		// 1, 2, 3, 4
+		0.0f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
+		0.5f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
+		0.5f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
+		
+		// bottom
+		// 5, 6, 7, 8
+		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+
+		// left
+		// 1, 4, 5, 8
+		0.0f, 0.5f, 0.5f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.5f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
+
+		// right
+		// 2, 3, 6, 7
+		0.5f, 0.5f, 0.5f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.0f, 0.5f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
+
+		// front
+		// 4, 3, 8, 7
+		0.0f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+
+		// back		
+		// 1, 2, 5, 6
+		0.0f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
+	};
+
+	float wallVertices[] = {
+		// top
+		// 1, 2, 3, 4
+		0.0f, 0.5f, 1.0f,	0.0f, 0.0f, 1.0f,
+		0.5f, 0.5f, 1.0f,	0.0f, 0.0f, 1.0f,
+		0.5f, 0.0f, 1.0f,	0.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 1.0f,	0.0f, 0.0f, 1.0f,
+		
+		// bottom
+		// 5, 6, 7, 8
+		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+
+		// left
+		// 1, 4, 5, 8
+		0.0f, 0.5f, 1.0f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
+
+		// right
+		// 2, 3, 6, 7
+		0.5f, 0.5f, 1.0f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.0f, 1.0f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
+
+		// front
+		// 4, 3, 8, 7
+		0.0f, 0.0f, 1.0f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.0f, 1.0f,	0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+
+		// back		
+		// 1, 2, 5, 6
+		0.0f, 0.5f, 1.0f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.5f, 1.0f,	0.0f, -1.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f	
+	};
+
+	unsigned int indices[] = {
+		// top
+		0, 1, 3,
+		1, 2, 3,
+
+		// bottom
+		4, 5, 7,
+		5, 6, 7,
+
+		// left
+		8, 9, 10,
+		9, 10, 11,
+
+		// right
+		12, 13, 14,
+		13, 14, 15,
+
+		// front
+		16, 17, 18,
+		17, 18, 19,
+
+		// back
+		20, 21, 22,
+		21, 22, 23
 	};
 	
 	Mesh floorMesh;	
 	Mesh wallMesh;
 
-	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-		floorMesh.vertices.push_back(cubeVertices[i]);
-		wallMesh.vertices.push_back(cubeVertices[i]);
+	for (int i = 0; i < sizeof(floorVertices) / sizeof(float); i++) {
+		floorMesh.vertices.push_back(floorVertices[i]);
+		wallMesh.vertices.push_back(wallVertices[i]);
 	}
 
-	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
-		floorMesh.indices.push_back(cubeIndices[i]);
-		wallMesh.indices.push_back(cubeIndices[i]);
+	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
+		floorMesh.indices.push_back(indices[i]);
+		wallMesh.indices.push_back(indices[i]);
 	}
 	
 	floorMesh.setupVAO();
 	floorMesh.shaderProgramID = regularShaderProgramID;
 	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
-	floorMesh.material.diffuse.r = color1.x;
-	floorMesh.material.diffuse.g = color1.y;
-	floorMesh.material.diffuse.b = color1.z;
+	floorMesh.material.diffuse.x = color1.x;
+	floorMesh.material.diffuse.y = color1.y;
+	floorMesh.material.diffuse.z = color1.z;
+	floorMesh.material.ambient.x = color1.x;
+	floorMesh.material.ambient.y = color1.y;
+	floorMesh.material.ambient.z = color1.z;
 
 	wallMesh.setupVAO();
 	wallMesh.shaderProgramID = regularShaderProgramID;
 	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
-	wallMesh.material.diffuse.r = color2.x;
-	wallMesh.material.diffuse.g = color2.y;
-	wallMesh.material.diffuse.b = color2.z;
+	wallMesh.material.diffuse.x = color2.x;
+	wallMesh.material.diffuse.y = color2.y;
+	wallMesh.material.diffuse.z = color2.z;
+	wallMesh.material.ambient.x = color2.x;
+	wallMesh.material.ambient.y = color2.y;
+	wallMesh.material.ambient.z = color2.z;
 
 	floorModel.meshes.push_back(floorMesh);
-	wallModel.meshes.push_back(wallMesh);	
+	wallModel.meshes.push_back(wallMesh);
 }
 
 void createPlayerAndTheOtherModels() {
 	// NOTE: These coords are in local space
-	// TODO: add normals
 	// TODO: add materials??
-	float playerVertices[] = {
-		0.5, 0.5, 0.25,
-		0.0, 0.5, 0.25,
-		0.5, 0.0, 0.25,
-		0.0, 0.0, 0.25,
 
-		0.5, 0.5, 0.0,
-		0.0, 0.5, 0.0,
-		0.5, 0.0, 0.0,
-		0.0, 0.0, 0.0
+	float playerVertices[] = {
+		// top
+		// 1, 2, 3, 4
+		0.0f, 0.5f, 0.25f,	0.0f, 0.0f, 1.0f, // 0
+		0.5f, 0.5f, 0.25f,	0.0f, 0.0f, 1.0f, // 1
+		0.5f, 0.0f, 0.25f,	0.0f, 0.0f, 1.0f, // 2
+		0.0f, 0.0f, 0.25f,	0.0f, 0.0f, 1.0f, // 3
+
+		// bottom
+		// 5, 6, 7, 8
+		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f, // 4
+		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f, // 5
+		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f, // 6
+		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f, // 7
+
+		// left
+		// 1, 4, 5, 8
+		0.0f, 0.5f, 0.25f,	-1.0f, 0.0f, 0.0f, // 8
+		0.0f, 0.0f, 0.25f,	-1.0f, 0.0f, 0.0f, // 9
+		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f, // 10
+		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f, // 11
+
+		// right
+		// 2, 3, 6, 7
+		0.5f, 0.5f, 0.25f,	1.0f, 0.0f, 0.0f, // 12
+		0.5f, 0.0f, 0.25f,	1.0f, 0.0f, 0.0f, // 13
+		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f, // 14
+		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f, // 15
+
+		// front
+		// 4, 3, 8, 7
+		0.0f, 0.0f, 0.25f,	0.0f, 1.0f, 0.0f, // 16
+		0.5f, 0.0f, 0.25f,	0.0f, 1.0f, 0.0f, // 17
+		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f, // 18
+		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f, // 19
+
+		// back		
+		// 1, 2, 5, 6
+		0.0f, 0.5f, 0.25f,	0.0f, -1.0f, 0.0f, // 20
+		0.5f, 0.5f, 0.25f,	0.0f, -1.0f, 0.0f, // 21
+		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f, // 22
+		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f, // 23
 	};
 
-	unsigned int playerIndices[] = {
-		0,	1,	2,
-		1,	3,	2,
+	unsigned int indices[] = {
+		// top
+		0, 1, 3,
+		1, 2, 3,
 
-		4,	5,	6,
-		5,	7,	6,
+		// bottom
+		4, 5, 7,
+		5, 6, 7,
 
-		0,	1,	4,
-		1,	5,	4,
+		// left
+		8, 9, 10,
+		9, 10, 11,
 
-		2,	3,	7,
-		2,	7,	6,
+		// right
+		12, 13, 14,
+		13, 14, 15,
 
-		0,	2,	6,
-		0,	6,	4,
+		// front
+		16, 17, 18,
+		17, 18, 19,
 
-		1,	3,	7,
-		1,	7,	5
+		// back
+		20, 21, 22,
+		21, 22, 23
 	};
 
 	Mesh playerMesh;
@@ -435,8 +664,8 @@ void createPlayerAndTheOtherModels() {
 		playerMesh.vertices.push_back(playerVertices[i]);
 	}
 
-	for (int i = 0; i < sizeof(playerIndices) / sizeof(unsigned int); i++) {
-		playerMesh.indices.push_back(playerIndices[i]);
+	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
+		playerMesh.indices.push_back(indices[i]);
 	}
 
 	playerMesh.setupVAO();
@@ -445,6 +674,9 @@ void createPlayerAndTheOtherModels() {
 	playerMesh.material.diffuse.r = color.x;
 	playerMesh.material.diffuse.g = color.y;
 	playerMesh.material.diffuse.b = color.z;
+	playerMesh.material.ambient.r = color.x;
+	playerMesh.material.ambient.g = color.y;
+	playerMesh.material.ambient.b = color.z;
 
 	playerModel.meshes.push_back(playerMesh);
 
@@ -452,8 +684,8 @@ void createPlayerAndTheOtherModels() {
 		theOtherMesh.vertices.push_back(playerVertices[i]);
 	}
 
-	for (int i = 0; i < sizeof(playerIndices) / sizeof(unsigned int); i++) {
-		theOtherMesh.indices.push_back(playerIndices[i]);
+	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
+		theOtherMesh.indices.push_back(indices[i]);
 	}
 
 	theOtherMesh.setupVAO();
@@ -462,6 +694,10 @@ void createPlayerAndTheOtherModels() {
 	theOtherMesh.material.diffuse.r = color2.x;
 	theOtherMesh.material.diffuse.g = color2.y;
 	theOtherMesh.material.diffuse.b = color2.z;
+	theOtherMesh.material.ambient.r = color2.x;
+	theOtherMesh.material.ambient.g = color2.y;
+	theOtherMesh.material.ambient.b = color2.z;
+
 
 	theOtherModel.meshes.push_back(theOtherMesh);
 }
@@ -477,7 +713,7 @@ void drawGrid() {
 			glm::vec3 offset = glm::vec3(xOffset, yOffset, zOffset);
 
 			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
-				floorModel.draw(offset);
+				wallModel.draw(offset);
 				
 				/*
 				if (row == GRID_MAP_SIZE_X - 1) {
@@ -499,9 +735,7 @@ void drawGrid() {
 				*/
 				
 			} else {
-				if (row != 0 && row != GRID_MAP_SIZE_X - 1 && column != 0 && column != GRID_MAP_SIZE_Y - 1) {
-					floorModel.draw(offset);
-				}
+				floorModel.draw(offset);
 			}
 		}
 	}
@@ -551,21 +785,35 @@ int main() {
 		return -1;
 	}
 
-	// ------------- SHADERS -------------
-	unsigned int vertexShaderID = initializeVertexShader("vertexShader.vert");
-	unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");
-	regularShaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
+	// ------------- SHADERS -------------	
+	{
+		unsigned int vertexShaderID = initializeVertexShader("vertexShader.vert");
+		unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");
+		regularShaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
+	}
+	
+	{
+		unsigned int lightVertexShaderID = initializeVertexShader("lightVertexShader.vert");
+		unsigned int lightFragmentShaderID = initializeFragmentShader("lightFragmentShader.frag");
+		lightShaderProgramID = createShaderProgram(lightVertexShaderID, lightFragmentShaderID);
+	}
 
+	
 	// start of 3D stuffs
-	unsigned int modelLoc = glGetUniformLocation(regularShaderProgramID, "model");
+	glUseProgram(regularShaderProgramID);
 	unsigned int viewLoc = glGetUniformLocation(regularShaderProgramID, "view");
 	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
-	unsigned int colorUniformLocation = glGetUniformLocation(regularShaderProgramID, "colorIn");
 	
 	// aaaaand the projection matrix
 	glm::mat4 projection;
 	projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);	
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+	
+
+	glUseProgram(lightShaderProgramID);
+	unsigned int lightViewLoc = glGetUniformLocation(lightShaderProgramID, "view");
+	unsigned int lightProjectionLoc = glGetUniformLocation(lightShaderProgramID, "projection");
+	glUniformMatrix4fv(lightProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 	// initializing viewport and setting callback for window resizing
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -575,6 +823,11 @@ int main() {
 
 	glEnable(GL_DEPTH_TEST);
 
+	createLightCube();
+	light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
+	light.ambient = glm::vec3(1.0f);
+	light.diffuse = glm::vec3(1.0f);
+	
 	createGridFloorAndWallModels();
 	createPlayerAndTheOtherModels();
 
@@ -608,36 +861,35 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	//world.camera.initializeForGrid();
-	world.camera.initialize();
-
-	Model barrelModel = Model("assets/redditThing/Wall_Modular.obj", regularShaderProgramID, 0.5f);
-	Model brickModel = Model("assets/redditThing/Brick.obj", regularShaderProgramID, 0.5f);
-	Model pedestal2Model = Model("assets/redditThing/Pedestal2.obj", regularShaderProgramID, 0.5f);
+	world.camera.initializeForGrid();
+	//world.camera.initialize();
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window);
 		
 		glfwPollEvents();
-
+		
 		glUseProgram(regularShaderProgramID);
 		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
 		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
 		glm::mat4 view = world.camera.generateView();
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
+		glUseProgram(lightShaderProgramID);
+		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
+		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
+		glUniformMatrix4fv(lightViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
+		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+		
+		lightCube.draw(glm::vec3(-2.0f, -5.0f, 4.0f));
 
-		barrelModel.draw(glm::vec3(0.0f, 0.0f, 0.0f));
-		brickModel.draw(glm::vec3(3.0f, 0.0f, 0.0f));
-		pedestal2Model.draw(glm::vec3(6.0f, 0.0f, 0.0f));
-
-		//drawGrid();
-		//drawThePlayer();
-		//drawTheOther();
+		drawGrid();
+		drawThePlayer();
+		drawTheOther();
 
 		drawTextBox();
 
@@ -650,5 +902,5 @@ int main() {
 
 	glfwTerminate();
 
-	return 0;	   	 
+	return 0;
 }
