@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "constants.h"
+#include "worldState.h"
 
 struct Material {
 
@@ -39,119 +40,17 @@ struct Mesh {
 	unsigned int shaderProgramID;
 
 	Mesh() {};
-	
-	// Not using right now. Creating own geometry for the time being.
-	
-	/*
-	Mesh(aiMesh *inputMesh, const aiScene *scene, unsigned int shaderProgramID, float inputScale) {
 
-		this->shaderProgramID = shaderProgramID;
-
-		// Question: Is loading the vertices, texCoords, and normals in these three loops faster or slower than a single loop? My intuition says faster,
-		//			 'cause the data is accessed more sequentially than in the case of a single loop.
-
-		const unsigned int numVertices = inputMesh->mNumVertices; // Does this make it easier on the compiler?
-
-		scaleFactor = inputScale;
-
-		// vertices
-		for (unsigned int i = 0; i < numVertices; i++) {
-			aiVector3D vector3D = inputMesh->mVertices[i];
-			
-			this->vertices.push_back(vector3D.x * scaleFactor);
-			this->vertices.push_back(vector3D.y * scaleFactor);
-			this->vertices.push_back(vector3D.z * scaleFactor);
-		}
-
-		
-		// normals
-		for (unsigned int i = 0; i < numVertices; i++) {
-			aiVector3D vector3D = inputMesh->mNormals[i];
-			
-			this->normals.push_back(vector3D.x * scaleFactor);
-			this->normals.push_back(vector3D.y * scaleFactor);
-			this->normals.push_back(vector3D.z * scaleFactor);
-		}
-
-		// indices
-		for (unsigned int i = 0; i < inputMesh->mNumFaces; i++) {
-			aiFace face = inputMesh->mFaces[i];
-
-			// We did set the flag to triangulate the indices, but just in case...
-			if (face.mNumIndices != 3) {
-				continue;
-			}
-
-			for (unsigned int j = 0; j < face.mNumIndices; j++) {
-				this->indices.push_back(face.mIndices[j]);
-			}
-		}
-
-		// TODO: tangents and bitangents, when you know what those are about
-
-		aiMaterial *mat = scene->mMaterials[inputMesh->mMaterialIndex];
-		
-		// ambient
-		aiColor3D ambientColor;
-		mat->Get(AI_MATKEY_COLOR_AMBIENT, ambientColor);
-
-		material.ambient.x = ambientColor.r;
-		material.ambient.y = ambientColor.g;
-		material.ambient.z = ambientColor.b;
-		
-		// diffuse
-		aiColor3D diffuseColor;
-		mat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
-
-		material.diffuse.x = diffuseColor.r;
-		material.diffuse.y = diffuseColor.g;
-		material.diffuse.z = diffuseColor.b;
-
-		// specular
-		aiColor3D specularColor;
-		mat->Get(AI_MATKEY_COLOR_SPECULAR, specularColor);
-
-		material.specular.x = specularColor.r;
-		material.specular.y = specularColor.g;
-		material.specular.z = specularColor.b;
-
-		// no textures with the new low poly models, just material colors
-		
-		unsigned int ambientTextureCount = mat->GetTextureCount(aiTextureType_AMBIENT);
-		for (unsigned int i = 0; i < ambientTextureCount; i++) {
-			aiString path;
-
-			mat->GetTexture(aiTextureType_AMBIENT, i, &path);
-
-			Texture texture(path.C_Str(), "ambient");
-			this->textures.push_back(texture);
-		}
-
-		unsigned int diffuseTextureCount = mat->GetTextureCount(aiTextureType_DIFFUSE);
-		for (unsigned int i = 0; i < diffuseTextureCount; i++) {
-			aiString path;
-
-			mat->GetTexture(aiTextureType_DIFFUSE, i, &path);
-
-			Texture texture(path.C_Str(), "diffuse");
-			this->textures.push_back(texture);
-		}
-
-		unsigned int specularTextureCount = mat->GetTextureCount(aiTextureType_SPECULAR);
-		for (unsigned int i = 0; i < specularTextureCount; i++) {
-			aiString path;
-
-			mat->GetTexture(aiTextureType_SPECULAR, i, &path);
-
-			Texture texture(path.C_Str(), "specular");
-			this->textures.push_back(texture);
-		}
-		
-
-		setupVAO();
+	void setUniform3f(unsigned int shaderProgramID, char *uniformName, glm::vec3 vec3) {
+		unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+		glUniform3f(location, vec3.x, vec3.y, vec3.z);
 	}
-	
-	*/
+
+	void setUniformMat4(unsigned int shaderProgramID, char *uniformName, glm::mat4 mat4) {
+		unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+		glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat4));
+	}
+
 	void draw(glm::vec3 worldOffset, int directionFacing) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
@@ -171,18 +70,8 @@ struct Mesh {
 			current_model = glm::rotate(current_model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		}
 
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));		
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
 
-		//unsigned int lightPosLoc = glGetUniformLocation(shaderProgramID, "lightPos");
-		//glUniform3f(lightPosLoc, light.pos.x, light.pos.y, light.pos.z);
-
-		//unsigned int lightColorLoc = glGetUniformLocation(shaderProgramID, "lightColor");
-		//glUniform3f(lightColorLoc, light.diffuse.x, light.diffuse.y, light.diffuse.z);
-
-		//unsigned int objectColorLoc = glGetUniformLocation(shaderProgramID, "objectColor");
-		//glUniform3f(objectColorLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
-
-		 //TODO: set material uniforms correctly and do the lighting thing
 		unsigned int objectAmbientLoc = glGetUniformLocation(shaderProgramID, "objectAmbient");
 		glUniform3f(objectAmbientLoc, material.ambient.x, material.ambient.y, material.ambient.z);
 		
@@ -190,17 +79,15 @@ struct Mesh {
 		glUniform3f(objectDiffuseLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
 
 		unsigned int lightPosLoc = glGetUniformLocation(shaderProgramID, "lightPos");
-		glUniform3f(lightPosLoc, light.pos.x, light.pos.y, light.pos.z);
+		glUniform3f(lightPosLoc, world.light.pos.x, world.light.pos.y, world.light.pos.z);
 		
 		unsigned int lightAmbientLoc = glGetUniformLocation(shaderProgramID, "lightAmbient");
-		glUniform3f(lightAmbientLoc, light.ambient.x, light.ambient.y, light.ambient.z);
+		glUniform3f(lightAmbientLoc, world.light.ambient.x, world.light.ambient.y, world.light.ambient.z);
 		
 		unsigned int lightDiffuseLoc = glGetUniformLocation(shaderProgramID, "lightDiffuse");
-		glUniform3f(lightDiffuseLoc, light.diffuse.x, light.diffuse.y, light.diffuse.z);
+		glUniform3f(lightDiffuseLoc, world.light.diffuse.x, world.light.diffuse.y, world.light.diffuse.z);
 
-		// TODO: get the number of triangles to draw correctly
-		glDrawElements(GL_TRIANGLES, 3200, GL_UNSIGNED_INT, 0);
-		//glDrawArrays(GL_TRIANGLES, 0, 36);
+		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);	
 	}
 
 	void scale(float scale) {

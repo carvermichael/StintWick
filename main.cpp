@@ -1,3 +1,13 @@
+/*
+	Random TODOs:
+	- allow for holding down directions to move player
+	- get global state in centralized position (to make easier to reason about) -- right now split among a few header files
+	- pull out uniform setting from Model draw function
+	- set the views for shaders somewhere else (currently directly placed in main loop) -- probably not a big deal now (with only 3 active shaders)
+	- pull out prevInput state
+	- figure out why regenerateMap breaks all the things (probably something stupid)
+*/
+
 #include <glad/glad.h>
 #include <glfw3.h>
 
@@ -17,6 +27,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include "constants.h"
+
 struct Light {
 
 	glm::vec3 pos;
@@ -25,17 +37,14 @@ struct Light {
 
 };
 
-Light light;
-
 #include "model.h"
 #include "camera.h"
 #include "worldState.h"
-#include "constants.h"
+
 #include "shader.h"
 #include "worldGeneration.h"
 #include "textBox.h"
 
-// TODO: combine previous state
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
 unsigned int s_prevState = GLFW_RELEASE;
@@ -43,6 +52,7 @@ unsigned int d_prevState = GLFW_RELEASE;
 unsigned int c_prevState = GLFW_RELEASE;
 unsigned int l_prevState = GLFW_RELEASE;
 unsigned int m_prevState = GLFW_RELEASE;
+unsigned int g_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
 unsigned int enter_prevState = GLFW_RELEASE;
 
@@ -54,8 +64,6 @@ float lastCursorY = 300;
 
 bool firstMouse = true;
 bool freeCamera = false;
-
-WorldState world = {};
 
 Model playerModel;
 Model theOtherModel;
@@ -255,6 +263,14 @@ void processKeyboardInput(GLFWwindow *window) {
 		int m_currentState = glfwGetKey(window, GLFW_KEY_M);
 		if (m_currentState == GLFW_PRESS && m_prevState == GLFW_RELEASE) {
 			wallModel.scale(0.89f);
+		}
+		m_prevState = m_currentState;
+
+		int g_currentState = glfwGetKey(window, GLFW_KEY_G);
+		if (g_currentState == GLFW_PRESS && g_prevState == GLFW_RELEASE) {
+			
+			// WARNING: Breaks all the things.
+			regenerateMap();
 		}
 		m_prevState = m_currentState;
 	}
@@ -714,26 +730,6 @@ void drawGrid() {
 
 			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
 				wallModel.draw(offset);
-				
-				/*
-				if (row == GRID_MAP_SIZE_X - 1) {
-					wallModel.directionFacing = UP;
-					wallModel.draw(offset);
-				}
-				if (row == 0) {
-					wallModel.directionFacing = DOWN;
-					wallModel.draw(offset);
-				}
-				if (column == GRID_MAP_SIZE_Y - 1) {
-					wallModel.directionFacing = LEFT;
-					wallModel.draw(offset);
-				}
-				if (column == 0) {
-					wallModel.directionFacing = RIGHT;
-					wallModel.draw(offset);
-				}
-				*/
-				
 			} else {
 				floorModel.draw(offset);
 			}
@@ -743,7 +739,7 @@ void drawGrid() {
 
 void drawThePlayer() {
 	float zOffset = 0.5f;
-	float yOffset = -0.5f * world.player.gridCoordY - 0.5f;
+	float yOffset = -0.5f * world.player.gridCoordY;
 	float xOffset = 0.5f * world.player.gridCoordX;
 
 	playerModel.draw(glm::vec3(xOffset, yOffset, zOffset));
@@ -753,7 +749,7 @@ void drawTheOther() {
 	if (world.theOther.worldCoordX != world.player.worldCoordX || world.theOther.worldCoordY != world.player.worldCoordY) return;
 	
 	float zOffset = 0.5f;
-	float yOffset = -0.5f * world.theOther.gridCoordY - 0.5f;
+	float yOffset = -0.5f * world.theOther.gridCoordY;
 	float xOffset = 0.5f * world.theOther.gridCoordX;
 
 	theOtherModel.draw(glm::vec3(xOffset, yOffset, zOffset));
@@ -786,18 +782,8 @@ int main() {
 	}
 
 	// ------------- SHADERS -------------	
-	{
-		unsigned int vertexShaderID = initializeVertexShader("vertexShader.vert");
-		unsigned int fragmentShaderID = initializeFragmentShader("fragmentShader.frag");
-		regularShaderProgramID = createShaderProgram(vertexShaderID, fragmentShaderID);
-	}
-	
-	{
-		unsigned int lightVertexShaderID = initializeVertexShader("lightVertexShader.vert");
-		unsigned int lightFragmentShaderID = initializeFragmentShader("lightFragmentShader.frag");
-		lightShaderProgramID = createShaderProgram(lightVertexShaderID, lightFragmentShaderID);
-	}
-
+	regularShaderProgramID = createShaderProgram("vertexShader.vert", "fragmentShader.frag");
+	lightShaderProgramID = createShaderProgram("lightVertexShader.vert", "lightFragmentShader.frag");
 	
 	// start of 3D stuffs
 	glUseProgram(regularShaderProgramID);
@@ -807,8 +793,7 @@ int main() {
 	// aaaaand the projection matrix
 	glm::mat4 projection;
 	projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);	
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-	
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));	
 
 	glUseProgram(lightShaderProgramID);
 	unsigned int lightViewLoc = glGetUniformLocation(lightShaderProgramID, "view");
@@ -824,9 +809,9 @@ int main() {
 	glEnable(GL_DEPTH_TEST);
 
 	createLightCube();
-	light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
-	light.ambient = glm::vec3(1.0f);
-	light.diffuse = glm::vec3(1.0f);
+	world.light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
+	world.light.ambient = glm::vec3(1.0f);
+	world.light.diffuse = glm::vec3(1.0f);
 	
 	createGridFloorAndWallModels();
 	createPlayerAndTheOtherModels();

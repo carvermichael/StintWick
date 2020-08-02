@@ -7,6 +7,7 @@ struct TextCharacter {
 	unsigned int advance;
 };
 
+// TODO: These can probably be just one struct. Maybe keep that textShaderProgramID with the other shaderProgramIDS? eh...
 std::map<char, TextCharacter> textCharacters;
 unsigned int textVAOID, textVBOID;
 unsigned int textShaderProgramID;
@@ -69,9 +70,7 @@ void initializeTextBox() {
 	FT_Done_FreeType(ft);
 
 	// TEXT SHADER PROGRAM
-	unsigned int textVertexShaderID = initializeVertexShader("textVertexShader.vert");
-	unsigned int textFragShaderID = initializeFragmentShader("textFragmentShader.frag");
-	textShaderProgramID = createShaderProgram(textVertexShaderID, textFragShaderID);
+	textShaderProgramID = createShaderProgram("textVertexShader.vert", "textFragmentShader.frag");
 
 	// reserving data for text on gpu
 	glGenVertexArrays(1, &textVAOID);
