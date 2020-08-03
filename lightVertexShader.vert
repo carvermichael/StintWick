@@ -3,7 +3,7 @@
 
 layout (location = 0) in vec3 aPos;
 
-out vec3 fragColor;
+out vec4 fragColor;
 
 uniform mat4 transform;
 uniform mat4 model;

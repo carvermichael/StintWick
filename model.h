@@ -87,7 +87,7 @@ struct Mesh {
 		unsigned int lightDiffuseLoc = glGetUniformLocation(shaderProgramID, "lightDiffuse");
 		glUniform3f(lightDiffuseLoc, world.light.diffuse.x, world.light.diffuse.y, world.light.diffuse.z);
 
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);	
+		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	}
 
 	void scale(float scale) {
@@ -141,6 +141,8 @@ struct Model {
 
 	int directionFacing = DOWN;
 
+	glm::vec3 worldOffset;
+
 	Model() {}
 
 	/*
@@ -165,7 +167,7 @@ struct Model {
 	}
 	*/
 
-	void draw(glm::vec3 worldOffset) {
+	void draw() {
 		for (int i = 0; i < meshes.size(); i++) {
 			meshes[i].draw(worldOffset, directionFacing);
 		}

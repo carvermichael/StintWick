@@ -1,11 +1,9 @@
 /*
 	Random TODOs:
 	- allow for holding down directions to move player
-	- get global state in centralized position (to make easier to reason about) -- right now split among a few header files
-	- pull out uniform setting from Model draw function
 	- set the views for shaders somewhere else (currently directly placed in main loop) -- probably not a big deal now (with only 3 active shaders)
-	- pull out prevInput state
 	- figure out why regenerateMap breaks all the things (probably something stupid)
+	- consolidate key mappings
 */
 
 #include <glad/glad.h>
@@ -35,6 +33,8 @@ struct Light {
 	glm::vec3 ambient;
 	glm::vec3 diffuse;
 
+	float currentDegrees = 0;
+
 };
 
 #include "model.h"
@@ -53,6 +53,9 @@ unsigned int c_prevState = GLFW_RELEASE;
 unsigned int l_prevState = GLFW_RELEASE;
 unsigned int m_prevState = GLFW_RELEASE;
 unsigned int g_prevState = GLFW_RELEASE;
+unsigned int r_prevState = GLFW_RELEASE;
+unsigned int o_prevState = GLFW_RELEASE;
+unsigned int p_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
 unsigned int enter_prevState = GLFW_RELEASE;
 
@@ -77,6 +80,11 @@ Model wallCoverModel;
 
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
+
+bool moveLight = false;
+bool guidingGrid = false;
+
+void moveLightAroundOrbit(float deltaTime);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -230,11 +238,7 @@ void processKeyboardInput(GLFWwindow *window) {
 	int c_currentState = glfwGetKey(window, GLFW_KEY_C);
 	if (c_currentState == GLFW_PRESS && c_prevState == GLFW_RELEASE) {
 		freeCamera = !freeCamera;
-		if (freeCamera) {
-			addTextToBox("Camera Free");
-		} else {
-			addTextToBox("Camera Locked");
-		}
+		addTextToBox("Free Camera: " + std::to_string(freeCamera));
 	}
 	c_prevState = c_currentState;
 	
@@ -268,11 +272,24 @@ void processKeyboardInput(GLFWwindow *window) {
 
 		int g_currentState = glfwGetKey(window, GLFW_KEY_G);
 		if (g_currentState == GLFW_PRESS && g_prevState == GLFW_RELEASE) {
-			
-			// WARNING: Breaks all the things.
+			guidingGrid = !guidingGrid;
+			addTextToBox("Guiding Grid: " + std::to_string(guidingGrid));
+		}
+		g_prevState = g_currentState;
+
+		int r_currentState = glfwGetKey(window, GLFW_KEY_R);
+		if (r_currentState == GLFW_PRESS && r_prevState == GLFW_RELEASE) {
+			// WARNING: Grid goes bye-bye when this happens.
 			regenerateMap();
 		}
-		m_prevState = m_currentState;
+		r_prevState = r_currentState;
+
+		int o_currentState = glfwGetKey(window, GLFW_KEY_O);
+		if (o_currentState == GLFW_PRESS && o_prevState == GLFW_RELEASE) {
+			moveLight = !moveLight;
+			addTextToBox("Light Orbit: " + std::to_string(moveLight));
+		}
+		o_prevState = o_currentState;
 	}
 	else {
 		// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
@@ -442,6 +459,7 @@ void createLightCube() {
 	lightMesh.material.diffuse.z = color1.z;	
 
 	lightCube.meshes.push_back(lightMesh);
+	lightCube.worldOffset = glm::vec3(-2.0f, -5.0f, 4.0f);
 }
 
 void createGridFloorAndWallModels() {
@@ -729,9 +747,11 @@ void drawGrid() {
 			glm::vec3 offset = glm::vec3(xOffset, yOffset, zOffset);
 
 			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
-				wallModel.draw(offset);
+				wallModel.worldOffset = offset;
+				wallModel.draw();
 			} else {
-				floorModel.draw(offset);
+				floorModel.worldOffset = offset;
+				floorModel.draw();
 			}
 		}
 	}
@@ -742,7 +762,8 @@ void drawThePlayer() {
 	float yOffset = -0.5f * world.player.gridCoordY;
 	float xOffset = 0.5f * world.player.gridCoordX;
 
-	playerModel.draw(glm::vec3(xOffset, yOffset, zOffset));
+	playerModel.worldOffset = glm::vec3(xOffset, yOffset, zOffset);
+	playerModel.draw();
 }
 
 void drawTheOther() {
@@ -752,7 +773,108 @@ void drawTheOther() {
 	float yOffset = -0.5f * world.theOther.gridCoordY;
 	float xOffset = 0.5f * world.theOther.gridCoordX;
 
-	theOtherModel.draw(glm::vec3(xOffset, yOffset, zOffset));
+	theOtherModel.worldOffset = glm::vec3(xOffset, yOffset, zOffset);
+	theOtherModel.draw();
+}
+
+void moveLightAroundOrbit(float deltaTime) {
+	float radius = 5.0f;
+	float speed = 90.0f; // degrees / second
+	float degreesMoved = speed * deltaTime;
+
+	float midGridX = 0.5f * (GRID_MAP_SIZE_X / 2);
+	float midGridY = -0.5f * GRID_MAP_SIZE_Y / 2;
+
+	float newDegrees = world.light.currentDegrees + degreesMoved;
+	if (newDegrees > 360) newDegrees -= 360;
+
+	float newX = glm::cos(glm::radians(newDegrees)) * radius + midGridX;
+	float newY = glm::sin(glm::radians(newDegrees)) * radius + midGridY;
+
+	world.light.pos.x = newX;
+	world.light.pos.y = newY;
+	lightCube.worldOffset.x = newX;
+	lightCube.worldOffset.y = newY;
+
+	world.light.currentDegrees = newDegrees;
+}
+
+// GRID LINES
+unsigned int gridVAO_ID, gridVBO_ID;
+unsigned int numGridVertices = 0;
+void guidingGridSetup() {
+
+	float lowerZ = 0.0f;
+	float upperZ = 1.0f;
+	float zStep	 = 0.5f;
+
+	float lowerY = -10.f;
+	float upperY =  10.f;
+	float yStep  =  0.5f;
+
+	float lowerX = -10.f;
+	float upperX =	10.f;
+	float xStep	 =  0.5;
+
+	std::vector<float> vertices;
+
+	// lines along x axis
+	for (float y = lowerY; y <= upperY; y += yStep) {
+		for (float z = lowerZ; z <= upperZ; z += zStep) {
+			vertices.push_back(lowerX);
+			vertices.push_back(y);
+			vertices.push_back(z);
+
+			vertices.push_back(upperX);
+			vertices.push_back(y);
+			vertices.push_back(z);
+
+			numGridVertices += 2;
+		}
+	}
+
+	// lines along y axis
+	for (float x = lowerX; x <= upperX; x += xStep) {
+		for (float z = lowerZ; z <= upperZ; z += zStep) {
+			vertices.push_back(x);
+			vertices.push_back(lowerY);
+			vertices.push_back(z);
+
+			vertices.push_back(x);
+			vertices.push_back(upperY);
+			vertices.push_back(z);
+
+			numGridVertices += 2;
+		}		
+	}
+
+	glGenVertexArrays(1, &gridVAO_ID);
+	glBindVertexArray(gridVAO_ID);
+
+	glGenBuffers(1, &gridVBO_ID);
+	glBindBuffer(GL_ARRAY_BUFFER, gridVBO_ID);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+}
+
+void doAGuidingGridThing() {
+	glUseProgram(regularShaderProgramID);
+
+	glBindVertexArray(gridVAO_ID);
+	glBindBuffer(GL_ARRAY_BUFFER, gridVBO_ID);
+
+	unsigned int modelLoc = glGetUniformLocation(regularShaderProgramID, "model");
+	glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f)); // TODO: this can just be the 0 mat4, right?
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+
+	unsigned int objectDiffuseLoc = glGetUniformLocation(regularShaderProgramID, "objectDiffuse");
+	glUniform3f(objectDiffuseLoc, 1.0f, 1.0f, 1.0f);
+
+	unsigned int objectAmbientLoc = glGetUniformLocation(regularShaderProgramID, "objectAmbient");
+	glUniform3f(objectAmbientLoc, 1.0f, 1.0f, 1.0f);
+
+	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
 
 int main() {
@@ -809,7 +931,8 @@ int main() {
 	glEnable(GL_DEPTH_TEST);
 
 	createLightCube();
-	world.light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
+	
+	world.light.pos = glm::vec3(0.0f);
 	world.light.ambient = glm::vec3(1.0f);
 	world.light.diffuse = glm::vec3(1.0f);
 	
@@ -847,8 +970,10 @@ int main() {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	world.camera.initializeForGrid();
-	//world.camera.initialize();
+//	world.camera.initialize();
 
+	guidingGridSetup();
+	
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window);
@@ -859,23 +984,26 @@ int main() {
 		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
 		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
 		glm::mat4 view = world.camera.generateView();
+		viewLoc = glGetUniformLocation(regularShaderProgramID, "view");
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
 		glUseProgram(lightShaderProgramID);
 		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
 		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
+		lightViewLoc = glGetUniformLocation(lightShaderProgramID, "view");
 		glUniformMatrix4fv(lightViewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-		
-		lightCube.draw(glm::vec3(-2.0f, -5.0f, 4.0f));
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
+		if(guidingGrid)	doAGuidingGridThing();
+		if(moveLight) moveLightAroundOrbit(deltaTime);
+		
+		lightCube.draw();
 		drawGrid();
 		drawThePlayer();
 		drawTheOther();
-
 		drawTextBox();
 
 		float currentFrame = (float)glfwGetTime();
