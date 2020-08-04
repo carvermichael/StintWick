@@ -611,9 +611,9 @@ int main() {
 	//world.camera.initializeForGrid();
 	world.camera.initialize();
 
-	Model barrelModel = Model("assets/redditThing/Wall_Modular.obj", regularShaderProgramID, 0.5f);
-	Model brickModel = Model("assets/redditThing/Brick.obj", regularShaderProgramID, 0.5f);
-	Model pedestal2Model = Model("assets/redditThing/Pedestal2.obj", regularShaderProgramID, 0.5f);
+	Model barrelModel = Model("assets/Wall_Modular.obj", regularShaderProgramID, 0.5f);
+	Model brickModel = Model("assets/Brick.obj", regularShaderProgramID, 0.5f);
+	Model pedestal2Model = Model("assets/Pedestal2.obj", regularShaderProgramID, 0.5f);
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
