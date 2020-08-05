@@ -4,6 +4,7 @@
 	- set the views for shaders somewhere else (currently directly placed in main loop) -- probably not a big deal now (with only 3 active shaders)
 	- figure out why regenerateMap breaks all the things (probably something stupid)
 	- consolidate key mappings
+	- keep consistent viewport ratio when resizing window
 */
 
 #include <glad/glad.h>
@@ -37,6 +38,9 @@ struct Light {
 
 };
 
+unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
+unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
+
 #include "model.h"
 #include "camera.h"
 #include "worldState.h"
@@ -58,6 +62,12 @@ unsigned int o_prevState = GLFW_RELEASE;
 unsigned int p_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
 unsigned int enter_prevState = GLFW_RELEASE;
+
+#define MODE_PLAY			0
+#define MODE_FREE_CAMERA	1
+#define MODE_LEVEL_EDIT		2
+
+unsigned int mode = MODE_PLAY;
 
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
@@ -81,13 +91,34 @@ Model wallCoverModel;
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
 
+glm::mat4 projection;
+
 bool moveLight = false;
 bool guidingGrid = false;
 
 void moveLightAroundOrbit(float deltaTime);
 
+void resetProjectionMatrices() {
+	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
+
+	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+	unsigned int lightProjectionLoc = glGetUniformLocation(lightShaderProgramID, "projection");
+	glUniformMatrix4fv(lightProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
+	unsigned int textProjectionLoc = glGetUniformLocation(textShaderProgramID, "projection");
+	glUniformMatrix4fv(textProjectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
+}
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
+
+	currentScreenWidth	= width;
+	currentScreenHeight = height;
+
+	resetProjectionMatrices();
 }
 
 bool isTheOtherHere(int worldX, int worldY, int gridX, int gridY) {
@@ -237,12 +268,20 @@ void processKeyboardInput(GLFWwindow *window) {
 	}
 	int c_currentState = glfwGetKey(window, GLFW_KEY_C);
 	if (c_currentState == GLFW_PRESS && c_prevState == GLFW_RELEASE) {
-		freeCamera = !freeCamera;
-		addTextToBox("Free Camera: " + std::to_string(freeCamera));
+		if (mode == MODE_PLAY) {
+			mode = MODE_FREE_CAMERA;
+			addTextToBox("Mode: Free Camera");
+		} else if (mode == MODE_FREE_CAMERA) {
+			mode = MODE_LEVEL_EDIT;
+			addTextToBox("Mode: Level Edit");
+		} else if (mode == MODE_LEVEL_EDIT) {
+			mode = MODE_PLAY;
+			addTextToBox("Mode: Play");
+		}
 	}
 	c_prevState = c_currentState;
 	
-	if (freeCamera) {
+	if (mode == MODE_FREE_CAMERA) {
 		const float cameraSpeed = 5.0f * deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			world.camera.moveForward(deltaTime);		
@@ -291,7 +330,7 @@ void processKeyboardInput(GLFWwindow *window) {
 		}
 		o_prevState = o_currentState;
 	}
-	else {
+	else if (mode == MODE_PLAY) {
 		// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
 		//		 Definite possibility of missing a press or release event here. And frame timing has not
 		//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
@@ -348,10 +387,44 @@ void processKeyboardInput(GLFWwindow *window) {
 		}
 		l_prevState = l_currentState;
 	}	
+	else if (mode == MODE_LEVEL_EDIT) {
+		const float cameraSpeed = 5.0f * deltaTime;
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+			world.camera.moveForward(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+			world.camera.moveBack(deltaTime);
+		}
+		// strafe movement
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			world.camera.moveLeft(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			world.camera.moveRight(deltaTime);
+		}
+	}
+}
+
+//The callback function receives the mouse button, button action and modifier bits.
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	if (mode != MODE_LEVEL_EDIT) return;
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		if (lastCursorX < 0 || lastCursorX > currentScreenWidth ||
+			lastCursorY < 0 || lastCursorY > currentScreenHeight) {
+			addTextToBox("Cursor is off screen");
+		}
+		else {
+			addTextToBox("LastCursor: (" + std::to_string(lastCursorX) + ", " + std::to_string(lastCursorY) + ")");
+		}
+	}
 }
 
 void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
-	if (freeCamera) {
+	if (mode == MODE_FREE_CAMERA) {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 		if (firstMouse)
 		{
 			lastCursorX = (float)xPos;
@@ -362,11 +435,19 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 		float xOffset = (float)(xPos - lastCursorX);
 		float yOffset = (float)(lastCursorY - yPos);
 
-		lastCursorX = (float)xPos;
-		lastCursorY = (float)yPos;
-
 		world.camera.adjustYawAndPitch(xOffset, yOffset);		
 	}
+	else if (mode == MODE_LEVEL_EDIT) {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		firstMouse = true;
+
+	} else if (mode == MODE_PLAY) {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		firstMouse = true;
+	}
+
+	lastCursorX = (float)xPos;
+	lastCursorY = (float)yPos;
 }
 
 void createLightCube() {
@@ -890,7 +971,7 @@ int main() {
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif // __APPLE__	
 
-	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "GridGame1", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "GridGame1", NULL, NULL);
 	if (window == NULL) {
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -912,9 +993,8 @@ int main() {
 	unsigned int viewLoc = glGetUniformLocation(regularShaderProgramID, "view");
 	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
 	
-	// aaaaand the projection matrix
-	glm::mat4 projection;
-	projection = glm::perspective(glm::radians(45.0f), (float) SCREEN_WIDTH / (float) SCREEN_HEIGHT, 0.1f, 100.0f);	
+	// aaaaand the projection matrix	
+	projection = glm::perspective(glm::radians(45.0f), (float) INITIAL_SCREEN_WIDTH / (float) INITIAL_SCREEN_HEIGHT, 0.1f, 100.0f);
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));	
 
 	glUseProgram(lightShaderProgramID);
@@ -925,8 +1005,9 @@ int main() {
 	// initializing viewport and setting callback for window resizing
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouseInputCallback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
 	glEnable(GL_DEPTH_TEST);
 

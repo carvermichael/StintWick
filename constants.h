@@ -1,7 +1,7 @@
 #if !defined(CONSTANTS)
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define INITIAL_SCREEN_WIDTH	800
+#define INITIAL_SCREEN_HEIGHT	600
 
 #define UP		1
 #define DOWN	2
@@ -31,9 +31,7 @@
 
 #define PLAYER_SPEED 1
 
-
-
-#define CONSTANTS 0
+#define CONSTANTS
 #endif // !CONSTANTS
 
 

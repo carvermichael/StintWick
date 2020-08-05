@@ -99,7 +99,7 @@ void drawText(unsigned int shaderProgramID, std::string text, float x, float y, 
 	unsigned int textColorLoc = glGetUniformLocation(shaderProgramID, "textColor");
 	glUniform3f(textColorLoc, color.x, color.y, color.z);
 
-	glm::mat4 textProjection = glm::ortho(0.0f, (float)SCREEN_WIDTH, 0.0f, (float)SCREEN_HEIGHT);
+	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
 	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
 
