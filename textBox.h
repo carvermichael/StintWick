@@ -12,7 +12,7 @@ std::map<char, TextCharacter> textCharacters;
 unsigned int textVAOID, textVBOID;
 unsigned int textShaderProgramID;
 
-void initializeTextBox() {
+void initializeText() {
 	// TEXT RENDERING
 	FT_Library ft;
 	if (FT_Init_FreeType(&ft)) {
@@ -141,22 +141,22 @@ void drawText(unsigned int shaderProgramID, std::string text, float x, float y, 
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-#define LIMIT_LINES 4
+#define LIMIT_LINES 6
 
 struct TextBox {
 	std::string lines[LIMIT_LINES];
 	unsigned int startingLineIndex = 0;
 };
 
-TextBox textBox = {};
+TextBox eventTextBox = {};
 
-void drawTextBox() {
+void drawEventTextBox() {
 	unsigned int numLinesRendered = 0;
-	unsigned int currentLineIndex = textBox.startingLineIndex;
+	unsigned int currentLineIndex = eventTextBox.startingLineIndex;
 	float x = 0.0f, y = 0.0f;
 
 	while (numLinesRendered < LIMIT_LINES) {
-		drawText(textShaderProgramID, textBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+		drawText(textShaderProgramID, eventTextBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
 
 		currentLineIndex++;
 		if (currentLineIndex >= LIMIT_LINES) {
@@ -169,12 +169,12 @@ void drawTextBox() {
 	}
 }
 
-void addTextToBox(std::string newText) {
-	textBox.lines[textBox.startingLineIndex] = newText;
+void addTextToEventTextBox(std::string newText) {
+	eventTextBox.lines[eventTextBox.startingLineIndex] = newText;
 
-	textBox.startingLineIndex++;
-	if (textBox.startingLineIndex >= LIMIT_LINES) {
-		textBox.startingLineIndex = 0;
+	eventTextBox.startingLineIndex++;
+	if (eventTextBox.startingLineIndex >= LIMIT_LINES) {
+		eventTextBox.startingLineIndex = 0;
 	}
 }
 

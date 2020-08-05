@@ -80,13 +80,13 @@ void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openi
 	}
 
 	// Setting random walls within playable subsection of grid
-	for (int row = 1; row < GRID_MAP_SIZE_X - 1; row++) {
-		for (int column = 1; column < GRID_MAP_SIZE_Y - 1; column++) {
-			if (rand() % 10 == 3) {
-				world->allMaps[worldMapX][worldMapY].grid[row][column] = 1;
-			}
-		}
-	}
+	//for (int row = 1; row < GRID_MAP_SIZE_X - 1; row++) {
+	//	for (int column = 1; column < GRID_MAP_SIZE_Y - 1; column++) {
+	//		if (rand() % 10 == 3) {
+	//			world->allMaps[worldMapX][worldMapY].grid[row][column] = 1;
+	//		}
+	//	}
+	//}
 
 	world->allMaps[worldMapX][worldMapY].openings = openings;
 }
