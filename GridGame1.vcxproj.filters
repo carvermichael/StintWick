@@ -24,6 +24,9 @@
     <ClCompile Include="camera.h">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="console.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.frag">
@@ -65,6 +68,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="textBox.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="console.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

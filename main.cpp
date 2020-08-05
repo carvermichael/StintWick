@@ -1,11 +1,19 @@
 /*
 	Random TODOs:
+	- consolidate key mappings <-- THIS IS A MESS!!!
+	- make some sense with all the directions being thrown around
+		- directions for movement of camera
+		- directions for movement along the "play grid"
+		- probably others I'm not thinking of right now
+	- figure out how to metaprogram in C/C++ (see: jon blow's console commands created in jai)
 	- allow for holding down directions to move player
 	- set the views for shaders somewhere else (currently directly placed in main loop) -- probably not a big deal now (with only 3 active shaders)
-	- figure out why regenerateMap breaks all the things (probably something stupid)
-	- consolidate key mappings
+	- figure out why regenerateMap breaks all the things (probably something stupid)	
 	- keep consistent viewport ratio when resizing window
 	- frame timing
+	- create movement for player and theOther -- don't just jump over
+		-- same with switching between 3rd and 1st person -- slowly zoom in and rotate camera (will help you get a better hold on camera stuffs)
+	- probably want to get away from just using headers -- the ordering of includes is getting to be a pain (also, this'll help you bring global state back into main + keep it there/pass references)
 */
 
 #include <glad/glad.h>
@@ -69,9 +77,10 @@ unsigned int one_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
 unsigned int enter_prevState = GLFW_RELEASE;
 
-#define MODE_PLAY			0
-#define MODE_FREE_CAMERA	1
-#define MODE_LEVEL_EDIT		2
+#define MODE_PLAY				0
+#define MODE_FREE_CAMERA		1
+#define MODE_LEVEL_EDIT			2
+#define MODE_PLAY_FIRST_PERSON  3
 
 unsigned int mode = MODE_PLAY;
 
@@ -101,21 +110,26 @@ glm::mat4 projection;
 
 bool moveLight = false;
 bool guidingGrid = false;
-bool firstPerson = false;
 
 void moveLightAroundOrbit(float deltaTime);
 
 void resetProjectionMatrices() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
+	glUseProgram(regularShaderProgramID);
 	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
+	glUseProgram(lightShaderProgramID);
 	unsigned int lightProjectionLoc = glGetUniformLocation(lightShaderProgramID, "projection");
 	glUniformMatrix4fv(lightProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
+	// TODO: This is only going to get weirder when you have more fonts/shader floating around. Maybe wrap all the shaders in an 
+	//		 object, then hold a list of references to them. That way you can just flip through them on updates like this.
+	//														- carver (8-5-20)
+	glUseProgram(ariel.shaderProgramID);
 	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
-	unsigned int textProjectionLoc = glGetUniformLocation(textShaderProgramID, "projection");
+	unsigned int textProjectionLoc = glGetUniformLocation(ariel.shaderProgramID, "projection");
 	glUniformMatrix4fv(textProjectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
 }
 
@@ -140,7 +154,7 @@ bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
 }
 
 void movePlayer(int direction) {
-	if(!firstPerson) world.player.directionFacing = direction;
+	if(mode != MODE_PLAY_FIRST_PERSON) world.player.directionFacing = direction;
 
 	if (direction == UP) {
 		int prospectiveYCoord = world.player.gridCoordY - PLAYER_SPEED;
@@ -190,7 +204,7 @@ void movePlayer(int direction) {
 		}
 	}
 
-	if(firstPerson) world.camera.position = getPlayerModelCoords();
+	if(mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
 }
 
 void movePlayerForward() {
@@ -321,26 +335,35 @@ void moveTheOther() {
 }
 
 void processKeyboardInput(GLFWwindow *window) {
+	// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
+	//		 Definite possibility of missing a press or release event here. And frame timing has not
+	//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
 	}
 	int c_currentState = glfwGetKey(window, GLFW_KEY_C);
 	if (c_currentState == GLFW_PRESS && c_prevState == GLFW_RELEASE) {
-		if (mode == MODE_PLAY) {
-
+		// If we're going to stay with multiple states like this, we probably should get away from 
+		// a rotation of states, and instead go with a key binding for each state (or console command?).
+		// When that's the case, it'll be easier to consolidate all the global state changes that each
+		// state needs for its functionality, view, etc... - Carver (8-4-20)
+		
+		if (mode == MODE_PLAY || mode == MODE_PLAY_FIRST_PERSON) {
 			mode = MODE_FREE_CAMERA;
-			addTextToEventTextBox("Mode: Free Camera");
+
+			world.camera.initializeForGrid();
+			addTextToBox("Mode: Free Camera", &eventTextBox);
 		} else if (mode == MODE_FREE_CAMERA) {
 			world.camera.initializeOverhead();
 
 			mode = MODE_LEVEL_EDIT;
-			addTextToEventTextBox("Mode: Level Edit");
+			addTextToBox("Mode: Level Edit", &eventTextBox);
 		} else if (mode == MODE_LEVEL_EDIT) {
 			world.camera.initializeForGrid();
 			
 			mode = MODE_PLAY;
-			addTextToEventTextBox("Mode: Play");
+			addTextToBox("Mode: Play", &eventTextBox);
 		}
 	}
 	c_prevState = c_currentState;
@@ -376,7 +399,7 @@ void processKeyboardInput(GLFWwindow *window) {
 		int g_currentState = glfwGetKey(window, GLFW_KEY_G);
 		if (g_currentState == GLFW_PRESS && g_prevState == GLFW_RELEASE) {
 			guidingGrid = !guidingGrid;
-			addTextToEventTextBox("Guiding Grid: " + std::to_string(guidingGrid));
+			addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &eventTextBox);
 		}
 		g_prevState = g_currentState;
 
@@ -390,31 +413,30 @@ void processKeyboardInput(GLFWwindow *window) {
 		int o_currentState = glfwGetKey(window, GLFW_KEY_O);
 		if (o_currentState == GLFW_PRESS && o_prevState == GLFW_RELEASE) {
 			moveLight = !moveLight;
-			addTextToEventTextBox("Light Orbit: " + std::to_string(moveLight));
+			addTextToBox("Light Orbit: " + std::to_string(moveLight), &eventTextBox);
 		}
 		o_prevState = o_currentState;
 	}
-	else if (mode == MODE_PLAY) {
+	else if (mode == MODE_PLAY || mode == MODE_PLAY_FIRST_PERSON) {
 		int one_currentState = glfwGetKey(window, GLFW_KEY_1);
 		if (one_currentState == GLFW_PRESS && one_prevState == GLFW_RELEASE) {
-			firstPerson = !firstPerson;
-			addTextToEventTextBox("First Person: " + std::to_string(firstPerson));
-			if (firstPerson) {
-				world.camera.initializeForPlayer();
+			if (mode == MODE_PLAY_FIRST_PERSON) {
+				mode = MODE_PLAY;
+				addTextToBox("First Person Off", &eventTextBox);
+				world.camera.initializeForGrid();
 			}
 			else {
-				world.camera.initializeForGrid();
+				mode = MODE_PLAY_FIRST_PERSON;
+				addTextToBox("First Person On", &eventTextBox);
+				world.camera.initializeForPlayer();
 			}
 		}
 		one_prevState = one_currentState;
 
-		// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
-		//		 Definite possibility of missing a press or release event here. And frame timing has not
-		//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
 		int w_currentState = glfwGetKey(window, GLFW_KEY_W);
 		if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
 			moveTheOther();
-			if (firstPerson) {
+			if (mode == MODE_PLAY_FIRST_PERSON) {
 				movePlayerForward();
 			} else { 
 				movePlayer(UP); 
@@ -424,7 +446,7 @@ void processKeyboardInput(GLFWwindow *window) {
 
 		int a_currentState = glfwGetKey(window, GLFW_KEY_A);
 		if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
-			if (firstPerson) {
+			if (mode == MODE_PLAY_FIRST_PERSON) {
 				rotatePlayer(LEFT);
 			} else {
 				moveTheOther();
@@ -437,7 +459,7 @@ void processKeyboardInput(GLFWwindow *window) {
 		if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
 			moveTheOther();
 
-			if (firstPerson) {
+			if (mode == MODE_PLAY_FIRST_PERSON) {
 				movePlayerBackward();
 			} else {
 				movePlayer(DOWN);
@@ -447,7 +469,7 @@ void processKeyboardInput(GLFWwindow *window) {
 
 		int d_currentState = glfwGetKey(window, GLFW_KEY_D);
 		if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
-			if (firstPerson) {
+			if (mode == MODE_PLAY_FIRST_PERSON) {
 				rotatePlayer(RIGHT);
 			} else {
 				moveTheOther();
@@ -471,11 +493,11 @@ void processKeyboardInput(GLFWwindow *window) {
 		int l_currentState = glfwGetKey(window, GLFW_KEY_L);
 		if (l_currentState == GLFW_PRESS && l_prevState == GLFW_RELEASE) {
 			if (world.theOther.actionState == ACTION_STATE_AVOIDANT) {
-				addTextToEventTextBox("AI Set To AVOIDANT");
+				addTextToBox("AI Set To AVOIDANT", &eventTextBox);
 				world.theOther.actionState = ACTION_STATE_SEEKING;
 			}
 			else if (world.theOther.actionState == ACTION_STATE_SEEKING) {
-				addTextToEventTextBox("AI Set To SEEKING");
+				addTextToBox("AI Set To SEEKING", &eventTextBox);
 				world.theOther.actionState = ACTION_STATE_AVOIDANT;
 			}
 		}
@@ -489,7 +511,6 @@ void processKeyboardInput(GLFWwindow *window) {
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
 			world.camera.moveBack(deltaTime);
 		}
-		// strafe movement
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 			world.camera.moveLeft(deltaTime);
 		}
@@ -506,24 +527,27 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		if (lastCursorX < 0 || lastCursorX > currentScreenWidth ||
 			lastCursorY < 0 || lastCursorY > currentScreenHeight) {
-			addTextToEventTextBox("Cursor is off screen");
+			addTextToBox("Cursor is off screen, &eventTextBox", &eventTextBox);
 		}
 		else {
-			addTextToEventTextBox("LastCursor: (" + std::to_string(lastCursorX) + ", " + std::to_string(lastCursorY) + ")");
+			addTextToBox("LastCursor: (" + std::to_string(lastCursorX) + ", " + std::to_string(lastCursorY) + ")", &eventTextBox);
 			glm::vec4 clickCoords = glm::vec4(lastCursorX, lastCursorY, 1.0f, 1.0f); // shouldn't this be a vec2???
 			glm::vec4 viewCoords  = clickCoords * glm::inverse(projection);
 			//glm::vec4 worldCoords = viewCoords * glm::inverse(world.camera.generateView());
 
 			glm::vec4 worldCoords = glm::inverse(world.camera.generateView()) * glm::inverse(projection) * clickCoords;
 
-			addTextToEventTextBox("ClickCoords: (" + std::to_string(clickCoords.x) + ", " + std::to_string(clickCoords.y) + ", " + std::to_string(clickCoords.z) + ", " + std::to_string(clickCoords.w) + ")");
-			addTextToEventTextBox("ViewCoords: (" + std::to_string(viewCoords.x) + ", " + std::to_string(viewCoords.y) + ", " + std::to_string(viewCoords.z) + ", " + std::to_string(viewCoords.w) + ")");
-			addTextToEventTextBox("WorldCoords: (" + std::to_string(worldCoords.x) + ", " + std::to_string(worldCoords.y) + ", " + std::to_string(worldCoords.z) + ", " + std::to_string(worldCoords.w) + ")");
+			addTextToBox("ClickCoords: (" + std::to_string(clickCoords.x) + ", " + std::to_string(clickCoords.y) + ", " + std::to_string(clickCoords.z) + ", " + std::to_string(clickCoords.w) + ")", &eventTextBox);
+			addTextToBox("ViewCoords: (" + std::to_string(viewCoords.x) + ", " + std::to_string(viewCoords.y) + ", " + std::to_string(viewCoords.z) + ", " + std::to_string(viewCoords.w) + ")", &eventTextBox);
+			addTextToBox("WorldCoords: (" + std::to_string(worldCoords.x) + ", " + std::to_string(worldCoords.y) + ", " + std::to_string(worldCoords.z) + ", " + std::to_string(worldCoords.w) + ")", &eventTextBox);
 		}
 	}
 }
 
 void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
+	// TODO: Figure out how to lockdown the cursor such that the coordinate args can't go outside the viewport
+	//		 Clamping won't work.
+	
 	if (mode == MODE_FREE_CAMERA) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -942,7 +966,7 @@ void drawGrid() {
 
 glm::vec3 getPlayerModelCoords() {
 	float zOffset = 0.5f;
-	if (firstPerson) zOffset += 0.25f;
+	if (mode == MODE_PLAY_FIRST_PERSON) zOffset += 0.25f;
 	
 	float yOffset = -0.5f * world.player.gridCoordY;
 	float xOffset = 0.5f * world.player.gridCoordX;
@@ -992,7 +1016,7 @@ void moveLightAroundOrbit(float deltaTime) {
 void drawCameraStats() {
 
 	
-	drawText(textShaderProgramID, "butts", 200, 600, 1.9f, glm::vec3(1.0f, 1.0f, 1.0f));
+	//drawText(textShaderProgramID, "butts", 200, 600, 1.9f, glm::vec3(1.0f, 1.0f, 1.0f));
 
 }
 
@@ -1139,7 +1163,7 @@ int main() {
 	// set seed and generate map
 	unsigned int seed = (unsigned int)time(NULL); // seconds since Jan 1, 2000
 	srand(seed);
-	addTextToEventTextBox("seed: " + std::to_string(seed));
+	addTextToBox("seed: " + std::to_string(seed), &eventTextBox);
 	
 	generateWorldMap(&world);
 
@@ -1161,14 +1185,15 @@ int main() {
 
 	lastFrameTime = (float)glfwGetTime();
 
-	initializeText();
+	// this isn't right
+	initializeFont("arial.ttf", &ariel);
+	eventTextBox.font = &ariel;
 
 	// need alpha blending for text transparency
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	world.camera.initializeForGrid();
-//	world.camera.initializeOverhead();
 
 	guidingGridSetup();
 	
@@ -1178,14 +1203,13 @@ int main() {
 		
 		glfwPollEvents();
 
-		if (firstPerson) world.camera.position = getPlayerModelCoords();
+		if (mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
 		
 		glUseProgram(regularShaderProgramID);
 		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
 		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
-		
 		glm::mat4 view;
-		if (firstPerson) {
+		if (mode == MODE_PLAY_FIRST_PERSON) {
 			view = world.camera.generateFirstPersonView(world.player.directionFacing);
 		}
 		else {
@@ -1209,9 +1233,9 @@ int main() {
 		
 		lightCube.draw();
 		drawGrid();
-		if(!firstPerson) drawPlayer();
+		if(mode != MODE_PLAY_FIRST_PERSON) drawPlayer();
 		drawTheOther();
-		drawEventTextBox();
+		drawTextBox(&eventTextBox);
 		drawCameraStats();
 
 		float currentFrame = (float)glfwGetTime();
