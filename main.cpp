@@ -60,6 +60,7 @@ unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
 #include "shader.h"
 #include "worldGeneration.h"
 #include "textBox.h"
+#include "console.h"
 
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
@@ -93,7 +94,7 @@ float lastCursorY = 300;
 bool firstMouse = true;
 bool freeCamera = false;
 
-Model playerModel;
+Model background;
 Model theOtherModel;
 
 Model floorModel;
@@ -112,6 +113,8 @@ bool moveLight = false;
 bool guidingGrid = false;
 
 void moveLightAroundOrbit(float deltaTime);
+
+Console console;
 
 void resetProjectionMatrices() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
@@ -338,6 +341,7 @@ void processKeyboardInput(GLFWwindow *window) {
 	// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
 	//		 Definite possibility of missing a press or release event here. And frame timing has not
 	//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
+	//			-- This should probably be a callback like the mouse input...
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
@@ -919,7 +923,7 @@ void createPlayerAndTheOtherModels() {
 	playerMesh.material.ambient.g = color.y;
 	playerMesh.material.ambient.b = color.z;
 
-	playerModel.meshes.push_back(playerMesh);
+	background.meshes.push_back(playerMesh);
 
 	for (int i = 0; i < sizeof(playerVertices) / sizeof(float); i++) {
 		theOtherMesh.vertices.push_back(playerVertices[i]);
@@ -975,8 +979,8 @@ glm::vec3 getPlayerModelCoords() {
 }
 
 void drawPlayer() {
-	playerModel.worldOffset = getPlayerModelCoords();
-	playerModel.draw();
+	background.worldOffset = getPlayerModelCoords();
+	background.draw();
 }
 
 void drawTheOther() {
@@ -1185,9 +1189,14 @@ int main() {
 
 	lastFrameTime = (float)glfwGetTime();
 
-	// this isn't right
 	initializeFont("arial.ttf", &ariel);
 	eventTextBox.font = &ariel;
+	console.textbox.font = &ariel;
+
+	addTextToBox("butt1", &console.textbox);
+	addTextToBox("butt2", &console.textbox);
+	addTextToBox("butt3", &console.textbox);
+	addTextToBox("butt4", &console.textbox);
 
 	// need alpha blending for text transparency
 	glEnable(GL_BLEND);
@@ -1196,6 +1205,8 @@ int main() {
 	world.camera.initializeForGrid();
 
 	guidingGridSetup();
+
+	console.setup(regularShaderProgramID);
 	
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
@@ -1236,6 +1247,7 @@ int main() {
 		if(mode != MODE_PLAY_FIRST_PERSON) drawPlayer();
 		drawTheOther();
 		drawTextBox(&eventTextBox);
+		console.draw(deltaTime);
 		drawCameraStats();
 
 		float currentFrame = (float)glfwGetTime();

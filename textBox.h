@@ -161,11 +161,13 @@ Textbox eventTextBox = {};
 
 void drawTextBox(Textbox *textbox) {
 	unsigned int numLinesRendered = 0;
-	unsigned int currentLineIndex = eventTextBox.startingLineIndex;
-	float x = 0.0f, y = 0.0f;
+	unsigned int currentLineIndex = textbox->startingLineIndex;
+
+	float x = textbox->x;
+	float y = textbox->y;
 
 	while (numLinesRendered < LIMIT_LINES) {
-		drawText(textbox->font, eventTextBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+		drawText(textbox->font, textbox->lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
 
 		currentLineIndex++;
 		if (currentLineIndex >= LIMIT_LINES) {
