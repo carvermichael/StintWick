@@ -1,17 +1,23 @@
 /*
 	Random TODOs:
+	- make player and enemies smaller than the grid space
+		- this then allows for simple attack animations toward the defender
+		- make the player or enemies non-cubeish?
+	- make more than one enemy
 	- consolidate key mappings <-- THIS IS A MESS!!!
 	- make some sense with all the directions being thrown around
 		- directions for movement of camera
 		- directions for movement along the "play grid"
 		- probably others I'm not thinking of right now
+	- draw entire world grid?
+	- minimap
 	- figure out how to metaprogram in C/C++ (see: jon blow's console commands created in jai)
 	- allow for holding down directions to move player
 	- set the views for shaders somewhere else (currently directly placed in main loop) -- probably not a big deal now (with only 3 active shaders)
 	- figure out why regenerateMap breaks all the things (probably something stupid)	
 	- keep consistent viewport ratio when resizing window
 	- frame timing
-	- create movement for player and theOther -- don't just jump over
+	- create movement for player and theOther -- don't just jump over (could add move buffer here, too)
 		-- same with switching between 3rd and 1st person -- slowly zoom in and rotate camera (will help you get a better hold on camera stuffs)
 	- probably want to get away from just using headers -- the ordering of includes is getting to be a pain (also, this'll help you bring global state back into main + keep it there/pass references)
 */
@@ -60,7 +66,6 @@ unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
 #include "shader.h"
 #include "worldGeneration.h"
 #include "textBox.h"
-#include "console.h"
 
 unsigned int w_prevState = GLFW_RELEASE;
 unsigned int a_prevState = GLFW_RELEASE;
@@ -77,6 +82,7 @@ unsigned int p_prevState = GLFW_RELEASE;
 unsigned int one_prevState = GLFW_RELEASE;
 unsigned int spacebar_prevState = GLFW_RELEASE;
 unsigned int enter_prevState = GLFW_RELEASE;
+unsigned int graveAccent_prevState = GLFW_RELEASE;
 
 #define MODE_PLAY				0
 #define MODE_FREE_CAMERA		1
@@ -106,6 +112,9 @@ Model wallCoverModel;
 
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
+unsigned int UIShaderProgramID;
+
+Font ariel;
 
 glm::mat4 projection;
 
@@ -114,7 +123,10 @@ bool guidingGrid = false;
 
 void moveLightAroundOrbit(float deltaTime);
 
+#include "console.h"
+
 Console console;
+
 
 void resetProjectionMatrices() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
@@ -134,6 +146,11 @@ void resetProjectionMatrices() {
 	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
 	unsigned int textProjectionLoc = glGetUniformLocation(ariel.shaderProgramID, "projection");
 	glUniformMatrix4fv(textProjectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
+
+	glUseProgram(UIShaderProgramID);
+	textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
+	unsigned int UIProjectionLoc = glGetUniformLocation(UIShaderProgramID, "projection");
+	glUniformMatrix4fv(UIProjectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -341,7 +358,7 @@ void processKeyboardInput(GLFWwindow *window) {
 	// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
 	//		 Definite possibility of missing a press or release event here. And frame timing has not
 	//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
-	//			-- This should probably be a callback like the mouse input...
+	//			-- This should probably be a callback like the mouse input... I think.
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
@@ -371,6 +388,12 @@ void processKeyboardInput(GLFWwindow *window) {
 		}
 	}
 	c_prevState = c_currentState;
+
+	int graveAccent_currentState = glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT);
+	if (graveAccent_currentState == GLFW_PRESS && graveAccent_prevState == GLFW_RELEASE) {
+		console.flipOut();
+	}
+	graveAccent_prevState = graveAccent_currentState;
 	
 	if (mode == MODE_FREE_CAMERA) {
 		const float cameraSpeed = 5.0f * deltaTime;
@@ -1129,15 +1152,14 @@ int main() {
 	}
 
 	// ------------- SHADERS -------------	
-	regularShaderProgramID = createShaderProgram("vertexShader.vert", "fragmentShader.frag");
-	lightShaderProgramID = createShaderProgram("lightVertexShader.vert", "lightFragmentShader.frag");
+	regularShaderProgramID	= createShaderProgram("vertexShader.vert", "fragmentShader.frag");
+	lightShaderProgramID	= createShaderProgram("lightVertexShader.vert", "lightFragmentShader.frag");
+	UIShaderProgramID		= createShaderProgram("UIVertexShader.vert", "UIFragmentShader.frag");
 	
-	// start of 3D stuffs
 	glUseProgram(regularShaderProgramID);
 	unsigned int viewLoc = glGetUniformLocation(regularShaderProgramID, "view");
 	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
 	
-	// aaaaand the projection matrix	
 	projection = glm::perspective(glm::radians(45.0f), (float) INITIAL_SCREEN_WIDTH / (float) INITIAL_SCREEN_HEIGHT, 0.1f, 100.0f);
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));	
 
@@ -1146,6 +1168,11 @@ int main() {
 	unsigned int lightProjectionLoc = glGetUniformLocation(lightShaderProgramID, "projection");
 	glUniformMatrix4fv(lightProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
+	glUseProgram(UIShaderProgramID);
+	glm::mat4 UIProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
+	unsigned int UIProjectionLoc = glGetUniformLocation(UIShaderProgramID, "projection");
+	glUniformMatrix4fv(UIProjectionLoc, 1, GL_FALSE, glm::value_ptr(UIProjection));
+
 	// initializing viewport and setting callback for window resizing
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouseInputCallback);
@@ -1153,7 +1180,7 @@ int main() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
-	glEnable(GL_DEPTH_TEST);
+	
 
 	createLightCube();
 	
@@ -1191,14 +1218,16 @@ int main() {
 
 	initializeFont("arial.ttf", &ariel);
 	eventTextBox.font = &ariel;
-	console.textbox.font = &ariel;
+	console.historyTextbox.font = &ariel;
 
-	addTextToBox("butt1", &console.textbox);
-	addTextToBox("butt2", &console.textbox);
-	addTextToBox("butt3", &console.textbox);
-	addTextToBox("butt4", &console.textbox);
+	addTextToBox("butt1", &console.historyTextbox);
+	addTextToBox("butt2", &console.historyTextbox);
+	addTextToBox("butt3", &console.historyTextbox);
+	addTextToBox("butt4", &console.historyTextbox);
 
 	// need alpha blending for text transparency
+	glEnable(GL_DEPTH_TEST);
+	
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -1206,8 +1235,8 @@ int main() {
 
 	guidingGridSetup();
 
-	console.setup(regularShaderProgramID);
-	
+	console.setup();
+
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window);
@@ -1237,8 +1266,9 @@ int main() {
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
 
+		glDepthFunc(GL_LESS);
 		if(guidingGrid)	doAGuidingGridThing();
 		if(moveLight) moveLightAroundOrbit(deltaTime);
 		
@@ -1246,9 +1276,12 @@ int main() {
 		drawGrid();
 		if(mode != MODE_PLAY_FIRST_PERSON) drawPlayer();
 		drawTheOther();
-		drawTextBox(&eventTextBox);
+
+		// UI Elements
+		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		console.draw(deltaTime);
-		drawCameraStats();
+		drawTextBox(&eventTextBox);
+		//drawCameraStats();
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;

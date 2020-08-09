@@ -47,6 +47,12 @@
     <None Include="lightFragmentShader.frag">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="UIVertexShader.vert">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="UIFragmentShader.frag">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="constants.h">

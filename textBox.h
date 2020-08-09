@@ -13,8 +13,6 @@ struct Font {
 	unsigned int shaderProgramID;
 };
 
-Font ariel;
-
 void initializeFont(const char *fontFileName, Font *font) {
 	// TEXT RENDERING
 	FT_Library ft;
@@ -120,7 +118,7 @@ void drawText(Font *font, std::string text, float x, float y, float scale, glm::
 		float w = ch.size.x * scale;
 		float h = ch.size.y * scale;
 
-		float vertices[6][4] = {
+		float vertices[] = {
 			xPos,		yPos + h, 0.0f, 0.0f,
 			xPos,		yPos,	  0.0f, 1.0f,
 			xPos + w,	yPos,     1.0f, 1.0f,
@@ -136,6 +134,7 @@ void drawText(Font *font, std::string text, float x, float y, float scale, glm::
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+		// this is a lot of draw calls per line of text
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		x += (ch.advance >> 6) * scale; // bit shift changes unit to pixels
