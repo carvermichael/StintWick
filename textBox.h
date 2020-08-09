@@ -144,11 +144,17 @@ void drawText(Font *font, std::string text, float x, float y, float scale, glm::
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-#define LIMIT_LINES 6
+#define LIMIT_LINES 2000
+
+// TODO: no need to limit lines so narrowly here, just set the limit super high, 
+//		 and then just show the last x lines (top down or bottom up)
 
 struct Textbox {
 	std::string lines[LIMIT_LINES];
-	unsigned int startingLineIndex = 0;
+	unsigned int numLinesUsed = 0;
+	unsigned int maxLinesToShow = 4;
+
+	bool flip = false;
 
 	float x = 0.0f;
 	float y = 0.0f;
@@ -159,33 +165,40 @@ struct Textbox {
 Textbox eventTextBox = {};
 
 void drawTextBox(Textbox *textbox) {
-	unsigned int numLinesRendered = 0;
-	unsigned int currentLineIndex = textbox->startingLineIndex;
-
 	float x = textbox->x;
 	float y = textbox->y;
 
-	while (numLinesRendered < LIMIT_LINES) {
-		drawText(textbox->font, textbox->lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
-
-		currentLineIndex++;
-		if (currentLineIndex >= LIMIT_LINES) {
-			currentLineIndex = 0;
-		}
-
-		y += 20.0f;
-
-		numLinesRendered++;
+	int startingLineIndex;
+	int numLinesToShow;
+	if (textbox->numLinesUsed < textbox->maxLinesToShow) {
+		startingLineIndex = 0;
+		numLinesToShow = textbox->numLinesUsed;
+	} else {
+		startingLineIndex = textbox->numLinesUsed - textbox->maxLinesToShow;
+		numLinesToShow = textbox->maxLinesToShow;
 	}
+
+	if (!textbox->flip) {
+		for (int i = startingLineIndex; i < numLinesToShow + startingLineIndex; i++) {
+			drawText(textbox->font, textbox->lines[i], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+
+			y += 20.0f;
+		}
+	}
+	else {
+		for (int i = numLinesToShow + startingLineIndex - 1; i >= startingLineIndex; i--) {
+			drawText(textbox->font, textbox->lines[i], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+
+			y += 20.0f;
+		}
+	}
+	
 }
 
 void addTextToBox(std::string newText, Textbox *textbox) {
-	textbox->lines[textbox->startingLineIndex] = newText;
+	textbox->lines[textbox->numLinesUsed] = newText;
 
-	textbox->startingLineIndex++;
-	if (textbox->startingLineIndex >= LIMIT_LINES) {
-		textbox->startingLineIndex = 0;
-	}
+	textbox->numLinesUsed++;
 }
 
 #define TEXTBOX

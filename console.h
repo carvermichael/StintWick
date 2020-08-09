@@ -90,6 +90,7 @@ struct Console {
 	Textbox historyTextbox;
 	UI_Rect boundingRect;
 	UI_Rect inputRect;
+	std::string inputString;
 
 	bool consoleOut = false;
 
@@ -102,9 +103,6 @@ struct Console {
 	float markerStartLocation = 4.0f;
 	float markerLocation = markerStartLocation;
 
-	
-
-	// TODO: will need to update a lot of this when the screen size changes
 	float height = 200.0f;
 	float width = (float)currentScreenWidth;
 
@@ -127,11 +125,31 @@ struct Console {
 
 		inputRect.setup();
 		inputRect.color = glm::vec3(0.1f, 0.1f, 0.1f);
-		inputRect.alpha = 1.0f;
+		inputRect.alpha = 0.7f;
 		
 		editMarkerRect.setup();
-		inputRect.color = glm::vec3(0.1f, 0.1f, 0.1f);
-		inputRect.alpha = 1.0f;
+		editMarkerRect.color = glm::vec3(0.1f, 0.1f, 0.1f);
+		editMarkerRect.alpha = 1.0f;
+
+		historyTextbox.maxLinesToShow = 10;
+		historyTextbox.flip = true;
+	}
+
+	void addInput(unsigned int input) {
+		inputString.push_back(input);
+	}
+
+	void removeCharacter() {
+		if (inputString.empty()) return;
+		
+		inputString.pop_back();
+	}
+
+	void submit() {
+		if (inputString.empty()) return;
+
+		addTextToBox(inputString, &historyTextbox);
+		inputString.clear();
 	}
 
 	void draw(float deltaTime) {
@@ -142,24 +160,26 @@ struct Console {
 		
 		location += distToMove;
 		
-		historyTextbox.y = location;
+		historyTextbox.y = location + 27.0f;
 
-		boundingRect.setCoords(glm::vec4(0.0f, currentScreenWidth, historyTextbox.y, currentScreenHeight));
+		boundingRect.setCoords(glm::vec4(0.0f, currentScreenWidth, location, currentScreenHeight));
 		boundingRect.draw();
 
-		inputRect.setCoords(glm::vec4(0.0f, currentScreenWidth, historyTextbox.y + 20.0f, historyTextbox.y));
+		inputRect.setCoords(glm::vec4(0.0f, currentScreenWidth, location + 25.0f, location));
 		inputRect.draw();
 
-		timeSinceEditMarkerFlip += deltaTime;
-		if (timeSinceEditMarkerFlip > timeToFlip) {
-			editMarkerOn = !editMarkerOn;
-			timeSinceEditMarkerFlip = 0; // this should probably be the remainder
-		}
+		//timeSinceEditMarkerFlip += deltaTime;
+		//if (timeSinceEditMarkerFlip > timeToFlip) {
+		//	editMarkerOn = !editMarkerOn;
+		//	timeSinceEditMarkerFlip = 0; // should this be the remainder??
+		//}
 
-		if (editMarkerOn) {
-			editMarkerRect.setCoords(glm::vec4(markerLocation, markerLocation + markerSize, historyTextbox.y + 20.0f, historyTextbox.y));
-			editMarkerRect.draw();
-		}
+		//if (editMarkerOn) {
+		//	editMarkerRect.setCoords(glm::vec4(markerLocation, markerLocation + markerSize, historyTextbox.y + 20.0f, historyTextbox.y));
+		//	editMarkerRect.draw();
+		//}
+
+		drawText(&ariel, inputString, 0.0f, location + 5.0f, 0.3f, glm::vec3(1.0f, 1.0f, 1.0f));
 
 		drawTextBox(&historyTextbox);
 	}

@@ -354,6 +354,33 @@ void moveTheOther() {
 	}
 }
 
+void character_callback(GLFWwindow* window, unsigned int codepoint)
+{
+	if (console.consoleOut) {
+		console.addInput(codepoint);
+	}
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (action != GLFW_PRESS) return;
+	
+	if (key == GLFW_KEY_F1) {
+		console.flipOut();
+	}
+
+	if (!console.consoleOut) return;
+	
+	if (key == GLFW_KEY_BACKSPACE) {
+		console.removeCharacter();
+	}
+
+	if (key == GLFW_KEY_ENTER) {
+		console.submit();
+	}
+}
+
+
 void processKeyboardInput(GLFWwindow *window) {
 	// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
 	//		 Definite possibility of missing a press or release event here. And frame timing has not
@@ -363,6 +390,9 @@ void processKeyboardInput(GLFWwindow *window) {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
 	}
+
+	if (console.consoleOut) return;
+
 	int c_currentState = glfwGetKey(window, GLFW_KEY_C);
 	if (c_currentState == GLFW_PRESS && c_prevState == GLFW_RELEASE) {
 		// If we're going to stay with multiple states like this, we probably should get away from 
@@ -389,12 +419,6 @@ void processKeyboardInput(GLFWwindow *window) {
 	}
 	c_prevState = c_currentState;
 
-	int graveAccent_currentState = glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT);
-	if (graveAccent_currentState == GLFW_PRESS && graveAccent_prevState == GLFW_RELEASE) {
-		console.flipOut();
-	}
-	graveAccent_prevState = graveAccent_currentState;
-	
 	if (mode == MODE_FREE_CAMERA) {
 		const float cameraSpeed = 5.0f * deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
@@ -1177,10 +1201,10 @@ int main() {
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouseInputCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+	glfwSetCharCallback(window, character_callback);
+	glfwSetKeyCallback(window, key_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
-
-	
 
 	createLightCube();
 	
