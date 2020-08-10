@@ -4,16 +4,14 @@
 		- this then allows for simple attack animations toward the defender
 		- make the player or enemies non-cubeish?
 	- make more than one enemy
-	- consolidate key mappings <-- THIS IS A MESS!!!
 	- make some sense with all the directions being thrown around
 		- directions for movement of camera
 		- directions for movement along the "play grid"
 		- probably others I'm not thinking of right now
+		- note: use cardinal directions for grid movement
 	- draw entire world grid?
 	- minimap
 	- figure out how to metaprogram in C/C++ (see: jon blow's console commands created in jai)
-	- allow for holding down directions to move player
-	- set the views for shaders somewhere else (currently directly placed in main loop) -- probably not a big deal now (with only 3 active shaders)
 	- figure out why regenerateMap breaks all the things (probably something stupid)	
 	- keep consistent viewport ratio when resizing window
 	- frame timing
@@ -47,15 +45,14 @@ glm::vec3 getPlayerModelCoords();
 
 struct Light {
 
-	glm::vec3 pos;
+	glm::vec3 pos = glm::vec3(0.0f);;
 
 	// TODO: maybe make a material???
-	glm::vec3 ambient;
-	glm::vec3 diffuse;
-	glm::vec3 specular;
+	glm::vec3 ambient = glm::vec3(1.0f);
+	glm::vec3 diffuse = glm::vec3(1.0f);
+	glm::vec3 specular = glm::vec3(1.0f);
 
 	float currentDegrees = 0;
-
 };
 
 unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
@@ -1044,23 +1041,8 @@ int main() {
 	regularShaderProgramID	= createShaderProgram("vertexShader.vert", "fragmentShader.frag");
 	lightShaderProgramID	= createShaderProgram("lightVertexShader.vert", "lightFragmentShader.frag");
 	UIShaderProgramID		= createShaderProgram("UIVertexShader.vert", "UIFragmentShader.frag");
-	
-	glUseProgram(regularShaderProgramID);
-	unsigned int viewLoc = glGetUniformLocation(regularShaderProgramID, "view");
-	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
-	
-	projection = glm::perspective(glm::radians(45.0f), (float) INITIAL_SCREEN_WIDTH / (float) INITIAL_SCREEN_HEIGHT, 0.1f, 100.0f);
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));	
 
-	glUseProgram(lightShaderProgramID);
-	unsigned int lightViewLoc = glGetUniformLocation(lightShaderProgramID, "view");
-	unsigned int lightProjectionLoc = glGetUniformLocation(lightShaderProgramID, "projection");
-	glUniformMatrix4fv(lightProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-	glUseProgram(UIShaderProgramID);
-	glm::mat4 UIProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
-	unsigned int UIProjectionLoc = glGetUniformLocation(UIShaderProgramID, "projection");
-	glUniformMatrix4fv(UIProjectionLoc, 1, GL_FALSE, glm::value_ptr(UIProjection));
+	resetProjectionMatrices();
 
 	// initializing viewport and setting callbacks
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -1072,11 +1054,6 @@ int main() {
 	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
 	createLightCube();
-	
-	world.light.pos = glm::vec3(0.0f);
-	world.light.ambient = glm::vec3(1.0f);
-	world.light.diffuse = glm::vec3(1.0f);
-	world.light.specular = glm::vec3(1.0f);
 	
 	createGridFloorAndWallModels();
 	createPlayerAndTheOtherModels();

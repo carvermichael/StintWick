@@ -2,6 +2,9 @@
 
 typedef void (*control)(int action, int key);
 
+// NOTE: The check for GLFW_RELEASE probably relies on Windows repeat logic, probably don't want to rely on that 
+//		 long-term				-carver (8-10-20)
+
 void control_play(int action, int key) {
 	if (action == GLFW_RELEASE) return;
 	
