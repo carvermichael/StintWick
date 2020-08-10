@@ -67,23 +67,6 @@ unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
 #include "worldGeneration.h"
 #include "textBox.h"
 
-unsigned int w_prevState = GLFW_RELEASE;
-unsigned int a_prevState = GLFW_RELEASE;
-unsigned int s_prevState = GLFW_RELEASE;
-unsigned int d_prevState = GLFW_RELEASE;
-unsigned int c_prevState = GLFW_RELEASE;
-unsigned int l_prevState = GLFW_RELEASE;
-unsigned int m_prevState = GLFW_RELEASE;
-unsigned int g_prevState = GLFW_RELEASE;
-unsigned int r_prevState = GLFW_RELEASE;
-unsigned int o_prevState = GLFW_RELEASE;
-unsigned int f_prevState = GLFW_RELEASE;
-unsigned int p_prevState = GLFW_RELEASE;
-unsigned int one_prevState = GLFW_RELEASE;
-unsigned int spacebar_prevState = GLFW_RELEASE;
-unsigned int enter_prevState = GLFW_RELEASE;
-unsigned int graveAccent_prevState = GLFW_RELEASE;
-
 #define MODE_PLAY				0
 #define MODE_FREE_CAMERA		1
 #define MODE_LEVEL_EDIT			2
@@ -122,11 +105,11 @@ bool moveLight = false;
 bool guidingGrid = false;
 
 void moveLightAroundOrbit(float deltaTime);
+void processConsoleCommand(std::string command);
 
 #include "console.h"
 
 Console console;
-
 
 void resetProjectionMatrices() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
@@ -354,210 +337,72 @@ void moveTheOther() {
 	}
 }
 
+#include "controls.h"
+
 void character_callback(GLFWwindow* window, unsigned int codepoint)
 {
-	if (console.consoleOut) {
+	if (console.isOut) {
 		console.addInput(codepoint);
 	}
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	if (action != GLFW_PRESS) return;
-	
-	if (key == GLFW_KEY_F1) {
-		console.flipOut();
-	}
-
-	if (!console.consoleOut) return;
-	
-	if (key == GLFW_KEY_BACKSPACE) {
-		console.removeCharacter();
-	}
-
-	if (key == GLFW_KEY_ENTER) {
-		console.submit();
-	}
-}
-
-
-void processKeyboardInput(GLFWwindow *window) {
-	// NOTE: This strategy is not nearly robust enough. It relies on polling the keyboard events. 
-	//		 Definite possibility of missing a press or release event here. And frame timing has not
-	//		 yet been considered. Probably more reading is required. Still, good enough for exploratory work.
-	//			-- This should probably be a callback like the mouse input... I think.
-
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
 	}
 
-	if (console.consoleOut) return;
-
-	int c_currentState = glfwGetKey(window, GLFW_KEY_C);
-	if (c_currentState == GLFW_PRESS && c_prevState == GLFW_RELEASE) {
-		// If we're going to stay with multiple states like this, we probably should get away from 
-		// a rotation of states, and instead go with a key binding for each state (or console command?).
-		// When that's the case, it'll be easier to consolidate all the global state changes that each
-		// state needs for its functionality, view, etc... - Carver (8-4-20)
-		
-		if (mode == MODE_PLAY || mode == MODE_PLAY_FIRST_PERSON) {
-			mode = MODE_FREE_CAMERA;
-
-			world.camera.initializeForGrid();
-			addTextToBox("Mode: Free Camera", &eventTextBox);
-		} else if (mode == MODE_FREE_CAMERA) {
-			world.camera.initializeOverhead();
-
-			mode = MODE_LEVEL_EDIT;
-			addTextToBox("Mode: Level Edit", &eventTextBox);
-		} else if (mode == MODE_LEVEL_EDIT) {
-			world.camera.initializeForGrid();
-			
-			mode = MODE_PLAY;
-			addTextToBox("Mode: Play", &eventTextBox);
-		}
+	if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+		console.flipOut();
+		return;
 	}
-	c_prevState = c_currentState;
 
+	if (console.isOut) {
+		if (key == GLFW_KEY_BACKSPACE) {
+			console.removeCharacter();
+		}
+
+		if (key == GLFW_KEY_ENTER) {
+			console.submit();
+		}
+
+		return;
+	}
+	
+	control ctlFunc = getControlFunc();
+	if(ctlFunc) ctlFunc(action, key);
+}
+
+void processConsoleCommand(std::string command) {
+	if (command == "play") {
+		world.camera.initializeForGrid();
+
+		mode = MODE_PLAY;
+		addTextToBox("Mode: Play", &eventTextBox);
+	}
+
+	if (command == "freecam") {
+		mode = MODE_FREE_CAMERA;
+
+		world.camera.initializeForGrid();
+		addTextToBox("Mode: Free Camera", &eventTextBox);
+	}
+
+	if (command == "edit") {
+		world.camera.initializeOverhead();
+
+		mode = MODE_LEVEL_EDIT;
+		addTextToBox("Mode: Level Edit", &eventTextBox);
+	}
+}
+
+void processKeyboardInput(GLFWwindow *window) {
+	// NOTE: Using the callback for free camera movement is super choppy,
+	//		 Cause it's the only thing that involves holding down keys?
 	if (mode == MODE_FREE_CAMERA) {
 		const float cameraSpeed = 5.0f * deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			world.camera.moveForward(deltaTime);		
-		}
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			world.camera.moveBack(deltaTime);
-		}
-		// strafe movement
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			world.camera.moveLeft(deltaTime);
-		}
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			world.camera.moveRight(deltaTime);
-		}
-
-		int l_currentState = glfwGetKey(window, GLFW_KEY_L);
-		if (l_currentState == GLFW_PRESS && l_prevState == GLFW_RELEASE) {
-			wallModel.scale(1.1f);
-		}
-		l_prevState = l_currentState;
-
-		int m_currentState = glfwGetKey(window, GLFW_KEY_M);
-		if (m_currentState == GLFW_PRESS && m_prevState == GLFW_RELEASE) {
-			wallModel.scale(0.89f);
-		}
-		m_prevState = m_currentState;
-
-		int g_currentState = glfwGetKey(window, GLFW_KEY_G);
-		if (g_currentState == GLFW_PRESS && g_prevState == GLFW_RELEASE) {
-			guidingGrid = !guidingGrid;
-			addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &eventTextBox);
-		}
-		g_prevState = g_currentState;
-
-		int r_currentState = glfwGetKey(window, GLFW_KEY_R);
-		if (r_currentState == GLFW_PRESS && r_prevState == GLFW_RELEASE) {
-			// WARNING: Grid goes bye-bye when this happens.
-			regenerateMap();
-		}
-		r_prevState = r_currentState;
-
-		int o_currentState = glfwGetKey(window, GLFW_KEY_O);
-		if (o_currentState == GLFW_PRESS && o_prevState == GLFW_RELEASE) {
-			moveLight = !moveLight;
-			addTextToBox("Light Orbit: " + std::to_string(moveLight), &eventTextBox);
-		}
-		o_prevState = o_currentState;
-	}
-	else if (mode == MODE_PLAY || mode == MODE_PLAY_FIRST_PERSON) {
-		int one_currentState = glfwGetKey(window, GLFW_KEY_1);
-		if (one_currentState == GLFW_PRESS && one_prevState == GLFW_RELEASE) {
-			if (mode == MODE_PLAY_FIRST_PERSON) {
-				mode = MODE_PLAY;
-				addTextToBox("First Person Off", &eventTextBox);
-				world.camera.initializeForGrid();
-			}
-			else {
-				mode = MODE_PLAY_FIRST_PERSON;
-				addTextToBox("First Person On", &eventTextBox);
-				world.camera.initializeForPlayer();
-			}
-		}
-		one_prevState = one_currentState;
-
-		int w_currentState = glfwGetKey(window, GLFW_KEY_W);
-		if (w_currentState == GLFW_PRESS && w_prevState == GLFW_RELEASE) {
-			moveTheOther();
-			if (mode == MODE_PLAY_FIRST_PERSON) {
-				movePlayerForward();
-			} else { 
-				movePlayer(UP); 
-			}
-		}
-		w_prevState = w_currentState;
-
-		int a_currentState = glfwGetKey(window, GLFW_KEY_A);
-		if (a_currentState == GLFW_PRESS && a_prevState == GLFW_RELEASE) {
-			if (mode == MODE_PLAY_FIRST_PERSON) {
-				rotatePlayer(LEFT);
-			} else {
-				moveTheOther();
-				movePlayer(LEFT);
-			}
-		}
-		a_prevState = a_currentState;
-
-		int s_currentState = glfwGetKey(window, GLFW_KEY_S);
-		if (s_currentState == GLFW_PRESS && s_prevState == GLFW_RELEASE) {
-			moveTheOther();
-
-			if (mode == MODE_PLAY_FIRST_PERSON) {
-				movePlayerBackward();
-			} else {
-				movePlayer(DOWN);
-			}
-		}
-		s_prevState = s_currentState;
-
-		int d_currentState = glfwGetKey(window, GLFW_KEY_D);
-		if (d_currentState == GLFW_PRESS && d_prevState == GLFW_RELEASE) {
-			if (mode == MODE_PLAY_FIRST_PERSON) {
-				rotatePlayer(RIGHT);
-			} else {
-				moveTheOther();
-				movePlayer(RIGHT);
-			}	         
-		}
-		d_prevState = d_currentState;
-
-		int spacebar_currentState = glfwGetKey(window, GLFW_KEY_SPACE);
-		if (spacebar_currentState == GLFW_PRESS && spacebar_prevState == GLFW_RELEASE) {
-			moveTheOther();
-		}
-		spacebar_prevState = spacebar_currentState;
-
-		int enter_currentState = glfwGetKey(window, GLFW_KEY_ENTER);
-		if (enter_currentState == GLFW_PRESS && enter_prevState == GLFW_RELEASE) {
-			attack();
-		}
-		enter_prevState = enter_currentState;
-
-		int l_currentState = glfwGetKey(window, GLFW_KEY_L);
-		if (l_currentState == GLFW_PRESS && l_prevState == GLFW_RELEASE) {
-			if (world.theOther.actionState == ACTION_STATE_AVOIDANT) {
-				addTextToBox("AI Set To AVOIDANT", &eventTextBox);
-				world.theOther.actionState = ACTION_STATE_SEEKING;
-			}
-			else if (world.theOther.actionState == ACTION_STATE_SEEKING) {
-				addTextToBox("AI Set To SEEKING", &eventTextBox);
-				world.theOther.actionState = ACTION_STATE_AVOIDANT;
-			}
-		}
-		l_prevState = l_currentState;
-	}	
-	else if (mode == MODE_LEVEL_EDIT) {
-		const float cameraSpeed = 5.0f * deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			world.camera.moveForward(deltaTime);
 		}
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
 			world.camera.moveBack(deltaTime);

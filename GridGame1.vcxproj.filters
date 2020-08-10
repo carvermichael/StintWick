@@ -79,5 +79,8 @@
     <ClInclude Include="console.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="controls.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

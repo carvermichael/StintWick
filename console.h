@@ -92,7 +92,7 @@ struct Console {
 	UI_Rect inputRect;
 	std::string inputString;
 
-	bool consoleOut = false;
+	bool isOut = false;
 
 	// Edit Marker Stuffs
 	UI_Rect editMarkerRect;
@@ -111,13 +111,13 @@ struct Console {
 	float speed = 10.0f;
 
 	void flipOut() {
-		if (consoleOut) {
+		if (isOut) {
 			destination = (float)currentScreenHeight;
 		} else {
 			destination = (float)(currentScreenHeight - height);
 		}
 
-		consoleOut = !consoleOut;
+		isOut = !isOut;
 	}
 
 	void setup() {
@@ -149,6 +149,9 @@ struct Console {
 		if (inputString.empty()) return;
 
 		addTextToBox(inputString, &historyTextbox);
+		
+		processConsoleCommand(inputString);
+
 		inputString.clear();
 	}
 
@@ -179,7 +182,7 @@ struct Console {
 		//	editMarkerRect.draw();
 		//}
 
-		drawText(&ariel, inputString, 0.0f, location + 5.0f, 0.3f, glm::vec3(1.0f, 1.0f, 1.0f));
+		drawText(&ariel, inputString, 0.0f, location + 5.0f, 0.4f, glm::vec3(1.0f, 1.0f, 1.0f));
 
 		drawTextBox(&historyTextbox);
 	}
