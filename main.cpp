@@ -83,21 +83,54 @@ float lastCursorY = 300;
 bool firstMouse = true;
 bool freeCamera = false;
 
-Model background;
-Model theOtherModel;
+#define NUM_MODELS 7
 
-Model floorModel;
-Model lightCube;
+struct Models {
 
-Model wallModel;
-Model decorativeWallModel;
-Model wallCoverModel;
+	Models() {};
+	~Models() {};
 
-Material lightMat;
-Material playerMat;
-Material theOtherMat;
-Material floorMat;
-Material wallMat;
+	union {
+		Model mods[7];
+
+		struct {
+			Model player;
+			Model theOtherModel;
+
+			Model floorModel;
+			Model lightCube;
+
+			Model wallModel;
+			Model decorativeWallModel;
+			Model wallCoverModel;
+		};
+	};
+};
+
+Models models;
+
+#define NUM_MATS 6
+
+struct Materials {
+	
+	Materials() {};
+	~Materials() {};
+
+	union {
+		Material mats[NUM_MATS];
+
+		struct {
+			Material light;
+			Material emerald;
+			Material chrome;
+			Material silver;
+			Material gold;
+			Material blackRubber;
+		};
+	};
+};
+
+Materials materials;
 
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
@@ -130,6 +163,44 @@ void resetProjectionMatrices() {
 	
 	setUniformMat4(ariel.shaderProgramID, "projection", textProjection);
 	setUniformMat4(UIShaderProgramID, "projection", textProjection);
+}
+
+Material* getMaterial(std::string name) {
+	for (int i = 0; i < NUM_MATS; i++) {
+		if (materials.mats[i].name == name) {
+			return &materials.mats[i];
+		}
+	}
+
+	return NULL;
+}
+
+Model* getModel(std::string name) {
+	for (int i = 0; i < NUM_MODELS; i++) {
+		if (models.mods[i].name == name) {
+			return &models.mods[i];
+		}
+	}
+
+	return NULL;
+}
+
+void setMaterial(std::string modelName, std::string matName) {
+	Material *mat = getMaterial(matName);
+	Model *model = getModel(modelName);
+	bool fail = false;
+
+	if (mat == NULL) {
+		addTextToBox("Material not found: " + matName, &console.historyTextbox);
+		fail = true;
+	}
+	if (model == NULL) {
+		addTextToBox("Model not found: " + modelName, &console.historyTextbox);
+		fail = true;
+	}
+	if (fail) return;
+
+	model->meshes[0].material = mat;
 }
 
 void refreshView() {
@@ -387,31 +458,58 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if(ctlFunc) ctlFunc(action, key);
 }
 
+std::vector<std::string> splitString(std::string str, char delimiter) {
+	std::vector<std::string> returnStrings;
+
+	int count = 0;
+	for (int i = 0; i < str.size(); i++) {
+		if (str[i] == delimiter) {
+			returnStrings.push_back(std::string(str, i - count, count));
+			count = 0;
+		}
+		else {
+			count++;
+		}
+	}
+
+	returnStrings.push_back(std::string(str, str.size() - count, count));
+
+	return returnStrings;
+}
+
 void processConsoleCommand(std::string command) {
-	if (command == "play") {
+	std::vector<std::string> commandVector = splitString(command, ' ');
+	
+	if (commandVector[0] == "play") {
 		world.camera.initializeForGrid();
 
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
 	}
 
-	if (command == "freecam") {
+	if (commandVector[0] == "freecam") {
 		mode = MODE_FREE_CAMERA;
 
 		world.camera.initializeForGrid();
 		addTextToBox("Mode: Free Camera", &eventTextBox);
 	}
 
-	if (command == "edit") {
+	if (commandVector[0] == "edit") {
 		world.camera.initializeOverhead();
 
 		mode = MODE_LEVEL_EDIT;
 		addTextToBox("Mode: Level Edit", &eventTextBox);
 	}
 
-	if (command == "orbit") {
+	if (commandVector[0] == "orbit") {
 		lightOrbit = !lightOrbit;
 		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
+	}
+
+	if (commandVector[0] == "mat") {
+		if (commandVector.size() < 3) return;
+
+		setMaterial(commandVector[1], commandVector[2]);
 	}
 }
 
@@ -575,10 +673,11 @@ void createLightCube() {
 
 	lightMesh.setupVAO();
 	lightMesh.shaderProgramID = lightShaderProgramID;
-	lightMesh.material = &lightMat;
+	lightMesh.material = &materials.light;
 
-	lightCube.meshes.push_back(lightMesh);
-	lightCube.worldOffset = glm::vec3(-2.0f, -5.0f, 4.0f);
+	models.lightCube.name = std::string("light");
+	models.lightCube.meshes.push_back(lightMesh);
+	models.lightCube.worldOffset = glm::vec3(-2.0f, -5.0f, 4.0f);
 }
 
 void createGridFloorAndWallModels() {
@@ -616,17 +715,17 @@ void createGridFloorAndWallModels() {
 
 		// front
 		// 4, 3, 8, 7
-		0.0f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.5f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.0f, 0.5f,	0.0f, -1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
 
 		// back		
 		// 1, 2, 5, 6
-		0.0f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
+		0.0f, 0.5f, 0.5f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, 0.5f,	0.0f, 1.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f,
 	};
 
 	float wallVertices[] = {
@@ -660,17 +759,17 @@ void createGridFloorAndWallModels() {
 
 		// front
 		// 4, 3, 8, 7
-		0.0f, 0.0f, 1.0f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.0f, 1.0f,	0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 1.0f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.0f, 1.0f,	0.0f, -1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
+		0.5f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
 
 		// back		
 		// 1, 2, 5, 6
-		0.0f, 0.5f, 1.0f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.5f, 1.0f,	0.0f, -1.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f	
+		0.0f, 0.5f, 1.0f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, 1.0f,	0.0f, 1.0f, 0.0f,
+		0.0f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f	
 	};
 
 	unsigned int indices[] = {
@@ -714,14 +813,17 @@ void createGridFloorAndWallModels() {
 	
 	floorMesh.setupVAO();
 	floorMesh.shaderProgramID = regularShaderProgramID;
-	floorMesh.material = &floorMat;
+	floorMesh.material = &materials.silver;
 
 	wallMesh.setupVAO();
 	wallMesh.shaderProgramID = regularShaderProgramID;
-	wallMesh.material = &wallMat;
+	wallMesh.material = &materials.chrome;
 
-	floorModel.meshes.push_back(floorMesh);
-	wallModel.meshes.push_back(wallMesh);
+	models.floorModel.name = std::string("floor");
+	models.floorModel.meshes.push_back(floorMesh);
+
+	models.wallModel.name = std::string("wall");
+	models.wallModel.meshes.push_back(wallMesh);
 }
 
 void createPlayerAndTheOtherModels() {
@@ -759,17 +861,17 @@ void createPlayerAndTheOtherModels() {
 
 		// front
 		// 4, 3, 8, 7
-		0.0f, 0.0f, 0.25f,	0.0f, 1.0f, 0.0f, // 16
-		0.5f, 0.0f, 0.25f,	0.0f, 1.0f, 0.0f, // 17
-		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f, // 18
-		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f, // 19
+		0.0f, 0.0f, 0.25f,	0.0f, -1.0f, 0.0f, // 16
+		0.5f, 0.0f, 0.25f,	0.0f, -1.0f, 0.0f, // 17
+		0.0f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f, // 18
+		0.5f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f, // 19
 
 		// back		
 		// 1, 2, 5, 6
-		0.0f, 0.5f, 0.25f,	0.0f, -1.0f, 0.0f, // 20
-		0.5f, 0.5f, 0.25f,	0.0f, -1.0f, 0.0f, // 21
-		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f, // 22
-		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f, // 23
+		0.0f, 0.5f, 0.25f,	0.0f, 1.0f, 0.0f, // 20
+		0.5f, 0.5f, 0.25f,	0.0f, 1.0f, 0.0f, // 21
+		0.0f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f, // 22
+		0.5f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f, // 23
 	};
 
 	unsigned int indices[] = {
@@ -811,9 +913,10 @@ void createPlayerAndTheOtherModels() {
 
 	playerMesh.setupVAO();
 	playerMesh.shaderProgramID = regularShaderProgramID;
-	playerMesh.material = &playerMat;
+	playerMesh.material = &materials.gold;
 
-	background.meshes.push_back(playerMesh);
+	models.player.name = std::string("player");
+	models.player.meshes.push_back(playerMesh);
 
 	for (int i = 0; i < sizeof(playerVertices) / sizeof(float); i++) {
 		theOtherMesh.vertices.push_back(playerVertices[i]);
@@ -825,9 +928,10 @@ void createPlayerAndTheOtherModels() {
 
 	theOtherMesh.setupVAO();
 	theOtherMesh.shaderProgramID = regularShaderProgramID;
-	theOtherMesh.material = &theOtherMat;
+	theOtherMesh.material = &materials.chrome;
 
-	theOtherModel.meshes.push_back(theOtherMesh);
+	models.theOtherModel.name = std::string("theOther");
+	models.theOtherModel.meshes.push_back(theOtherMesh);
 }
 
 void drawGrid() {
@@ -841,11 +945,11 @@ void drawGrid() {
 			glm::vec3 offset = glm::vec3(xOffset, yOffset, zOffset);
 
 			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
-				wallModel.worldOffset = offset;
-				wallModel.draw();
+				models.wallModel.worldOffset = offset;
+				models.wallModel.draw();
 			} else {
-				floorModel.worldOffset = offset;
-				floorModel.draw();
+				models.floorModel.worldOffset = offset;
+				models.floorModel.draw();
 			}
 		}
 	}
@@ -862,8 +966,8 @@ glm::vec3 getPlayerModelCoords() {
 }
 
 void drawPlayer() {
-	background.worldOffset = getPlayerModelCoords();
-	background.draw();
+	models.player.worldOffset = getPlayerModelCoords();
+	models.player.draw();
 }
 
 void drawTheOther() {
@@ -873,8 +977,8 @@ void drawTheOther() {
 	float yOffset = -0.5f * world.theOther.gridCoordY;
 	float xOffset = 0.5f * world.theOther.gridCoordX;
 
-	theOtherModel.worldOffset = glm::vec3(xOffset, yOffset, zOffset);
-	theOtherModel.draw();
+	models.theOtherModel.worldOffset = glm::vec3(xOffset, yOffset, zOffset);
+	models.theOtherModel.draw();
 }
 
 void moveLightAroundOrbit(float deltaTime) {
@@ -893,8 +997,8 @@ void moveLightAroundOrbit(float deltaTime) {
 
 	world.light.pos.x = newX;
 	world.light.pos.y = newY;
-	lightCube.worldOffset.x = newX;
-	lightCube.worldOffset.y = newY;
+	models.lightCube.worldOffset.x = newX;
+	models.lightCube.worldOffset.y = newY;
 
 	world.light.currentDegrees = newDegrees;
 }
@@ -978,37 +1082,38 @@ void doAGuidingGridThing() {
 }
 
 void initMaterials() {
+	// pulled from http://devernay.free.fr/cours/opengl/materials.html
+	materials.emerald = Material("emerald", glm::vec3(0.0215f, 0.1745f, 0.0215f),
+		glm::vec3(0.07568f, 0.61424f, 0.07568f),
+		glm::vec3(0.633f, 0.727811f, 0.633f),
+		0.6f);
+
+	materials.chrome = Material("chrome", glm::vec3(0.25f, 0.25f, 0.25f),
+		glm::vec3(0.4f, 0.4f, 0.4f),
+		glm::vec3(0.774597f, 0.774597f, 0.774597f),
+		0.6f);
+
+	materials.silver = Material("silver", glm::vec3(0.19225, 0.19225, 0.19225),
+		glm::vec3(0.50754, 0.50754, 0.50754),
+		glm::vec3(0.508273, 0.508273, 0.508273),
+		0.4f);
+
+	materials.gold = Material("gold", glm::vec3(0.24725, 0.1995, 0.0745),
+		glm::vec3(0.75164, 0.60648, 0.22648),
+		glm::vec3(0.628281, 0.555802, 0.366065),
+		0.4f);
+
+	materials.blackRubber = Material("blackRubber", glm::vec3(0.02, 0.02, 0.02),
+		glm::vec3(0.01, 0.01, 0.01),
+		glm::vec3(0.4, 0.4, 0.4),
+		.078125f);
+
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
-	
-	lightMat.diffuse = white;
-	lightMat.ambient = white;
-	lightMat.specular = white;
-	lightMat.shininess = 1.0f;
-
-	glm::vec3 floorColor = glm::vec3(0.4f, 1.0f, 1.0f);
-	
-	floorMat.ambient = floorColor;
-	floorMat.diffuse = floorColor;
-	floorMat.specular = floorColor;
-	floorMat.shininess = 32.0f;
-
-	glm::vec3 wallColor = glm::vec3(1.0f, 0.5f, 0.5f);
-	wallMat.ambient = wallColor;
-	wallMat.diffuse = wallColor;
-	wallMat.specular = wallColor;
-	wallMat.shininess = 20.0f;
-
-	glm::vec3 playerColor = glm::vec3(0.0f, 0.52f, 0.9f);
-	playerMat.ambient = playerColor;
-	playerMat.diffuse = playerColor;
-	playerMat.specular = playerColor;
-	playerMat.shininess = 0.5f;
-
-	glm::vec3 theOtherColor = glm::vec3(1.0f, 1.00f, 0.5f);
-	theOtherMat.ambient = theOtherColor;
-	theOtherMat.diffuse = theOtherColor;
-	theOtherMat.specular = theOtherColor;
-	theOtherMat.shininess = 0.2f;
+	materials.light.name = "whiteLight";
+	materials.light.diffuse = white;
+	materials.light.ambient = white;
+	materials.light.specular = white;
+	materials.light.shininess = 1.0f;
 }
 
 int main() {
@@ -1054,6 +1159,7 @@ int main() {
 	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
 	createLightCube();
+	world.light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
 	
 	createGridFloorAndWallModels();
 	createPlayerAndTheOtherModels();
@@ -1118,7 +1224,7 @@ int main() {
 		if(guidingGrid)	doAGuidingGridThing();
 		if(lightOrbit) moveLightAroundOrbit(deltaTime);
 		
-		lightCube.draw();
+		models.lightCube.draw();
 		drawGrid();
 		if(mode != MODE_PLAY_FIRST_PERSON) drawPlayer();
 		drawTheOther();

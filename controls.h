@@ -2,8 +2,9 @@
 
 typedef void (*control)(int action, int key);
 
-// NOTE: The check for GLFW_RELEASE probably relies on Windows repeat logic, probably don't want to rely on that 
-//		 long-term				-carver (8-10-20)
+// NOTE: The check for GLFW_RELEASE relies on Windows repeat logic,
+//		 probably don't want to rely on that long-term.		
+//									-carver (8-10-20)
 
 void control_play(int action, int key) {
 	if (action == GLFW_RELEASE) return;
@@ -86,11 +87,11 @@ void control_freeCam(int action, int key) {
 	if (action == GLFW_RELEASE) return;
 
 	if (key == GLFW_KEY_L) {
-		wallModel.scale(1.1f);
+		models.wallModel.scale(1.1f);
 	}
 	
 	if (key == GLFW_KEY_M) {
-		wallModel.scale(0.89f);
+		models.wallModel.scale(0.89f);
 	}
 
 	if (key == GLFW_KEY_G) {

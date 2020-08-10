@@ -32,12 +32,23 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::
 }
 
 struct Material {
+	std::string name;
 
 	glm::vec3 ambient;
 	glm::vec3 diffuse;
 	glm::vec3 specular;
 	float shininess;
 
+	Material() {};
+
+	Material(std::string name, glm::vec3 ambient, glm::vec3(diffuse), glm::vec3 specular, float shininess) {
+		this->name = name;
+		
+		this->ambient = ambient;
+		this->diffuse = diffuse;
+		this->specular = specular;
+		this->shininess = shininess;
+	}
 };
 
 struct Mesh {
@@ -126,6 +137,7 @@ struct Mesh {
 };
 
 struct Model {
+	std::string name;
 
 	std::vector<Mesh> meshes;
 

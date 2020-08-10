@@ -27,7 +27,7 @@ void main()
 
 	// diffuse lighting
 	vec3 norm = normalize(normal);
-	float diff = max(dot(norm, -lightDir), 0.0);
+	float diff = max(dot(norm, lightDir), 0.0);
 	vec3 diffuseResult = lightDiffuse * diff * materialDiffuse;
 	
 	// specular lighting
@@ -38,7 +38,6 @@ void main()
 
 	specularResult *= 0.2f; // attenuation stand-in
 
-	// putting 'em all together
 	vec3 result = (ambientResult + diffuseResult + specularResult);
 	fragColorOut = vec4(result, 1.0f);
 };
