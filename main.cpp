@@ -1042,7 +1042,7 @@ int main() {
 	unsigned int UIProjectionLoc = glGetUniformLocation(UIShaderProgramID, "projection");
 	glUniformMatrix4fv(UIProjectionLoc, 1, GL_FALSE, glm::value_ptr(UIProjection));
 
-	// initializing viewport and setting callback for window resizing
+	// initializing viewport and setting callbacks
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouseInputCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
@@ -1089,11 +1089,6 @@ int main() {
 	eventTextBox.font = &ariel;
 	console.historyTextbox.font = &ariel;
 
-	addTextToBox("butt1", &console.historyTextbox);
-	addTextToBox("butt2", &console.historyTextbox);
-	addTextToBox("butt3", &console.historyTextbox);
-	addTextToBox("butt4", &console.historyTextbox);
-
 	// need alpha blending for text transparency
 	glEnable(GL_DEPTH_TEST);
 	
@@ -1117,6 +1112,8 @@ int main() {
 		glUseProgram(regularShaderProgramID);
 		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
 		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
+		//			IDEA: create union with all shaders, then can reference by name, but also iterate through in cases like this
+		//					and projection matrix setting -- similar thing for fonts? models?
 		glm::mat4 view;
 		if (mode == MODE_PLAY_FIRST_PERSON) {
 			view = world.camera.generateFirstPersonView(world.player.directionFacing);

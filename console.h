@@ -103,7 +103,7 @@ struct Console {
 	float markerStartLocation = 4.0f;
 	float markerLocation = markerStartLocation;
 
-	float height = 200.0f;
+	float height = 100.0f;
 	float width = (float)currentScreenWidth;
 
 	float location = (float)currentScreenHeight;
