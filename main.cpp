@@ -48,8 +48,11 @@ glm::vec3 getPlayerModelCoords();
 struct Light {
 
 	glm::vec3 pos;
+
+	// TODO: maybe make a material???
 	glm::vec3 ambient;
 	glm::vec3 diffuse;
+	glm::vec3 specular;
 
 	float currentDegrees = 0;
 
@@ -93,6 +96,12 @@ Model wallModel;
 Model decorativeWallModel;
 Model wallCoverModel;
 
+Material lightMat;
+Material playerMat;
+Material theOtherMat;
+Material floorMat;
+Material wallMat;
+
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
 unsigned int UIShaderProgramID;
@@ -101,7 +110,7 @@ Font ariel;
 
 glm::mat4 projection;
 
-bool moveLight = false;
+bool lightOrbit = false;
 bool guidingGrid = false;
 
 void moveLightAroundOrbit(float deltaTime);
@@ -114,26 +123,34 @@ Console console;
 void resetProjectionMatrices() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
-	glUseProgram(regularShaderProgramID);
-	unsigned int projectionLoc = glGetUniformLocation(regularShaderProgramID, "projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-	glUseProgram(lightShaderProgramID);
-	unsigned int lightProjectionLoc = glGetUniformLocation(lightShaderProgramID, "projection");
-	glUniformMatrix4fv(lightProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+	setUniformMat4(regularShaderProgramID, "projection", projection);
+	setUniformMat4(lightShaderProgramID, "projection", projection);
 
 	// TODO: This is only going to get weirder when you have more fonts/shader floating around. Maybe wrap all the shaders in an 
 	//		 object, then hold a list of references to them. That way you can just flip through them on updates like this.
 	//														- carver (8-5-20)
-	glUseProgram(ariel.shaderProgramID);
 	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
-	unsigned int textProjectionLoc = glGetUniformLocation(ariel.shaderProgramID, "projection");
-	glUniformMatrix4fv(textProjectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
+	
+	setUniformMat4(ariel.shaderProgramID, "projection", textProjection);
+	setUniformMat4(UIShaderProgramID, "projection", textProjection);
+}
 
-	glUseProgram(UIShaderProgramID);
-	textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
-	unsigned int UIProjectionLoc = glGetUniformLocation(UIShaderProgramID, "projection");
-	glUniformMatrix4fv(UIProjectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
+void refreshView() {
+	// TODO: create union with all shaders, then can reference by name, but also iterate through in cases like this
+	//					and projection matrix setting -- similar thing for fonts? models? materials?
+	glm::mat4 view;
+	if (mode == MODE_PLAY_FIRST_PERSON) {
+		view = world.camera.generateFirstPersonView(world.player.directionFacing);
+	}
+	else {
+		view = world.camera.generateView();
+	}
+
+	setUniformMat4(regularShaderProgramID, "view", view);
+	setUniformMat4(lightShaderProgramID, "view", view);
+
+	setUniform3f(regularShaderProgramID, "viewPos", world.camera.position);
+	setUniform3f(lightShaderProgramID, "viewPos", world.camera.position);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -394,6 +411,11 @@ void processConsoleCommand(std::string command) {
 		mode = MODE_LEVEL_EDIT;
 		addTextToBox("Mode: Level Edit", &eventTextBox);
 	}
+
+	if (command == "orbit") {
+		lightOrbit = !lightOrbit;
+		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
+	}
 }
 
 void processKeyboardInput(GLFWwindow *window) {
@@ -556,10 +578,7 @@ void createLightCube() {
 
 	lightMesh.setupVAO();
 	lightMesh.shaderProgramID = lightShaderProgramID;
-	glm::vec3 color1 = glm::vec3(1.0f, 1.0f, 1.0f);
-	lightMesh.material.diffuse.x = color1.x;
-	lightMesh.material.diffuse.y = color1.y;
-	lightMesh.material.diffuse.z = color1.z;	
+	lightMesh.material = &lightMat;
 
 	lightCube.meshes.push_back(lightMesh);
 	lightCube.worldOffset = glm::vec3(-2.0f, -5.0f, 4.0f);
@@ -698,23 +717,11 @@ void createGridFloorAndWallModels() {
 	
 	floorMesh.setupVAO();
 	floorMesh.shaderProgramID = regularShaderProgramID;
-	glm::vec3 color1 = glm::vec3(0.4f, 1.0f, 1.0f);
-	floorMesh.material.diffuse.x = color1.x;
-	floorMesh.material.diffuse.y = color1.y;
-	floorMesh.material.diffuse.z = color1.z;
-	floorMesh.material.ambient.x = color1.x;
-	floorMesh.material.ambient.y = color1.y;
-	floorMesh.material.ambient.z = color1.z;
+	floorMesh.material = &floorMat;
 
 	wallMesh.setupVAO();
 	wallMesh.shaderProgramID = regularShaderProgramID;
-	glm::vec3 color2 = glm::vec3(1.0f, 0.5f, 0.5f);
-	wallMesh.material.diffuse.x = color2.x;
-	wallMesh.material.diffuse.y = color2.y;
-	wallMesh.material.diffuse.z = color2.z;
-	wallMesh.material.ambient.x = color2.x;
-	wallMesh.material.ambient.y = color2.y;
-	wallMesh.material.ambient.z = color2.z;
+	wallMesh.material = &wallMat;
 
 	floorModel.meshes.push_back(floorMesh);
 	wallModel.meshes.push_back(wallMesh);
@@ -807,13 +814,7 @@ void createPlayerAndTheOtherModels() {
 
 	playerMesh.setupVAO();
 	playerMesh.shaderProgramID = regularShaderProgramID;
-	glm::vec3 color = glm::vec3(0.0f, 0.52f, 0.9f);
-	playerMesh.material.diffuse.r = color.x;
-	playerMesh.material.diffuse.g = color.y;
-	playerMesh.material.diffuse.b = color.z;
-	playerMesh.material.ambient.r = color.x;
-	playerMesh.material.ambient.g = color.y;
-	playerMesh.material.ambient.b = color.z;
+	playerMesh.material = &playerMat;
 
 	background.meshes.push_back(playerMesh);
 
@@ -827,14 +828,7 @@ void createPlayerAndTheOtherModels() {
 
 	theOtherMesh.setupVAO();
 	theOtherMesh.shaderProgramID = regularShaderProgramID;
-	glm::vec3 color2 = glm::vec3(1.0f, 1.00f, 0.5f); 
-	theOtherMesh.material.diffuse.r = color2.x;
-	theOtherMesh.material.diffuse.g = color2.y;
-	theOtherMesh.material.diffuse.b = color2.z;
-	theOtherMesh.material.ambient.r = color2.x;
-	theOtherMesh.material.ambient.g = color2.y;
-	theOtherMesh.material.ambient.b = color2.z;
-
+	theOtherMesh.material = &theOtherMat;
 
 	theOtherModel.meshes.push_back(theOtherMesh);
 }
@@ -906,14 +900,6 @@ void moveLightAroundOrbit(float deltaTime) {
 	lightCube.worldOffset.y = newY;
 
 	world.light.currentDegrees = newDegrees;
-}
-
-// TODO
-void drawCameraStats() {
-
-	
-	//drawText(textShaderProgramID, "butts", 200, 600, 1.9f, glm::vec3(1.0f, 1.0f, 1.0f));
-
 }
 
 // GRID LINES
@@ -994,6 +980,40 @@ void doAGuidingGridThing() {
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
 
+void initMaterials() {
+	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
+	
+	lightMat.diffuse = white;
+	lightMat.ambient = white;
+	lightMat.specular = white;
+	lightMat.shininess = 1.0f;
+
+	glm::vec3 floorColor = glm::vec3(0.4f, 1.0f, 1.0f);
+	
+	floorMat.ambient = floorColor;
+	floorMat.diffuse = floorColor;
+	floorMat.specular = floorColor;
+	floorMat.shininess = 32.0f;
+
+	glm::vec3 wallColor = glm::vec3(1.0f, 0.5f, 0.5f);
+	wallMat.ambient = wallColor;
+	wallMat.diffuse = wallColor;
+	wallMat.specular = wallColor;
+	wallMat.shininess = 20.0f;
+
+	glm::vec3 playerColor = glm::vec3(0.0f, 0.52f, 0.9f);
+	playerMat.ambient = playerColor;
+	playerMat.diffuse = playerColor;
+	playerMat.specular = playerColor;
+	playerMat.shininess = 0.5f;
+
+	glm::vec3 theOtherColor = glm::vec3(1.0f, 1.00f, 0.5f);
+	theOtherMat.ambient = theOtherColor;
+	theOtherMat.diffuse = theOtherColor;
+	theOtherMat.specular = theOtherColor;
+	theOtherMat.shininess = 0.2f;
+}
+
 int main() {
 	// ------------ INIT STUFF -------------
 
@@ -1056,6 +1076,7 @@ int main() {
 	world.light.pos = glm::vec3(0.0f);
 	world.light.ambient = glm::vec3(1.0f);
 	world.light.diffuse = glm::vec3(1.0f);
+	world.light.specular = glm::vec3(1.0f);
 	
 	createGridFloorAndWallModels();
 	createPlayerAndTheOtherModels();
@@ -1100,6 +1121,7 @@ int main() {
 	guidingGridSetup();
 
 	console.setup();
+	initMaterials();
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
@@ -1109,26 +1131,7 @@ int main() {
 
 		if (mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
 		
-		glUseProgram(regularShaderProgramID);
-		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
-		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
-		//			IDEA: create union with all shaders, then can reference by name, but also iterate through in cases like this
-		//					and projection matrix setting -- similar thing for fonts? models?
-		glm::mat4 view;
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			view = world.camera.generateFirstPersonView(world.player.directionFacing);
-		}
-		else {
-			view = world.camera.generateView();
-		}
-		viewLoc = glGetUniformLocation(regularShaderProgramID, "view");
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
-		glUseProgram(lightShaderProgramID);
-		// TODO: This needs to be done somewhere else. This will break when there's more than one shader for world objects.
-		//		 Per each draw invocation? Or when the view changes, put it in all the shaders? ehhh...
-		lightViewLoc = glGetUniformLocation(lightShaderProgramID, "view");
-		glUniformMatrix4fv(lightViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+		refreshView();
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1136,7 +1139,7 @@ int main() {
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	doAGuidingGridThing();
-		if(moveLight) moveLightAroundOrbit(deltaTime);
+		if(lightOrbit) moveLightAroundOrbit(deltaTime);
 		
 		lightCube.draw();
 		drawGrid();
@@ -1147,7 +1150,6 @@ int main() {
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		console.draw(deltaTime);
 		drawTextBox(&eventTextBox);
-		//drawCameraStats();
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;

@@ -13,11 +13,30 @@
 #include "constants.h"
 #include "worldState.h"
 
+void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform1f(location, value);
+}
+
+void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform3f(location, vec3.x, vec3.y, vec3.z);
+}
+
+void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat4));
+}
+
 struct Material {
 
 	glm::vec3 ambient;
 	glm::vec3 diffuse;
 	glm::vec3 specular;
+	float shininess;
 
 };
 
@@ -30,7 +49,7 @@ struct Mesh {
 
 	float scaleFactor;
 
-	Material material;
+	Material *material;
 
 	unsigned int VAO_ID;
 	unsigned int verticesVBO_ID;
@@ -41,51 +60,23 @@ struct Mesh {
 
 	Mesh() {};
 
-	void setUniform3f(unsigned int shaderProgramID, char *uniformName, glm::vec3 vec3) {
-		unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-		glUniform3f(location, vec3.x, vec3.y, vec3.z);
-	}
-
-	void setUniformMat4(unsigned int shaderProgramID, char *uniformName, glm::mat4 mat4) {
-		unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-		glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat4));
-	}
-
 	void draw(glm::vec3 worldOffset, int directionFacing) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 
-		unsigned int modelLoc = glGetUniformLocation(shaderProgramID, "model");
 		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), worldOffset);
 		
-		//current_model = glm::rotate(current_model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		setUniformMat4(shaderProgramID, "model", current_model);
 		
-		if (directionFacing == LEFT) {
-			current_model = glm::rotate(current_model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		}
-		else if (directionFacing == RIGHT) {
-			current_model = glm::rotate(current_model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		}
-		else if (directionFacing == UP) {
-			current_model = glm::rotate(current_model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		}
+		setUniform3f(shaderProgramID, "materialAmbient", material->ambient);
+		setUniform3f(shaderProgramID, "materialDiffuse", material->diffuse);
+		setUniform3f(shaderProgramID, "materialSpecular", material->specular);
+		setUniform1f(shaderProgramID, "materialShininess", material->shininess);
 
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
-
-		unsigned int objectAmbientLoc = glGetUniformLocation(shaderProgramID, "objectAmbient");
-		glUniform3f(objectAmbientLoc, material.ambient.x, material.ambient.y, material.ambient.z);
-		
-		unsigned int objectDiffuseLoc = glGetUniformLocation(shaderProgramID, "objectDiffuse");
-		glUniform3f(objectDiffuseLoc, material.diffuse.x, material.diffuse.y, material.diffuse.z);
-
-		unsigned int lightPosLoc = glGetUniformLocation(shaderProgramID, "lightPos");
-		glUniform3f(lightPosLoc, world.light.pos.x, world.light.pos.y, world.light.pos.z);
-		
-		unsigned int lightAmbientLoc = glGetUniformLocation(shaderProgramID, "lightAmbient");
-		glUniform3f(lightAmbientLoc, world.light.ambient.x, world.light.ambient.y, world.light.ambient.z);
-		
-		unsigned int lightDiffuseLoc = glGetUniformLocation(shaderProgramID, "lightDiffuse");
-		glUniform3f(lightDiffuseLoc, world.light.diffuse.x, world.light.diffuse.y, world.light.diffuse.z);
+		setUniform3f(shaderProgramID, "lightPos", world.light.pos);
+		setUniform3f(shaderProgramID, "lightAmbient", world.light.ambient);
+		setUniform3f(shaderProgramID, "lightDiffuse", world.light.diffuse);
+		setUniform3f(shaderProgramID, "lightSpecular", world.light.specular);
 
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	}
@@ -137,35 +128,12 @@ struct Mesh {
 struct Model {
 
 	std::vector<Mesh> meshes;
-	//std::string directory;
 
 	int directionFacing = DOWN;
 
 	glm::vec3 worldOffset;
 
 	Model() {}
-
-	/*
-	Model(std::string path, unsigned int shaderProgramID, float scale)
-	{
-		Assimp::Importer import;
-		const aiScene *scene = import.ReadFile(path, aiProcess_EmbedTextures | aiProcess_Triangulate | aiProcess_FlipUVs);
-
-		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-		{
-			std::cout << "ERROR::ASSIMP::" << import.GetErrorString() << std::endl;
-			return;
-		}
-		//directory = path.substr(0, path.find_last_of('/'));
-
-		for (unsigned int i = 0; i < scene->mNumMeshes; i++) {
-			aiMesh *inputMesh = scene->mMeshes[i];
-
-			Mesh mesh(inputMesh, scene, shaderProgramID, scale);
-			this->meshes.push_back(mesh);
-		}
-	}
-	*/
 
 	void draw() {
 		for (int i = 0; i < meshes.size(); i++) {

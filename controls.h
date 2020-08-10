@@ -101,8 +101,8 @@ void control_freeCam(int action, int key) {
 	}
 	
 	if (key == GLFW_KEY_O) {
-		moveLight = !moveLight;
-		addTextToBox("Light Orbit: " + std::to_string(moveLight), &eventTextBox);
+		lightOrbit = !lightOrbit;
+		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
 	}
 }
 
