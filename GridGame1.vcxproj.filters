@@ -24,6 +24,9 @@
     <ClCompile Include="camera.h">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="console.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.frag">
@@ -36,6 +39,18 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="textFragmentShader.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="lightVertexShader.vert">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="lightFragmentShader.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="UIVertexShader.vert">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="UIFragmentShader.frag">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>
@@ -59,6 +74,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="textBox.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="console.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="controls.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -18,10 +18,15 @@ struct Camera {
 	float yaw = -90.0f;
 	float pitch = 45.0f;
 
-	void initialize() {
-		//speed = 100.0f;
-		
-		position = glm::vec3(0.0f, 0.0f, 3.0f);
+	void initializeOverhead() {
+		// speed = 100.0f;
+		yaw = -90.0f;
+		pitch = 0.0f;
+
+		float midGridX = 0.5f * (GRID_MAP_SIZE_X / 2);
+		float midGridY = -0.5f * (GRID_MAP_SIZE_Y / 2);
+
+		position = glm::vec3(midGridX, midGridY, 20.0f);
 
 		up = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -35,6 +40,9 @@ struct Camera {
 	}
 
 	void initializeForGrid() {
+		yaw = -90.0f;
+		pitch = 45.0f;
+
 		float midGridX = 0.5f * (GRID_MAP_SIZE_X / 2);
 		float bottomGridY = -0.5f * (GRID_MAP_SIZE_Y * 2);
 
@@ -51,12 +59,47 @@ struct Camera {
 		up = glm::normalize(glm::cross(direction, cameraRight));
 	}
 
+	void initializeForPlayer() {
+		yaw = 0.0f;
+		pitch = 0.0f;
+
+		up = glm::vec3(0.0f, 0.0f, 1.0f);
+
+		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+		direction.y = sin(glm::radians(pitch));
+		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+
+		glm::vec3 cameraRight = glm::normalize(glm::cross(up, direction));
+
+		up = glm::normalize(glm::cross(direction, cameraRight));
+	}
+
 	glm::mat4 generateView() {
 		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 		direction.y = sin(glm::radians(pitch));
 		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
 		front = glm::normalize(direction);
 
+		glm::mat4 view = glm::lookAt(position, position + front, up);
+		return view;
+	}
+
+	glm::mat4 generateFirstPersonView(int directionFacing) {
+		switch (directionFacing) {
+			case UP:
+				front = glm::vec3(0.0f, 1.0f, 0.0f);
+				break;
+			case DOWN:
+				front = glm::vec3(0.0f, -1.0f, 0.0f);
+				break;
+			case LEFT:
+				front = glm::vec3(-1.0f, 0.0f, 0.0f);
+				break;
+			case RIGHT:
+				front = glm::vec3(1.0f, 0.0f, 0.0f);
+				break;
+		};
+		
 		glm::mat4 view = glm::lookAt(position, position + front, up);
 		return view;
 	}

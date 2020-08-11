@@ -16,7 +16,7 @@ struct Character {
 	int gridCoordX;
 	int gridCoordY;
 
-	Model *model;
+	//Model *model;
 
 	int directionFacing;
 	int actionState;
@@ -33,9 +33,13 @@ struct WorldState {
 
 	Camera camera;
 
+	Light light;
+
 	Character player;
 	Character theOther;
 };
+
+WorldState world;
 
 #define WORLDSTATE
 #endif

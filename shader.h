@@ -63,8 +63,10 @@ unsigned int initializeFragmentShader(const char *fileName) {
 	return fragmentShaderID;
 }
 
-// TODO: just take in the file names here, then call the shader compilation steps as part of this
-unsigned int createShaderProgram(int vertexShaderID, int fragmentShaderID) {
+unsigned int createShaderProgram(const char* vertexShaderFileName, const char* fragmentShaderFileName) {
+	unsigned int vertexShaderID = initializeVertexShader(vertexShaderFileName);
+	unsigned int fragmentShaderID = initializeFragmentShader(fragmentShaderFileName);
+	
 	unsigned int shaderProgramID = glCreateProgram();
 
 	glAttachShader(shaderProgramID, vertexShaderID);

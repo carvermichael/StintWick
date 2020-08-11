@@ -7,11 +7,13 @@ struct TextCharacter {
 	unsigned int advance;
 };
 
-std::map<char, TextCharacter> textCharacters;
-unsigned int textVAOID, textVBOID;
-unsigned int textShaderProgramID;
+struct Font {
+	std::map<char, TextCharacter> textCharacters;
+	unsigned int VAO_ID, VBO_ID;
+	unsigned int shaderProgramID;
+};
 
-void initializeTextBox() {
+void initializeFont(const char *fontFileName, Font *font) {
 	// TEXT RENDERING
 	FT_Library ft;
 	if (FT_Init_FreeType(&ft)) {
@@ -19,7 +21,7 @@ void initializeTextBox() {
 	}
 
 	FT_Face face;
-	if (FT_New_Face(ft, "arial.ttf", 0, &face)) {
+	if (FT_New_Face(ft, fontFileName, 0, &face)) {
 		std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
 	}
 
@@ -62,22 +64,20 @@ void initializeTextBox() {
 			face->glyph->advance.x
 		};
 
-		textCharacters.insert(std::pair<char, TextCharacter>(c, textCharacter));
+		font->textCharacters.insert(std::pair<char, TextCharacter>(c, textCharacter));
 	}
 
 	FT_Done_Face(face);
 	FT_Done_FreeType(ft);
 
 	// TEXT SHADER PROGRAM
-	unsigned int textVertexShaderID = initializeVertexShader("textVertexShader.vert");
-	unsigned int textFragShaderID = initializeFragmentShader("textFragmentShader.frag");
-	textShaderProgramID = createShaderProgram(textVertexShaderID, textFragShaderID);
+	font->shaderProgramID = createShaderProgram("textVertexShader.vert", "textFragmentShader.frag");
 
 	// reserving data for text on gpu
-	glGenVertexArrays(1, &textVAOID);
-	glGenBuffers(1, &textVBOID);
-	glBindVertexArray(textVAOID);
-	glBindBuffer(GL_ARRAY_BUFFER, textVBOID);
+	glGenVertexArrays(1, &font->VAO_ID);
+	glGenBuffers(1, &font->VBO_ID);
+	glBindVertexArray(font->VAO_ID);
+	glBindBuffer(GL_ARRAY_BUFFER, font->VBO_ID);
 
 	/*
 		Note the NULL:
@@ -94,22 +94,23 @@ void initializeTextBox() {
 	glBindVertexArray(0);
 }
 
-void drawText(unsigned int shaderProgramID, std::string text, float x, float y, float scale, glm::vec3 color) {
+void drawText(Font *font, std::string text, float x, float y, float scale, glm::vec3 color) {
 
-	glUseProgram(shaderProgramID);
-	unsigned int textColorLoc = glGetUniformLocation(shaderProgramID, "textColor");
+	glUseProgram(font->shaderProgramID);
+	unsigned int textColorLoc = glGetUniformLocation(font->shaderProgramID, "textColor");
 	glUniform3f(textColorLoc, color.x, color.y, color.z);
 
-	glm::mat4 textProjection = glm::ortho(0.0f, (float)SCREEN_WIDTH, 0.0f, (float)SCREEN_HEIGHT);
-	unsigned int projectionLoc = glGetUniformLocation(shaderProgramID, "projection");
+	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
+	unsigned int projectionLoc = glGetUniformLocation(font->shaderProgramID, "projection");
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
 
+	// TODO: DON'T FORGET TO WORK OUT THE TEXTURE INFO HERE TOO -- can't just use texture 0 for all fonts
 	glActiveTexture(GL_TEXTURE0);
-	glBindVertexArray(textVAOID);
+	glBindVertexArray(font->VAO_ID);
 
 	std::string::const_iterator c;
 	for (c = text.begin(); c != text.end(); c++) {
-		TextCharacter ch = textCharacters[*c];
+		TextCharacter ch = font->textCharacters[*c];
 
 		float xPos = x + ch.bearing.x * scale;
 		float yPos = y - (ch.size.y - ch.bearing.y) * scale;
@@ -117,7 +118,7 @@ void drawText(unsigned int shaderProgramID, std::string text, float x, float y, 
 		float w = ch.size.x * scale;
 		float h = ch.size.y * scale;
 
-		float vertices[6][4] = {
+		float vertices[] = {
 			xPos,		yPos + h, 0.0f, 0.0f,
 			xPos,		yPos,	  0.0f, 1.0f,
 			xPos + w,	yPos,     1.0f, 1.0f,
@@ -129,10 +130,11 @@ void drawText(unsigned int shaderProgramID, std::string text, float x, float y, 
 
 		glBindTexture(GL_TEXTURE_2D, ch.textureID);
 
-		glBindBuffer(GL_ARRAY_BUFFER, textVBOID);
+		glBindBuffer(GL_ARRAY_BUFFER, font->VBO_ID);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+		// this is a lot of draw calls per line of text
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		x += (ch.advance >> 6) * scale; // bit shift changes unit to pixels
@@ -142,43 +144,62 @@ void drawText(unsigned int shaderProgramID, std::string text, float x, float y, 
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-#define LIMIT_LINES 4
+#define LIMIT_LINES 2000
 
-struct TextBox {
+// TODO: no need to limit lines so narrowly here, just set the limit super high, 
+//		 and then just show the last x lines (top down or bottom up)
+
+struct Textbox {
 	std::string lines[LIMIT_LINES];
-	unsigned int startingLineIndex = 0;
+	unsigned int numLinesUsed = 0;
+	unsigned int maxLinesToShow = 4;
+
+	bool flip = false;
+
+	float x = 0.0f;
+	float y = 0.0f;
+
+	Font *font;
 };
 
-TextBox textBox = {};
+Textbox eventTextBox = {};
 
-void drawTextBox() {
-	unsigned int numLinesRendered = 0;
-	unsigned int currentLineIndex = textBox.startingLineIndex;
-	float x = 0.0f, y = 0.0f;
+void drawTextBox(Textbox *textbox) {
+	float x = textbox->x;
+	float y = textbox->y;
 
-	while (numLinesRendered < LIMIT_LINES) {
-		drawText(textShaderProgramID, textBox.lines[currentLineIndex], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+	int startingLineIndex;
+	int numLinesToShow;
+	if (textbox->numLinesUsed < textbox->maxLinesToShow) {
+		startingLineIndex = 0;
+		numLinesToShow = textbox->numLinesUsed;
+	} else {
+		startingLineIndex = textbox->numLinesUsed - textbox->maxLinesToShow;
+		numLinesToShow = textbox->maxLinesToShow;
+	}
 
-		currentLineIndex++;
-		if (currentLineIndex >= LIMIT_LINES) {
-			currentLineIndex = 0;
+	if (!textbox->flip) {
+		for (int i = startingLineIndex; i < numLinesToShow + startingLineIndex; i++) {
+			drawText(textbox->font, textbox->lines[i], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+
+			y += 20.0f;
 		}
-
-		y += 20.0f;
-
-		numLinesRendered++;
 	}
+	else {
+		for (int i = numLinesToShow + startingLineIndex - 1; i >= startingLineIndex; i--) {
+			drawText(textbox->font, textbox->lines[i], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+
+			y += 20.0f;
+		}
+	}
+	
 }
 
-void addTextToBox(std::string newText) {
-	textBox.lines[textBox.startingLineIndex] = newText;
+void addTextToBox(std::string newText, Textbox *textbox) {
+	textbox->lines[textbox->numLinesUsed] = newText;
 
-	textBox.startingLineIndex++;
-	if (textBox.startingLineIndex >= LIMIT_LINES) {
-		textBox.startingLineIndex = 0;
-	}
+	textbox->numLinesUsed++;
 }
-
 
 #define TEXTBOX
 #endif
