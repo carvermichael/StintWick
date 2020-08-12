@@ -2,6 +2,7 @@
 
 #include "constants.h"
 #include "camera.h"
+#include "model.h"
 
 struct Map {
 	bool initialized = false;
@@ -10,19 +11,29 @@ struct Map {
 	int openings;
 };
 
-struct Character {
+struct Entity {
+	Model *model;
+
+	int directionFacing = DOWN;
+	glm::vec3 worldOffset;
+
 	int worldCoordX;
 	int worldCoordY;
-	int gridCoordX;
-	int gridCoordY;
+	
+	glm::uvec3 gridCoords;
 
-	//Model *model;
-
-	int directionFacing;
 	int actionState;
 
 	int hitPoints;
 	int strength;
+
+	void draw(Light light) {
+		worldOffset.x =  0.5f * gridCoords.x;
+		worldOffset.y = -0.5f * gridCoords.y;
+		worldOffset.z =  0.5f * gridCoords.z;
+		
+		model->draw(worldOffset, directionFacing, light);
+	}
 };
 
 struct WorldState {
@@ -35,8 +46,11 @@ struct WorldState {
 
 	Light light;
 
-	Character player;
-	Character theOther;
+	//Entity lightEntity;
+	Entity player;
+	Entity enemy;
+
+	// TODO: maybe put a draw call here for the entire world state???
 };
 
 WorldState world;

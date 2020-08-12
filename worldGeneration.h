@@ -1,8 +1,6 @@
 #if !defined(WORLDGENERATION)
 #include "constants.h"
 #include "worldState.h"
-#include <stdlib.h>
-#include <glfw3.h>
 
 void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openings, int roomType);
 void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere);

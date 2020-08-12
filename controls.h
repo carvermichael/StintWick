@@ -23,7 +23,7 @@ void control_play(int action, int key) {
 	}
 	
 	if (key == GLFW_KEY_W) {
-		moveTheOther();
+		moveEnemy();
 		if (mode == MODE_PLAY_FIRST_PERSON) {
 			movePlayerForward();
 		}
@@ -37,13 +37,13 @@ void control_play(int action, int key) {
 			rotatePlayer(LEFT);
 		}
 		else {
-			moveTheOther();
+			moveEnemy();
 			movePlayer(LEFT);
 		}
 	}
 	
 	if (key == GLFW_KEY_S) {
-		moveTheOther();
+		moveEnemy();
 
 		if (mode == MODE_PLAY_FIRST_PERSON) {
 			movePlayerBackward();
@@ -58,13 +58,13 @@ void control_play(int action, int key) {
 			rotatePlayer(RIGHT);
 		}
 		else {
-			moveTheOther();
+			moveEnemy();
 			movePlayer(RIGHT);
 		}
 	}
 
 	if (key == GLFW_KEY_SPACE) {
-		moveTheOther();
+		moveEnemy();
 	}
 
 	if (key == GLFW_KEY_ENTER) {
@@ -72,13 +72,13 @@ void control_play(int action, int key) {
 	}
 
 	if (key == GLFW_KEY_L) {
-		if (world.theOther.actionState == ACTION_STATE_AVOIDANT) {
+		if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
 			addTextToBox("AI Set To SEEKING", &eventTextBox);
-			world.theOther.actionState = ACTION_STATE_SEEKING;
+			world.enemy.actionState = ACTION_STATE_SEEKING;
 		}
-		else if (world.theOther.actionState == ACTION_STATE_SEEKING) {
+		else if (world.enemy.actionState == ACTION_STATE_SEEKING) {
 			addTextToBox("AI Set To AVOIDANT", &eventTextBox);
-			world.theOther.actionState = ACTION_STATE_AVOIDANT;
+			world.enemy.actionState = ACTION_STATE_AVOIDANT;
 		}
 	}
 }

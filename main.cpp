@@ -1,5 +1,6 @@
 /*
 	Random TODOs:
+	- fix first person mode after moving world offset info into entity
 	- make player and enemies smaller than the grid space
 		- this then allows for simple attack animations toward the defender
 		- make the player or enemies non-cubeish?
@@ -15,7 +16,7 @@
 	- figure out why regenerateMap breaks all the things (probably something stupid)	
 	- keep consistent viewport ratio when resizing window
 	- frame timing
-	- create movement for player and theOther -- don't just jump over (could add move buffer here, too)
+	- create movement for player and enemy -- don't just jump over (could add move buffer here, too)
 		-- same with switching between 3rd and 1st person -- slowly zoom in and rotate camera (will help you get a better hold on camera stuffs)
 	- probably want to get away from just using headers -- the ordering of includes is getting to be a pain (also, this'll help you bring global state back into main + keep it there/pass references)
 */
@@ -41,7 +42,7 @@
 
 #include "constants.h"
 
-glm::vec3 getPlayerModelCoords();
+//glm::vec3 getPlayerModelCoords();
 
 struct Light {
 
@@ -157,7 +158,7 @@ unsigned int cubeIndices[] = {
 	21, 22, 23
 };
 
-#define NUM_MODELS 7
+#define NUM_MODELS 6
 
 struct Models {
 
@@ -165,18 +166,18 @@ struct Models {
 	~Models() {};
 
 	union {
-		Model mods[7];
+		Model mods[NUM_MODELS];
 
 		struct {
 			Model player;
 			Model enemy;
 
 			Model floorModel;
+			Model wallModel;
+
 			Model lightCube;
 
-			Model wallModel;
-			Model decorativeWallModel;
-			Model wallCoverModel;
+			Model guidingGrid;
 		};
 	};
 };
@@ -268,7 +269,10 @@ void setMaterial(std::string modelName, std::string matName) {
 	}
 	if (fail) return;
 
-	model->meshes[0].material = mat;
+	for (int i = 0; i < model->meshes.size(); i++) {
+		model->meshes[i].material = mat;
+	}
+	
 }
 
 void refreshView() {
@@ -298,11 +302,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	resetProjectionMatrices();
 }
 
-bool isTheOtherHere(int worldX, int worldY, int gridX, int gridY) {
-	return	world.theOther.worldCoordX == worldX &&
-			world.theOther.worldCoordY == worldY &&
-			world.theOther.gridCoordX  == gridX  &&
-			world.theOther.gridCoordY  == gridY;
+bool isEnemyHere(int worldX, int worldY, int gridX, int gridY) {
+	return	world.enemy.worldCoordX == worldX &&
+			world.enemy.worldCoordY == worldY &&
+			world.enemy.gridCoords.x  == gridX  &&
+			world.enemy.gridCoords.y  == gridY;
 }
 
 bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
@@ -313,54 +317,54 @@ void movePlayer(int direction) {
 	if(mode != MODE_PLAY_FIRST_PERSON) world.player.directionFacing = direction;
 
 	if (direction == UP) {
-		int prospectiveYCoord = world.player.gridCoordY - PLAYER_SPEED;
-		if (prospectiveYCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoordX] == 0 &&
-			!isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoordX, prospectiveYCoord)) {
-			world.player.gridCoordY = prospectiveYCoord;
+		int prospectiveYCoord = world.player.gridCoords.y - PLAYER_SPEED;
+		if (prospectiveYCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoords.x] == 0 &&
+			!isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoords.x, prospectiveYCoord)) {
+			world.player.gridCoords.y = prospectiveYCoord;
 		}
 		else if (prospectiveYCoord < 0) {
 			world.player.worldCoordY++;
-			world.player.gridCoordY = GRID_MAP_SIZE_X - PLAYER_SPEED;
+			world.player.gridCoords.y = GRID_MAP_SIZE_X - PLAYER_SPEED;
 		}
 	}
 
 	if (direction == DOWN) {
-		int prospectiveYCoord = world.player.gridCoordY + PLAYER_SPEED;
-		if (prospectiveYCoord < GRID_MAP_SIZE_Y && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoordX] == 0
-			&& !isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoordX, prospectiveYCoord)) {
-			world.player.gridCoordY = prospectiveYCoord;			
+		int prospectiveYCoord = world.player.gridCoords.y + PLAYER_SPEED;
+		if (prospectiveYCoord < GRID_MAP_SIZE_Y && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoords.x] == 0
+			&& !isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoords.x, prospectiveYCoord)) {
+			world.player.gridCoords.y = prospectiveYCoord;
 		}
 		else if (prospectiveYCoord == GRID_MAP_SIZE_X) {
 			world.player.worldCoordY--;
-			world.player.gridCoordY = 0;
+			world.player.gridCoords.y = 0;
 		}
 	}
 
 	if (direction == LEFT) {
-		int prospectiveXCoord = world.player.gridCoordX - PLAYER_SPEED;
-		if (prospectiveXCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoordY][prospectiveXCoord] == 0 &&
-			!isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoordY)) {
-			world.player.gridCoordX = prospectiveXCoord;
+		int prospectiveXCoord = world.player.gridCoords.x - PLAYER_SPEED;
+		if (prospectiveXCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoords.y][prospectiveXCoord] == 0 &&
+			!isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoords.y)) {
+			world.player.gridCoords.x = prospectiveXCoord;
 		}
 		else if (prospectiveXCoord < 0) {
 			world.player.worldCoordX--;
-			world.player.gridCoordX = GRID_MAP_SIZE_Y - PLAYER_SPEED;
+			world.player.gridCoords.x = GRID_MAP_SIZE_Y - PLAYER_SPEED;
 		}
 	}
 
 	if (direction == RIGHT) {
-		int prospectiveXCoord = world.player.gridCoordX + PLAYER_SPEED;
-		if (prospectiveXCoord < GRID_MAP_SIZE_X && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoordY][prospectiveXCoord] == 0 &&
-			!isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoordY)) {
-			world.player.gridCoordX = prospectiveXCoord;
+		int prospectiveXCoord = world.player.gridCoords.x + PLAYER_SPEED;
+		if (prospectiveXCoord < GRID_MAP_SIZE_X && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoords.y][prospectiveXCoord] == 0 &&
+			!isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoords.y)) {
+			world.player.gridCoords.x = prospectiveXCoord;
 		}
 		else if (prospectiveXCoord == GRID_MAP_SIZE_Y) {
 			world.player.worldCoordX++;
-			world.player.gridCoordX = 0;
+			world.player.gridCoords.x = 0;
 		}
 	}
 
-	if(mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
+	//if(mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
 }
 
 void movePlayerForward() {
@@ -414,8 +418,8 @@ void rotatePlayer(int direction) {
 }
 
 void attack() {
-	int xAttack = world.player.gridCoordX;
-	int yAttack = world.player.gridCoordY;
+	int xAttack = world.player.gridCoords.x;
+	int yAttack = world.player.gridCoords.y;
 
 	switch (world.player.directionFacing) {
 		case (UP):
@@ -432,61 +436,61 @@ void attack() {
 			break;
 	}
 
-	if (isTheOtherHere(world.player.worldCoordX, world.player.worldCoordY, xAttack, yAttack)) {
-		world.theOther.hitPoints -= world.player.strength;
-		if (world.theOther.hitPoints <= 0) {
-			world.theOther.worldCoordX = 20;
-			world.theOther.worldCoordY = 20;
+	if (isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, xAttack, yAttack)) {
+		world.enemy.hitPoints -= world.player.strength;
+		if (world.enemy.hitPoints <= 0) {
+			world.enemy.worldCoordX = 20;
+			world.enemy.worldCoordY = 20;
 		}
 	}
 }
 
-void moveTheOther() {
-	if (world.theOther.worldCoordX != world.player.worldCoordX ||
-		world.theOther.worldCoordY != world.player.worldCoordY) return;
+void moveEnemy() {
+	if (world.enemy.worldCoordX != world.player.worldCoordX ||
+		world.enemy.worldCoordY != world.player.worldCoordY) return;
 
-	int diffToPlayerX = world.theOther.gridCoordX - world.player.gridCoordX;
-	int diffToPlayerY = world.theOther.gridCoordY - world.player.gridCoordY;
+	int diffToPlayerX = world.enemy.gridCoords.x - world.player.gridCoords.x;
+	int diffToPlayerY = world.enemy.gridCoords.y - world.player.gridCoords.y;
 
-	int prospectiveGridCoordX = world.theOther.gridCoordX;
-	int prospectiveGridCoordY = world.theOther.gridCoordY;
+	int prospectiveGridCoordX = world.enemy.gridCoords.x;
+	int prospectiveGridCoordY = world.enemy.gridCoords.y;
 
-	if (world.theOther.actionState == ACTION_STATE_SEEKING) {
+	if (world.enemy.actionState == ACTION_STATE_SEEKING) {
 		
 		if (diffToPlayerX == 0 && diffToPlayerY == 0) return;
 		if (diffToPlayerX == 0 && abs(diffToPlayerY) == 1) return;
 		if (abs(diffToPlayerX) == 1 && diffToPlayerY == 0) return;
 
 		if (rand() % 2 == 0 && diffToPlayerX != 0) {
-			if (diffToPlayerX > 0)		prospectiveGridCoordX = world.theOther.gridCoordX - 1;
-			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.theOther.gridCoordX + 1;
+			if (diffToPlayerX > 0)		prospectiveGridCoordX = world.enemy.gridCoords.x - 1;
+			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.enemy.gridCoords.x + 1;
 		}
 		else {
 			if (diffToPlayerY == 0) {
-				if (diffToPlayerX > 0)		prospectiveGridCoordX = world.theOther.gridCoordX - 1;
-				else if (diffToPlayerX < 0) prospectiveGridCoordX = world.theOther.gridCoordX + 1;
+				if (diffToPlayerX > 0)		prospectiveGridCoordX = world.enemy.gridCoords.x - 1;
+				else if (diffToPlayerX < 0) prospectiveGridCoordX = world.enemy.gridCoords.x + 1;
 			}
 
-			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.theOther.gridCoordY - 1;
-			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.theOther.gridCoordY + 1;
+			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.enemy.gridCoords.y - 1;
+			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.enemy.gridCoords.y + 1;
 		}
 	}
 	// TODO: Finish this. The Other can go off map when avoidant.
-	else if (world.theOther.actionState == ACTION_STATE_AVOIDANT) {
+	else if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
 		if (diffToPlayerX > diffToPlayerY) {
-			if		(diffToPlayerX > 0)	prospectiveGridCoordX = world.theOther.gridCoordX + 1;
-			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.theOther.gridCoordX - 1;
+			if		(diffToPlayerX > 0)	prospectiveGridCoordX = world.enemy.gridCoords.x + 1;
+			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.enemy.gridCoords.x - 1;
 
 			
 		}	else {
-			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.theOther.gridCoordY + 1;
-			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.theOther.gridCoordY - 1;
+			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.enemy.gridCoords.y + 1;
+			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.enemy.gridCoords.y - 1;
 		}
 	}
 
 	if (isMapSpaceEmpty(world.player.worldCoordX, world.player.worldCoordY, prospectiveGridCoordX, prospectiveGridCoordY)) {
-		world.theOther.gridCoordX = prospectiveGridCoordX;
-		world.theOther.gridCoordY = prospectiveGridCoordY;
+		world.enemy.gridCoords.x = prospectiveGridCoordX;
+		world.enemy.gridCoords.y = prospectiveGridCoordY;
 	}
 }
 
@@ -662,25 +666,28 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	lastCursorY = (float)yPos;
 }
 
-void createLightCube() {
-	Mesh lightMesh;
-	
-	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-		lightMesh.vertices.push_back(cubeVertices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
-		lightMesh.indices.push_back(cubeIndices[i]);		
-	}
-
-	lightMesh.setupVAO();
-	lightMesh.shaderProgramID = lightShaderProgramID;
-	lightMesh.material = &materials.light;
-
-	models.lightCube.name = std::string("light");
-	models.lightCube.meshes.push_back(lightMesh);
-	models.lightCube.worldOffset = glm::vec3(-2.0f, -5.0f, 4.0f);
-}
+//void createLightCube() {
+//	Mesh lightMesh;
+//	
+//	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+//		lightMesh.vertices.push_back(cubeVertices[i]);
+//	}
+//
+//	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
+//		lightMesh.indices.push_back(cubeIndices[i]);		
+//	}
+//
+//	lightMesh.setupVAO();
+//	lightMesh.shaderProgramID = lightShaderProgramID;
+//	lightMesh.material = &materials.light;
+//
+//	models.lightCube.name = std::string("light");
+//	models.lightCube.meshes.push_back(lightMesh);
+//
+//	//world.lightEntity.model = &models.lightCube;
+//
+//	//world.lightEntity.worldOffset = glm::vec3(-2.0f, -5.0f, 4.0f);
+//}
 
 void createGridFloorAndWallModels() {
 	Mesh floorMesh;	
@@ -713,9 +720,9 @@ void createGridFloorAndWallModels() {
 	models.wallModel.scale(glm::vec3(0, 0, 1), 2.0f);
 }
 
-void createPlayerAndTheOtherModels() {
+void createPlayerAndEnemyModels() {
 	Mesh playerMesh;
-	Mesh theOtherMesh;
+	Mesh enemyMesh;
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
 		playerMesh.vertices.push_back(cubeVertices[i]);
@@ -734,19 +741,19 @@ void createPlayerAndTheOtherModels() {
 	models.player.scale(glm::vec3(0, 0, 1), 0.5f);
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-		theOtherMesh.vertices.push_back(cubeVertices[i]);
+		enemyMesh.vertices.push_back(cubeVertices[i]);
 	}
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(unsigned int); i++) {
-		theOtherMesh.indices.push_back(cubeIndices[i]);
+		enemyMesh.indices.push_back(cubeIndices[i]);
 	}
 
-	theOtherMesh.setupVAO();
-	theOtherMesh.shaderProgramID = regularShaderProgramID;
-	theOtherMesh.material = &materials.chrome;
+	enemyMesh.setupVAO();
+	enemyMesh.shaderProgramID = regularShaderProgramID;
+	enemyMesh.material = &materials.chrome;
 
 	models.enemy.name = std::string("enemy");
-	models.enemy.meshes.push_back(theOtherMesh);
+	models.enemy.meshes.push_back(enemyMesh);
 	models.enemy.scale(glm::vec3(0, 0, 1), 0.5f);
 }
 
@@ -758,44 +765,33 @@ void drawGrid() {
 
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
 			float xOffset = 0.5f * column;
-			glm::vec3 offset = glm::vec3(xOffset, yOffset, zOffset);
+			glm::vec3 worldOffset = glm::vec3(xOffset, yOffset, zOffset);
 
 			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
-				models.wallModel.worldOffset = offset;
-				models.wallModel.draw();
+				models.wallModel.draw(worldOffset, UP, world.light);
 			} else {
-				models.floorModel.worldOffset = offset;
-				models.floorModel.draw();
+				models.floorModel.draw(worldOffset, UP, world.light);
 			}
 		}
 	}
 }
 
-glm::vec3 getPlayerModelCoords() {
-	float zOffset = 0.5f;
-	if (mode == MODE_PLAY_FIRST_PERSON) zOffset += 0.25f;
-	
-	float yOffset = -0.5f * world.player.gridCoordY;
-	float xOffset = 0.5f * world.player.gridCoordX;
-	
-	return glm::vec3(xOffset, yOffset, zOffset);
-}
-
-void drawPlayer() {
-	models.player.worldOffset = getPlayerModelCoords();
-	models.player.draw();
-}
-
-void drawTheOther() {
-	if (world.theOther.worldCoordX != world.player.worldCoordX || world.theOther.worldCoordY != world.player.worldCoordY) return;
-	
-	float zOffset = 0.5f;
-	float yOffset = -0.5f * world.theOther.gridCoordY;
-	float xOffset = 0.5f * world.theOther.gridCoordX;
-
-	models.enemy.worldOffset = glm::vec3(xOffset, yOffset, zOffset);
-	models.enemy.draw();
-}
+//glm::vec3 getEntityOffset(Entity entity) {
+//	float zOffset = 0.5f;
+//
+//	float yOffset = -0.5f * entity.gridCoords.y;
+//	float xOffset = 0.5f * entity.gridCoords.x;
+//
+//	return glm::vec3(xOffset, yOffset, zOffset);
+//}
+//
+//glm::vec3 getPlayerModelCoords() {
+//	glm::vec3 coords = getEntityOffset(world.player);
+//	
+//	if (mode == MODE_PLAY_FIRST_PERSON) coords.z += 0.25f;
+//	
+//	return coords;
+//}
 
 void moveLightAroundOrbit(float deltaTime) {
 	float radius = 5.0f;
@@ -813,8 +809,9 @@ void moveLightAroundOrbit(float deltaTime) {
 
 	world.light.pos.x = newX;
 	world.light.pos.y = newY;
-	models.lightCube.worldOffset.x = newX;
-	models.lightCube.worldOffset.y = newY;
+
+	//world.lightEntity.worldOffset.x = newX;
+	//world.lightEntity.worldOffset.y = newY;
 
 	world.light.currentDegrees = newDegrees;
 }
@@ -934,6 +931,21 @@ void initMaterials() {
 	materials.light.shininess = 1.0f;
 }
 
+void drawPlayer() {
+
+	//world.player.worldOffset = getEntityOffset(world.player);
+	world.player.draw(world.light);
+}
+
+void drawEnemy() {
+
+	if (world.enemy.worldCoordX != world.player.worldCoordX ||
+		world.enemy.worldCoordY != world.player.worldCoordY) return; 
+	
+	//world.enemy.worldOffset = getEntityOffset(world.enemy);
+	world.enemy.draw(world.light);
+}
+
 int main() {
 	// ------------ INIT STUFF -------------
 
@@ -977,11 +989,11 @@ int main() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
-	createLightCube();
+	//createLightCube();
 	world.light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
 	
 	createGridFloorAndWallModels();
-	createPlayerAndTheOtherModels();
+	createPlayerAndEnemyModels();
 
 	// set seed and generate map
 	unsigned int seed = (unsigned int)time(NULL); // seconds since Jan 1, 2000
@@ -993,18 +1005,20 @@ int main() {
 	// CHARACTER INITIALIZATION
 	world.player.worldCoordX = PLAYER_WORLD_START_X;
 	world.player.worldCoordY = PLAYER_WORLD_START_Y;
-	world.player.gridCoordX = PLAYER_GRID_START_X;
-	world.player.gridCoordY = PLAYER_GRID_START_Y;
+	world.player.gridCoords.x = PLAYER_GRID_START_X;
+	world.player.gridCoords.y = PLAYER_GRID_START_Y;
+	world.player.gridCoords.z = 1;
 	world.player.strength = 1;
 	world.player.hitPoints = 20;
 	world.player.directionFacing = UP;
 
-	world.theOther.worldCoordX = PLAYER_WORLD_START_X;
-	world.theOther.worldCoordY = PLAYER_WORLD_START_Y;
-	world.theOther.gridCoordX = 1;
-	world.theOther.gridCoordY = 2;
-	world.theOther.hitPoints = 3;
-	world.theOther.strength = 1;
+	world.enemy.worldCoordX = PLAYER_WORLD_START_X;
+	world.enemy.worldCoordY = PLAYER_WORLD_START_Y;
+	world.enemy.gridCoords.x = 1;
+	world.enemy.gridCoords.y = 2;
+	world.enemy.gridCoords.z = 1;
+	world.enemy.hitPoints = 3;
+	world.enemy.strength = 1;
 
 	lastFrameTime = (float)glfwGetTime();
 
@@ -1025,13 +1039,16 @@ int main() {
 	console.setup();
 	initMaterials();
 
+	world.player.model = &models.player;
+	world.enemy.model = &models.enemy;
+
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window);
 		
 		glfwPollEvents();
 
-		if (mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
+		//if (mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
 		
 		refreshView();
 
@@ -1043,10 +1060,10 @@ int main() {
 		if(guidingGrid)	doAGuidingGridThing();
 		if(lightOrbit) moveLightAroundOrbit(deltaTime);
 		
-		models.lightCube.draw();
+		//world.lightEntity.draw(world.light);
 		drawGrid();
-		if(mode != MODE_PLAY_FIRST_PERSON) drawPlayer();
-		drawTheOther();
+		if (mode != MODE_PLAY_FIRST_PERSON) drawPlayer();
+		drawEnemy();
 
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls

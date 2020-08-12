@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "constants.h"
-#include "worldState.h"
 
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value) {
 	glUseProgram(shaderProgramID);
@@ -77,7 +76,7 @@ struct Mesh {
 
 	Mesh() {};
 
-	void draw(glm::vec3 worldOffset, int directionFacing) {
+	void draw(glm::vec3 worldOffset, int directionFacing, Light light) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 
@@ -90,10 +89,10 @@ struct Mesh {
 		setUniform3f(shaderProgramID, "materialSpecular", material->specular);
 		setUniform1f(shaderProgramID, "materialShininess", material->shininess);
 
-		setUniform3f(shaderProgramID, "lightPos", world.light.pos);
-		setUniform3f(shaderProgramID, "lightAmbient", world.light.ambient);
-		setUniform3f(shaderProgramID, "lightDiffuse", world.light.diffuse);
-		setUniform3f(shaderProgramID, "lightSpecular", world.light.specular);
+		setUniform3f(shaderProgramID, "lightPos", light.pos);
+		setUniform3f(shaderProgramID, "lightAmbient", light.ambient);
+		setUniform3f(shaderProgramID, "lightDiffuse", light.diffuse);
+		setUniform3f(shaderProgramID, "lightSpecular", light.specular);
 
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	}
@@ -162,19 +161,15 @@ struct Model {
 
 	std::vector<Mesh> meshes;
 
-	// TODO TODAY: directionFacing and worldOffset should go in an entity struct
-	int directionFacing = DOWN;
-	glm::vec3 worldOffset;
-
 	Model() {}
 	Model(std::string name) {
 		this->name = name;
 	}
 	// TODO TODAY: create constructor (with name)
 
-	void draw() {
+	void draw(glm::vec3 worldOffset, int directionFacing, Light light) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(worldOffset, directionFacing);
+			meshes[i].draw(worldOffset, directionFacing, light);
 		}
 	}
 
