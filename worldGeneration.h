@@ -92,7 +92,7 @@ void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openi
 }
 
 void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere) {
-	// TODO: fix this directionToGetHere garbage, way too confusing
+	// TODO: fix this directionToGetHere garbage, way too confusing -- just do cardinal directions
 
 	int newGridX;
 	int newGridY;

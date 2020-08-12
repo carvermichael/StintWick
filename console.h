@@ -9,7 +9,7 @@ struct UI_Rect {
 
 	unsigned int VAO_ID;
 	unsigned int VBO_ID;
-	unsigned int shaderProgramID; // do we even need programIDs on structs if those IDs will be in global state?
+	unsigned int shaderProgramID;
 
 	float leftX, rightX, topY, bottomY;
 
@@ -36,13 +36,6 @@ struct UI_Rect {
 		alpha = 0.7f;
 
 		shaderProgramID = UIShaderProgramID;
-		// TODO: this probably can happen elsewhere and only once 
-		//		(this shader will have the same projection matrix every time)
-		glUseProgram(UIShaderProgramID);
-
-		glm::mat4 projection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
-		unsigned int projectionLoc = glGetUniformLocation(UIShaderProgramID, "projection");
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 		initialized = true;
 	}
@@ -57,15 +50,8 @@ struct UI_Rect {
 
 	void draw() {
 		glUseProgram(this->shaderProgramID);
+		setUniform4f(UIShaderProgramID, "color", glm::vec4(color.x, color.y, color.z, alpha));
 
-		glUseProgram(UIShaderProgramID);
-		unsigned int colorLoc = glGetUniformLocation(UIShaderProgramID, "color");
-		glUniform4f(colorLoc, color.x, color.y, color.z, alpha);
-
-		glm::mat4 projection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
-		unsigned int projectionLoc = glGetUniformLocation(UIShaderProgramID, "projection");
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-		
 		glBindVertexArray(VAO_ID);
 
 		float vertices[] = {
@@ -80,7 +66,7 @@ struct UI_Rect {
 
 		glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-		glBindBuffer(GL_ARRAY_BUFFER, 0); // not sure why this is here
+		//glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}

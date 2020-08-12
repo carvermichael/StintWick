@@ -25,6 +25,12 @@ void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::ve
 	glUniform3f(location, vec3.x, vec3.y, vec3.z);
 }
 
+void setUniform4f(unsigned int shaderProgramID, const char *uniformName, glm::vec4 vec4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform4f(location, vec4.x, vec4.y, vec4.z, vec4.w);
+}
+
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
 	glUseProgram(shaderProgramID);
 	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
@@ -41,7 +47,7 @@ struct Material {
 
 	Material() {};
 
-	Material(std::string name, glm::vec3 ambient, glm::vec3(diffuse), glm::vec3 specular, float shininess) {
+	Material(std::string name, glm::vec3 ambient, glm::vec3 diffuse, glm::vec3 specular, float shininess) {
 		this->name = name;
 		
 		this->ambient = ambient;
@@ -141,11 +147,12 @@ struct Model {
 
 	std::vector<Mesh> meshes;
 
+	// TODO TODAY: directionFacing and worldOffset should go in an entity struct
 	int directionFacing = DOWN;
-
 	glm::vec3 worldOffset;
 
 	Model() {}
+	// TODO TODAY: create constructor (with name)
 
 	void draw() {
 		for (int i = 0; i < meshes.size(); i++) {

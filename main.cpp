@@ -58,6 +58,11 @@ struct Light {
 unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
 unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
 
+unsigned int regularShaderProgramID;
+unsigned int lightShaderProgramID;
+unsigned int UIShaderProgramID;
+unsigned int textShaderProgramID;
+
 #include "model.h"
 #include "camera.h"
 
@@ -95,7 +100,7 @@ struct Models {
 
 		struct {
 			Model player;
-			Model theOtherModel;
+			Model enemy;
 
 			Model floorModel;
 			Model lightCube;
@@ -109,7 +114,7 @@ struct Models {
 
 Models models;
 
-#define NUM_MATS 6
+#define NUM_MATS 7
 
 struct Materials {
 	
@@ -126,15 +131,12 @@ struct Materials {
 			Material silver;
 			Material gold;
 			Material blackRubber;
+			Material ruby;
 		};
 	};
 };
 
 Materials materials;
-
-unsigned int regularShaderProgramID;
-unsigned int lightShaderProgramID;
-unsigned int UIShaderProgramID;
 
 Font ariel;
 
@@ -156,13 +158,10 @@ void resetProjectionMatrices() {
 	setUniformMat4(regularShaderProgramID, "projection", projection);
 	setUniformMat4(lightShaderProgramID, "projection", projection);
 
-	// TODO: This is only going to get weirder when you have more fonts/shader floating around. Maybe wrap all the shaders in an 
-	//		 object, then hold a list of references to them. That way you can just flip through them on updates like this.
-	//														- carver (8-5-20)
-	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
+	glm::mat4 UIProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
 	
-	setUniformMat4(ariel.shaderProgramID, "projection", textProjection);
-	setUniformMat4(UIShaderProgramID, "projection", textProjection);
+	setUniformMat4(textShaderProgramID, "projection", UIProjection);
+	setUniformMat4(UIShaderProgramID, "projection", UIProjection);
 }
 
 Material* getMaterial(std::string name) {
@@ -501,6 +500,11 @@ void processConsoleCommand(std::string command) {
 		addTextToBox("Mode: Level Edit", &eventTextBox);
 	}
 
+	if (commandVector[0] == "grid") {
+		guidingGrid = !guidingGrid;
+		addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &console.historyTextbox);
+	}
+
 	if (commandVector[0] == "orbit") {
 		lightOrbit = !lightOrbit;
 		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
@@ -682,7 +686,6 @@ void createLightCube() {
 
 void createGridFloorAndWallModels() {
 	// NOTE: These coords are in local space
-	// TODO: add materials??
 	
 	float floorVertices[] = {
 		// top
@@ -828,7 +831,6 @@ void createGridFloorAndWallModels() {
 
 void createPlayerAndTheOtherModels() {
 	// NOTE: These coords are in local space
-	// TODO: add materials??
 
 	float playerVertices[] = {
 		// top
@@ -930,8 +932,8 @@ void createPlayerAndTheOtherModels() {
 	theOtherMesh.shaderProgramID = regularShaderProgramID;
 	theOtherMesh.material = &materials.chrome;
 
-	models.theOtherModel.name = std::string("theOther");
-	models.theOtherModel.meshes.push_back(theOtherMesh);
+	models.enemy.name = std::string("enemy");
+	models.enemy.meshes.push_back(theOtherMesh);
 }
 
 void drawGrid() {
@@ -977,8 +979,8 @@ void drawTheOther() {
 	float yOffset = -0.5f * world.theOther.gridCoordY;
 	float xOffset = 0.5f * world.theOther.gridCoordX;
 
-	models.theOtherModel.worldOffset = glm::vec3(xOffset, yOffset, zOffset);
-	models.theOtherModel.draw();
+	models.enemy.worldOffset = glm::vec3(xOffset, yOffset, zOffset);
+	models.enemy.draw();
 }
 
 void moveLightAroundOrbit(float deltaTime) {
@@ -1068,15 +1070,11 @@ void doAGuidingGridThing() {
 	glBindVertexArray(gridVAO_ID);
 	glBindBuffer(GL_ARRAY_BUFFER, gridVBO_ID);
 
-	unsigned int modelLoc = glGetUniformLocation(regularShaderProgramID, "model");
-	glm::mat4 current_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f)); // TODO: this can just be the 0 mat4, right?
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(current_model));
+	glm::mat4 currentModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f)); // TODO: this can just be the 0 mat4, right?
+	setUniformMat4(regularShaderProgramID, "model", currentModel);
 
-	unsigned int objectDiffuseLoc = glGetUniformLocation(regularShaderProgramID, "objectDiffuse");
-	glUniform3f(objectDiffuseLoc, 1.0f, 1.0f, 1.0f);
-
-	unsigned int objectAmbientLoc = glGetUniformLocation(regularShaderProgramID, "objectAmbient");
-	glUniform3f(objectAmbientLoc, 1.0f, 1.0f, 1.0f);
+	setUniform3f(regularShaderProgramID, "objectDiffuse", glm::vec3(1.0f, 1.0f, 1.0f));
+	setUniform3f(regularShaderProgramID, "objectAmbient", glm::vec3(1.0f, 1.0f, 1.0f));
 
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
@@ -1107,6 +1105,11 @@ void initMaterials() {
 		glm::vec3(0.01, 0.01, 0.01),
 		glm::vec3(0.4, 0.4, 0.4),
 		.078125f);
+
+	materials.ruby = Material("ruby", glm::vec3(0.1745, 0.01175, 0.01175),
+		glm::vec3(0.61424, 0.04136, 0.04136),
+		glm::vec3(0.727811, 0.626959, 0.626959),
+		0.6f);
 
 	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
 	materials.light.name = "whiteLight";
@@ -1146,6 +1149,7 @@ int main() {
 	regularShaderProgramID	= createShaderProgram("vertexShader.vert", "fragmentShader.frag");
 	lightShaderProgramID	= createShaderProgram("lightVertexShader.vert", "lightFragmentShader.frag");
 	UIShaderProgramID		= createShaderProgram("UIVertexShader.vert", "UIFragmentShader.frag");
+	textShaderProgramID		= createShaderProgram("textVertexShader.vert", "textFragmentShader.frag");
 
 	resetProjectionMatrices();
 

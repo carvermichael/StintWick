@@ -71,7 +71,7 @@ void initializeFont(const char *fontFileName, Font *font) {
 	FT_Done_FreeType(ft);
 
 	// TEXT SHADER PROGRAM
-	font->shaderProgramID = createShaderProgram("textVertexShader.vert", "textFragmentShader.frag");
+	font->shaderProgramID = textShaderProgramID;
 
 	// reserving data for text on gpu
 	glGenVertexArrays(1, &font->VAO_ID);
@@ -96,13 +96,7 @@ void initializeFont(const char *fontFileName, Font *font) {
 
 void drawText(Font *font, std::string text, float x, float y, float scale, glm::vec3 color) {
 
-	glUseProgram(font->shaderProgramID);
-	unsigned int textColorLoc = glGetUniformLocation(font->shaderProgramID, "textColor");
-	glUniform3f(textColorLoc, color.x, color.y, color.z);
-
-	glm::mat4 textProjection = glm::ortho(0.0f, (float)currentScreenWidth, 0.0f, (float)currentScreenHeight);
-	unsigned int projectionLoc = glGetUniformLocation(font->shaderProgramID, "projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(textProjection));
+	setUniform3f(font->shaderProgramID, "textColor", color);
 
 	// TODO: DON'T FORGET TO WORK OUT THE TEXTURE INFO HERE TOO -- can't just use texture 0 for all fonts
 	glActiveTexture(GL_TEXTURE0);
@@ -145,9 +139,6 @@ void drawText(Font *font, std::string text, float x, float y, float scale, glm::
 }
 
 #define LIMIT_LINES 2000
-
-// TODO: no need to limit lines so narrowly here, just set the limit super high, 
-//		 and then just show the last x lines (top down or bottom up)
 
 struct Textbox {
 	std::string lines[LIMIT_LINES];
