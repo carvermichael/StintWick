@@ -88,6 +88,75 @@ float lastCursorY = 300;
 bool firstMouse = true;
 bool freeCamera = false;
 
+float cubeVertices[] = {
+	// top
+	// 1, 2, 3, 4
+	0.0f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
+	0.5f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
+	0.5f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
+	0.0f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
+
+	// bottom
+	// 5, 6, 7, 8
+	0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+	0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
+	0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+	0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
+
+	// left
+	// 1, 4, 5, 8
+	0.0f, 0.5f, 0.5f,	-1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 0.5f,	-1.0f, 0.0f, 0.0f,
+	0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
+
+	// right
+	// 2, 3, 6, 7
+	0.5f, 0.5f, 0.5f,	1.0f, 0.0f, 0.0f,
+	0.5f, 0.0f, 0.5f,	1.0f, 0.0f, 0.0f,
+	0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
+	0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
+
+	// front
+	// 4, 3, 8, 7
+	0.0f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
+	0.5f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
+	0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+	0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
+
+	// back		
+	// 1, 2, 5, 6
+	0.0f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
+	0.5f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
+	0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
+	0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
+};
+unsigned int cubeIndices[] = {
+	// top
+	0, 1, 3,
+	1, 2, 3,
+
+	// bottom
+	4, 5, 7,
+	5, 6, 7,
+
+	// left
+	8, 9, 10,
+	9, 10, 11,
+
+	// right
+	12, 13, 14,
+	13, 14, 15,
+
+	// front
+	16, 17, 18,
+	17, 18, 19,
+
+	// back
+	20, 21, 22,
+	21, 22, 23
+};
+
 #define NUM_MODELS 7
 
 struct Models {
@@ -594,85 +663,14 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 }
 
 void createLightCube() {
-	
-	float vertices[] = {
-		// top
-		// 1, 2, 3, 4
-		0.0f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
-		0.5f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
-		0.5f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
-		0.0f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
-
-		// bottom
-		// 5, 6, 7, 8
-		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-
-		// left
-		// 1, 4, 5, 8
-		0.0f, 0.5f, 0.5f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 0.5f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
-
-		// right
-		// 2, 3, 6, 7
-		0.5f, 0.5f, 0.5f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.0f, 0.5f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
-
-		// front
-		// 4, 3, 8, 7
-		0.0f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
-
-		// back		
-		// 1, 2, 5, 6
-		0.0f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
-	};
-
-	unsigned int indices[] = {
-		// top
-		0, 1, 3,
-		1, 2, 3,
-
-		// bottom
-		4, 5, 7,
-		5, 6, 7,
-
-		// left
-		0, 3, 4,
-		3, 4, 7,
-
-		// right
-		1, 2, 5,
-		2, 5, 6,
-
-		// front
-		3, 2, 7,
-		2, 7, 6,
-
-		// back
-		0, 1, 4,
-		1, 4, 5
-	};
-
 	Mesh lightMesh;
 	
-	for (int i = 0; i < sizeof(vertices) / sizeof(float); i++) {
-		lightMesh.vertices.push_back(vertices[i]);
+	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+		lightMesh.vertices.push_back(cubeVertices[i]);
 	}
 
-	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
-		lightMesh.indices.push_back(indices[i]);		
+	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
+		lightMesh.indices.push_back(cubeIndices[i]);		
 	}
 
 	lightMesh.setupVAO();
@@ -685,133 +683,17 @@ void createLightCube() {
 }
 
 void createGridFloorAndWallModels() {
-	// NOTE: These coords are in local space
-	
-	float floorVertices[] = {
-		// top
-		// 1, 2, 3, 4
-		0.0f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
-		0.5f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
-		0.5f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
-		0.0f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
-		
-		// bottom
-		// 5, 6, 7, 8
-		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-
-		// left
-		// 1, 4, 5, 8
-		0.0f, 0.5f, 0.5f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 0.5f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
-
-		// right
-		// 2, 3, 6, 7
-		0.5f, 0.5f, 0.5f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.0f, 0.5f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
-
-		// front
-		// 4, 3, 8, 7
-		0.0f, 0.0f, 0.5f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.0f, 0.5f,	0.0f, -1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
-
-		// back		
-		// 1, 2, 5, 6
-		0.0f, 0.5f, 0.5f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.5f,	0.0f, 1.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f,
-	};
-
-	float wallVertices[] = {
-		// top
-		// 1, 2, 3, 4
-		0.0f, 0.5f, 1.0f,	0.0f, 0.0f, 1.0f,
-		0.5f, 0.5f, 1.0f,	0.0f, 0.0f, 1.0f,
-		0.5f, 0.0f, 1.0f,	0.0f, 0.0f, 1.0f,
-		0.0f, 0.0f, 1.0f,	0.0f, 0.0f, 1.0f,
-		
-		// bottom
-		// 5, 6, 7, 8
-		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-
-		// left
-		// 1, 4, 5, 8
-		0.0f, 0.5f, 1.0f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
-
-		// right
-		// 2, 3, 6, 7
-		0.5f, 0.5f, 1.0f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.0f, 1.0f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
-
-		// front
-		// 4, 3, 8, 7
-		0.0f, 0.0f, 1.0f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.0f, 1.0f,	0.0f, -1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
-		0.5f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f,
-
-		// back		
-		// 1, 2, 5, 6
-		0.0f, 0.5f, 1.0f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 1.0f,	0.0f, 1.0f, 0.0f,
-		0.0f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f	
-	};
-
-	unsigned int indices[] = {
-		// top
-		0, 1, 3,
-		1, 2, 3,
-
-		// bottom
-		4, 5, 7,
-		5, 6, 7,
-
-		// left
-		8, 9, 10,
-		9, 10, 11,
-
-		// right
-		12, 13, 14,
-		13, 14, 15,
-
-		// front
-		16, 17, 18,
-		17, 18, 19,
-
-		// back
-		20, 21, 22,
-		21, 22, 23
-	};
-	
 	Mesh floorMesh;	
 	Mesh wallMesh;
 
-	for (int i = 0; i < sizeof(floorVertices) / sizeof(float); i++) {
-		floorMesh.vertices.push_back(floorVertices[i]);
-		wallMesh.vertices.push_back(wallVertices[i]);
+	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+		floorMesh.vertices.push_back(cubeVertices[i]);
+		wallMesh.vertices.push_back(cubeVertices[i]);
 	}
 
-	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
-		floorMesh.indices.push_back(indices[i]);
-		wallMesh.indices.push_back(indices[i]);
+	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
+		floorMesh.indices.push_back(cubeIndices[i]);
+		wallMesh.indices.push_back(cubeIndices[i]);
 	}
 	
 	floorMesh.setupVAO();
@@ -827,90 +709,20 @@ void createGridFloorAndWallModels() {
 
 	models.wallModel.name = std::string("wall");
 	models.wallModel.meshes.push_back(wallMesh);
+
+	models.wallModel.scale(glm::vec3(0, 0, 1), 2.0f);
 }
 
 void createPlayerAndTheOtherModels() {
-	// NOTE: These coords are in local space
-
-	float playerVertices[] = {
-		// top
-		// 1, 2, 3, 4
-		0.0f, 0.5f, 0.25f,	0.0f, 0.0f, 1.0f, // 0
-		0.5f, 0.5f, 0.25f,	0.0f, 0.0f, 1.0f, // 1
-		0.5f, 0.0f, 0.25f,	0.0f, 0.0f, 1.0f, // 2
-		0.0f, 0.0f, 0.25f,	0.0f, 0.0f, 1.0f, // 3
-
-		// bottom
-		// 5, 6, 7, 8
-		0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f, // 4
-		0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f, // 5
-		0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f, // 6
-		0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f, // 7
-
-		// left
-		// 1, 4, 5, 8
-		0.0f, 0.5f, 0.25f,	-1.0f, 0.0f, 0.0f, // 8
-		0.0f, 0.0f, 0.25f,	-1.0f, 0.0f, 0.0f, // 9
-		0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f, // 10
-		0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f, // 11
-
-		// right
-		// 2, 3, 6, 7
-		0.5f, 0.5f, 0.25f,	1.0f, 0.0f, 0.0f, // 12
-		0.5f, 0.0f, 0.25f,	1.0f, 0.0f, 0.0f, // 13
-		0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f, // 14
-		0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f, // 15
-
-		// front
-		// 4, 3, 8, 7
-		0.0f, 0.0f, 0.25f,	0.0f, -1.0f, 0.0f, // 16
-		0.5f, 0.0f, 0.25f,	0.0f, -1.0f, 0.0f, // 17
-		0.0f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f, // 18
-		0.5f, 0.0f, 0.0f,	0.0f, -1.0f, 0.0f, // 19
-
-		// back		
-		// 1, 2, 5, 6
-		0.0f, 0.5f, 0.25f,	0.0f, 1.0f, 0.0f, // 20
-		0.5f, 0.5f, 0.25f,	0.0f, 1.0f, 0.0f, // 21
-		0.0f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f, // 22
-		0.5f, 0.5f, 0.0f,	0.0f, 1.0f, 0.0f, // 23
-	};
-
-	unsigned int indices[] = {
-		// top
-		0, 1, 3,
-		1, 2, 3,
-
-		// bottom
-		4, 5, 7,
-		5, 6, 7,
-
-		// left
-		8, 9, 10,
-		9, 10, 11,
-
-		// right
-		12, 13, 14,
-		13, 14, 15,
-
-		// front
-		16, 17, 18,
-		17, 18, 19,
-
-		// back
-		20, 21, 22,
-		21, 22, 23
-	};
-
 	Mesh playerMesh;
 	Mesh theOtherMesh;
 
-	for (int i = 0; i < sizeof(playerVertices) / sizeof(float); i++) {
-		playerMesh.vertices.push_back(playerVertices[i]);
+	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+		playerMesh.vertices.push_back(cubeVertices[i]);
 	}
 
-	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
-		playerMesh.indices.push_back(indices[i]);
+	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
+		playerMesh.indices.push_back(cubeIndices[i]);
 	}
 
 	playerMesh.setupVAO();
@@ -919,13 +731,14 @@ void createPlayerAndTheOtherModels() {
 
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
+	models.player.scale(glm::vec3(0, 0, 1), 0.5f);
 
-	for (int i = 0; i < sizeof(playerVertices) / sizeof(float); i++) {
-		theOtherMesh.vertices.push_back(playerVertices[i]);
+	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+		theOtherMesh.vertices.push_back(cubeVertices[i]);
 	}
 
-	for (int i = 0; i < sizeof(indices) / sizeof(unsigned int); i++) {
-		theOtherMesh.indices.push_back(indices[i]);
+	for (int i = 0; i < sizeof(cubeVertices) / sizeof(unsigned int); i++) {
+		theOtherMesh.indices.push_back(cubeIndices[i]);
 	}
 
 	theOtherMesh.setupVAO();
@@ -934,6 +747,7 @@ void createPlayerAndTheOtherModels() {
 
 	models.enemy.name = std::string("enemy");
 	models.enemy.meshes.push_back(theOtherMesh);
+	models.enemy.scale(glm::vec3(0, 0, 1), 0.5f);
 }
 
 void drawGrid() {
@@ -1009,6 +823,7 @@ void moveLightAroundOrbit(float deltaTime) {
 unsigned int gridVAO_ID, gridVBO_ID;
 unsigned int numGridVertices = 0;
 void guidingGridSetup() {
+	// TODO: create grid mesh
 
 	float lowerZ = 0.0f;
 	float upperZ = 1.0f;

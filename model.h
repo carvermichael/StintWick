@@ -98,11 +98,26 @@ struct Mesh {
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	}
 
-	void scale(float scale) {
+	void scale(glm::vec3 scaleDir, float scale) {
 		scaleFactor = scale;
 		
-		for (int i = 0; i < vertices.size(); i++) {
-			vertices[i] *= scaleFactor;
+		// NOTE: stride of 6 accounts for normals
+		if (scaleDir.x) {	
+			for (int i = 0; i < vertices.size(); i += 6) {
+				vertices[i] *= scaleFactor;
+			}
+		}
+
+		if (scaleDir.y) {
+			for (int i = 1; i < vertices.size(); i += 6) {
+				vertices[i] *= scaleFactor;
+			}
+		}
+
+		if (scaleDir.z) {
+			for (int i = 2; i < vertices.size(); i += 6) {
+				vertices[i] *= scaleFactor;
+			}
 		}
 
 		// Probably a better way to make this transformation in place with openGL.
@@ -152,6 +167,9 @@ struct Model {
 	glm::vec3 worldOffset;
 
 	Model() {}
+	Model(std::string name) {
+		this->name = name;
+	}
 	// TODO TODAY: create constructor (with name)
 
 	void draw() {
@@ -160,9 +178,9 @@ struct Model {
 		}
 	}
 
-	void scale(float scaleFactor) {
+	void scale(glm::vec3 scaleDir, float scaleFactor) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].scale(scaleFactor);
+			meshes[i].scale(scaleDir, scaleFactor);
 		}
 	}
 };

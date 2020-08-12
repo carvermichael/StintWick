@@ -87,11 +87,11 @@ void control_freeCam(int action, int key) {
 	if (action == GLFW_RELEASE) return;
 
 	if (key == GLFW_KEY_L) {
-		models.wallModel.scale(1.1f);
+		models.wallModel.scale(glm::vec3(0, 0, 1), 1.1f);
 	}
 	
 	if (key == GLFW_KEY_M) {
-		models.wallModel.scale(0.89f);
+		models.wallModel.scale(glm::vec3(0, 0, 1), 0.89f);
 	}
 
 	if (key == GLFW_KEY_G) {
