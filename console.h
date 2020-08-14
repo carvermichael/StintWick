@@ -141,7 +141,7 @@ struct Console {
 		inputString.clear();
 	}
 
-	void draw(float deltaTime) {
+	void draw(float deltaTime, Font *font) {
 		float dist = destination - location;
 		if (glm::abs(dist) < 1) location = destination;
 
@@ -168,9 +168,9 @@ struct Console {
 		//	editMarkerRect.draw();
 		//}
 
-		drawText(&ariel, inputString, 0.0f, location + 5.0f, 0.4f, glm::vec3(1.0f, 1.0f, 1.0f));
+		drawText(font, inputString, 0.0f, location + 5.0f, 0.4f, glm::vec3(1.0f, 1.0f, 1.0f));
 
-		drawTextBox(&historyTextbox);
+		drawTextBox(&historyTextbox, font);
 	}
 };
 

@@ -42,8 +42,6 @@
 
 #include "constants.h"
 
-//glm::vec3 getPlayerModelCoords();
-
 struct Light {
 
 	glm::vec3 pos = glm::vec3(0.0f);;
@@ -55,14 +53,6 @@ struct Light {
 
 	float currentDegrees = 0;
 };
-
-unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
-unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
-
-unsigned int regularShaderProgramID;
-unsigned int lightShaderProgramID;
-unsigned int UIShaderProgramID;
-unsigned int textShaderProgramID;
 
 #include "model.h"
 #include "camera.h"
@@ -78,6 +68,14 @@ unsigned int textShaderProgramID;
 #define MODE_LEVEL_EDIT			2
 #define MODE_PLAY_FIRST_PERSON  3
 
+unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
+unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
+
+unsigned int regularShaderProgramID;
+unsigned int lightShaderProgramID;
+unsigned int UIShaderProgramID;
+unsigned int textShaderProgramID;
+
 unsigned int mode = MODE_PLAY;
 
 float deltaTime = 0.0f;
@@ -88,6 +86,8 @@ float lastCursorY = 300;
 
 bool firstMouse = true;
 bool freeCamera = false;
+
+Textbox eventTextBox = {};
 
 float cubeVertices[] = {
 	// top
@@ -207,8 +207,6 @@ struct Materials {
 };
 
 Materials materials;
-
-Font ariel;
 
 glm::mat4 projection;
 
@@ -876,7 +874,7 @@ void guidingGridSetup() {
 	glEnableVertexAttribArray(0);
 }
 
-void doAGuidingGridThing() {
+void drawGuidingGrid() {
 	glUseProgram(regularShaderProgramID);
 
 	glBindVertexArray(gridVAO_ID);
@@ -978,6 +976,9 @@ int main() {
 	UIShaderProgramID		= createShaderProgram("UIVertexShader.vert", "UIFragmentShader.frag");
 	textShaderProgramID		= createShaderProgram("textVertexShader.vert", "textFragmentShader.frag");
 
+	// ------------- FONTS   -------------
+	Font arial = Font("arial.ttf", textShaderProgramID);
+
 	resetProjectionMatrices();
 
 	// initializing viewport and setting callbacks
@@ -989,7 +990,6 @@ int main() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
-	//createLightCube();
 	world.light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
 	
 	createGridFloorAndWallModels();
@@ -1022,10 +1022,6 @@ int main() {
 
 	lastFrameTime = (float)glfwGetTime();
 
-	initializeFont("arial.ttf", &ariel);
-	eventTextBox.font = &ariel;
-	console.historyTextbox.font = &ariel;
-
 	// need alpha blending for text transparency
 	glEnable(GL_DEPTH_TEST);
 	
@@ -1057,7 +1053,7 @@ int main() {
 		glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
 
 		glDepthFunc(GL_LESS);
-		if(guidingGrid)	doAGuidingGridThing();
+		if(guidingGrid)	drawGuidingGrid();
 		if(lightOrbit) moveLightAroundOrbit(deltaTime);
 		
 		//world.lightEntity.draw(world.light);
@@ -1067,8 +1063,8 @@ int main() {
 
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
-		console.draw(deltaTime);
-		drawTextBox(&eventTextBox);
+		console.draw(deltaTime, &arial);
+		drawTextBox(&eventTextBox, &arial);
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;
