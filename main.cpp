@@ -1,9 +1,8 @@
 /*
 	Random TODOs:
+	- simple move animation 
+	- add timestep for animations and whatnot
 	- fix first person mode after moving world offset info into entity
-	- make player and enemies smaller than the grid space
-		- this then allows for simple attack animations toward the defender
-		- make the player or enemies non-cubeish?
 	- make more than one enemy
 	- make some sense with all the directions being thrown around
 		- directions for movement of camera
@@ -220,6 +219,8 @@ void processConsoleCommand(std::string command);
 
 Console console;
 
+WorldState world;
+
 void resetProjectionMatrices() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
@@ -312,6 +313,7 @@ bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
 }
 
 void movePlayer(int direction) {
+	if (world.turnInProgress) return;
 	if(mode != MODE_PLAY_FIRST_PERSON) world.player.directionFacing = direction;
 
 	if (direction == UP) {
@@ -361,6 +363,8 @@ void movePlayer(int direction) {
 			world.player.gridCoords.x = 0;
 		}
 	}
+
+	world.turnInProgress = true;
 
 	//if(mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
 }
@@ -703,11 +707,11 @@ void createGridFloorAndWallModels() {
 	
 	floorMesh.setupVAO();
 	floorMesh.shaderProgramID = regularShaderProgramID;
-	floorMesh.material = &materials.silver;
+	floorMesh.material = &materials.emerald;
 
 	wallMesh.setupVAO();
 	wallMesh.shaderProgramID = regularShaderProgramID;
-	wallMesh.material = &materials.chrome;
+	wallMesh.material = &materials.gold;
 
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
@@ -715,7 +719,7 @@ void createGridFloorAndWallModels() {
 	models.wallModel.name = std::string("wall");
 	models.wallModel.meshes.push_back(wallMesh);
 
-	models.wallModel.scale(glm::vec3(0, 0, 1), 2.0f);
+	models.wallModel.scale(glm::vec3(1.0f, 1.0f, 2.0f));
 }
 
 void createPlayerAndEnemyModels() {
@@ -736,7 +740,7 @@ void createPlayerAndEnemyModels() {
 
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
-	models.player.scale(glm::vec3(0, 0, 1), 0.5f);
+	models.player.scale(glm::vec3(0.75f, 0.75f, 1.5f));
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
 		enemyMesh.vertices.push_back(cubeVertices[i]);
@@ -748,11 +752,11 @@ void createPlayerAndEnemyModels() {
 
 	enemyMesh.setupVAO();
 	enemyMesh.shaderProgramID = regularShaderProgramID;
-	enemyMesh.material = &materials.chrome;
+	enemyMesh.material = &materials.ruby;
 
 	models.enemy.name = std::string("enemy");
 	models.enemy.meshes.push_back(enemyMesh);
-	models.enemy.scale(glm::vec3(0, 0, 1), 0.5f);
+	models.enemy.scale(glm::vec3(1.0f, 1.0f, 0.5f));
 }
 
 void drawGrid() {
@@ -819,6 +823,7 @@ unsigned int gridVAO_ID, gridVBO_ID;
 unsigned int numGridVertices = 0;
 void guidingGridSetup() {
 	// TODO: create grid mesh
+	//		 note: can't do this is with current mesh setup, as those meshes are made for triangle drawing (these are just lines)
 
 	float lowerZ = 0.0f;
 	float upperZ = 1.0f;
@@ -929,19 +934,33 @@ void initMaterials() {
 	materials.light.shininess = 1.0f;
 }
 
-void drawPlayer() {
-
-	//world.player.worldOffset = getEntityOffset(world.player);
+void drawPlayer(float deltaTime) {
 	world.player.draw(world.light);
 }
 
 void drawEnemy() {
-
 	if (world.enemy.worldCoordX != world.player.worldCoordX ||
 		world.enemy.worldCoordY != world.player.worldCoordY) return; 
 	
-	//world.enemy.worldOffset = getEntityOffset(world.enemy);
 	world.enemy.draw(world.light);
+}
+
+void updateEntities(float deltaTime) {
+	if (!world.turnInProgress) return;
+
+	unsigned int currentTurnIndex = world.currentTurnEntity;
+	
+	bool finished = world.turnOrder[world.currentTurnEntity]->update(deltaTime);
+
+	if (finished) {
+		currentTurnIndex++;
+		if (currentTurnIndex >= NUM_TURN_ENTITIES) {
+			currentTurnIndex = 0;
+			world.turnInProgress = false;
+		}
+	}
+
+	world.currentTurnEntity = currentTurnIndex;
 }
 
 int main() {
@@ -1008,6 +1027,7 @@ int main() {
 	world.player.gridCoords.x = PLAYER_GRID_START_X;
 	world.player.gridCoords.y = PLAYER_GRID_START_Y;
 	world.player.gridCoords.z = 1;
+	world.player.destinationGridCoords = world.player.gridCoords;
 	world.player.strength = 1;
 	world.player.hitPoints = 20;
 	world.player.directionFacing = UP;
@@ -1017,6 +1037,7 @@ int main() {
 	world.enemy.gridCoords.x = 1;
 	world.enemy.gridCoords.y = 2;
 	world.enemy.gridCoords.z = 1;
+	world.enemy.destinationGridCoords = world.enemy.gridCoords;
 	world.enemy.hitPoints = 3;
 	world.enemy.strength = 1;
 
@@ -1058,7 +1079,8 @@ int main() {
 		
 		//world.lightEntity.draw(world.light);
 		drawGrid();
-		if (mode != MODE_PLAY_FIRST_PERSON) drawPlayer();
+		if (mode != MODE_PLAY_FIRST_PERSON) drawPlayer(deltaTime); // TODO: first person update
+		updateEntities(deltaTime);
 		drawEnemy();
 
 		// UI Elements

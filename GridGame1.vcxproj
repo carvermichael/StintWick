@@ -130,7 +130,6 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\tools\OpenGLTutorialDependencies\src\glad.c" />
     <ClCompile Include="camera.h" />
-    <ClCompile Include="console.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -144,6 +143,7 @@
     <None Include="vertexShader.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="actionQueue.h" />
     <ClInclude Include="console.h" />
     <ClInclude Include="constants.h" />
     <ClInclude Include="controls.h" />

@@ -13,45 +13,45 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\shaders">
+      <UniqueIdentifier>{16c314e4-6121-4a69-9a8d-489c8c6f3936}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\tools\OpenGLTutorialDependencies\src\glad.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="camera.h">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="console.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\..\..\tools\OpenGLTutorialDependencies\src\glad.c">
+      <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.frag">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="vertexShader.vert">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="textVertexShader.vert">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="textFragmentShader.frag">
-      <Filter>Source Files</Filter>
-    </None>
-    <None Include="lightVertexShader.vert">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\shaders</Filter>
     </None>
     <None Include="lightFragmentShader.frag">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\shaders</Filter>
     </None>
-    <None Include="UIVertexShader.vert">
-      <Filter>Source Files</Filter>
+    <None Include="lightVertexShader.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="textFragmentShader.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="textVertexShader.vert">
+      <Filter>Source Files\shaders</Filter>
     </None>
     <None Include="UIFragmentShader.frag">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="UIVertexShader.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="vertexShader.vert">
+      <Filter>Source Files\shaders</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -67,9 +67,6 @@
     <ClInclude Include="worldState.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="stb_image.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="model.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -80,6 +77,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="controls.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="actionQueue.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

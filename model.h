@@ -97,26 +97,12 @@ struct Mesh {
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	}
 
-	void scale(glm::vec3 scaleDir, float scale) {
-		scaleFactor = scale;
-		
+	void scale(glm::vec3 scale) {
 		// NOTE: stride of 6 accounts for normals
-		if (scaleDir.x) {	
-			for (int i = 0; i < vertices.size(); i += 6) {
-				vertices[i] *= scaleFactor;
-			}
-		}
-
-		if (scaleDir.y) {
-			for (int i = 1; i < vertices.size(); i += 6) {
-				vertices[i] *= scaleFactor;
-			}
-		}
-
-		if (scaleDir.z) {
-			for (int i = 2; i < vertices.size(); i += 6) {
-				vertices[i] *= scaleFactor;
-			}
+		for (int i = 0; i < vertices.size(); i += 6) {
+			vertices[i]	  *= scale.x;
+			vertices[i+1] *= scale.y;
+			vertices[i+2] *= scale.z;
 		}
 
 		// Probably a better way to make this transformation in place with openGL.
@@ -173,9 +159,9 @@ struct Model {
 		}
 	}
 
-	void scale(glm::vec3 scaleDir, float scaleFactor) {
+	void scale(glm::vec3 scale) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].scale(scaleDir, scaleFactor);
+			meshes[i].scale(scale);
 		}
 	}
 };

@@ -8,7 +8,20 @@ typedef void (*control)(int action, int key);
 
 void control_play(int action, int key) {
 	if (action == GLFW_RELEASE) return;
-	
+
+	if (key == GLFW_KEY_L) {
+		if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
+			addTextToBox("AI Set To SEEKING", &eventTextBox);
+			world.enemy.actionState = ACTION_STATE_SEEKING;
+		}
+		else if (world.enemy.actionState == ACTION_STATE_SEEKING) {
+			addTextToBox("AI Set To AVOIDANT", &eventTextBox);
+			world.enemy.actionState = ACTION_STATE_AVOIDANT;
+		}
+	}
+
+	if (world.turnInProgress) return;
+
 	if (key == GLFW_KEY_1) {
 		if (mode == MODE_PLAY_FIRST_PERSON) {
 			mode = MODE_PLAY;
@@ -71,27 +84,18 @@ void control_play(int action, int key) {
 		attack();
 	}
 
-	if (key == GLFW_KEY_L) {
-		if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
-			addTextToBox("AI Set To SEEKING", &eventTextBox);
-			world.enemy.actionState = ACTION_STATE_SEEKING;
-		}
-		else if (world.enemy.actionState == ACTION_STATE_SEEKING) {
-			addTextToBox("AI Set To AVOIDANT", &eventTextBox);
-			world.enemy.actionState = ACTION_STATE_AVOIDANT;
-		}
-	}
+	
 }
 
 void control_freeCam(int action, int key) {
 	if (action == GLFW_RELEASE) return;
 
 	if (key == GLFW_KEY_L) {
-		models.wallModel.scale(glm::vec3(0, 0, 1), 1.1f);
+		models.wallModel.scale(glm::vec3(0, 0, 1.1f));
 	}
 	
 	if (key == GLFW_KEY_M) {
-		models.wallModel.scale(glm::vec3(0, 0, 1), 0.89f);
+		models.wallModel.scale(glm::vec3(0, 0, 0.89f));
 	}
 
 	if (key == GLFW_KEY_G) {
@@ -101,7 +105,7 @@ void control_freeCam(int action, int key) {
 	
 	if (key == GLFW_KEY_R) {
 		// Grid goes bye-bye when this happens.
-		regenerateMap();
+		regenerateMap(&world);
 	}
 	
 	if (key == GLFW_KEY_O) {

@@ -6,6 +6,9 @@ void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openi
 void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere);
 
 void generateWorldMap(WorldState *world) {
+	// TODO: clear out world state here, so that you can regen entire world state
+	//		 Should I also create a new seed here??
+
 	createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
 	world->allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
 
@@ -165,13 +168,12 @@ void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWo
 	createSingleGrid(world, newGridX, newGridY, openings, roomType);
 }
 
-void regenerateMap() {
-	world = {};
-	world.someOtherThingPlaced = false;
-	world.storePlaced = false;
-	generateWorldMap(&world);
+void regenerateMap(WorldState *world) {
+	*world = {};
+	world->someOtherThingPlaced = false;
+	world->storePlaced = false;
+	generateWorldMap(world);
 }
-
 
 #define WORLDGENERATION
 #endif
