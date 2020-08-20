@@ -6,6 +6,47 @@ typedef void (*control)(int action, int key, float deltaTime);
 //		 probably don't want to rely on that long-term.		
 //									-carver (8-10-20)
 
+void moveWithController(GLFWgamepadstate state) {
+
+    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP] == GLFW_PRESS) {
+        moveEnemy();
+		if (mode == MODE_PLAY_FIRST_PERSON) {
+			movePlayerForward();
+		}
+		else {
+			movePlayer(UP);
+		}
+    }
+    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN] == GLFW_PRESS) {
+		moveEnemy();
+
+		if (mode == MODE_PLAY_FIRST_PERSON) {
+			movePlayerBackward();
+		}
+		else {
+			movePlayer(DOWN);
+		}
+    }
+    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_LEFT] == GLFW_PRESS) {
+		if (mode == MODE_PLAY_FIRST_PERSON) {
+			rotatePlayer(LEFT);
+		}
+		else {
+			moveEnemy();
+			movePlayer(LEFT);
+		}
+    }
+    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_RIGHT] == GLFW_PRESS) {
+		if (mode == MODE_PLAY_FIRST_PERSON) {
+			rotatePlayer(RIGHT);
+		}
+		else {
+			moveEnemy();
+			movePlayer(RIGHT);
+		}
+    }
+}
+
 void control_play(int action, int key, float deltaTime) {
 	if (action == GLFW_RELEASE) return;
 

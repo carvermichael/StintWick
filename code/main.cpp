@@ -615,6 +615,16 @@ void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 	}
 }
 
+void processJoystickInput() {
+    if(mode != MODE_PLAY) return; 
+    
+    GLFWgamepadstate state;
+
+    if(glfwGetGamepadState(GLFW_JOYSTICK_1, &state)) {
+        moveWithController(state);
+    }
+}
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (mode != MODE_LEVEL_EDIT) return;
@@ -1067,6 +1077,7 @@ int main() {
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window, deltaTime);
+        processJoystickInput();
 		
 		glfwPollEvents();
 
