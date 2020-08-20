@@ -1,5 +1,6 @@
 /*
 	Random TODOs:
+    - replace std::cout's with printf's
 	- simple move animation 
 	- add timestep for animations and whatnot
 	- fix first person mode after moving world offset info into entity
