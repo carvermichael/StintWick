@@ -94,32 +94,38 @@ void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openi
 
 void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWorldMapY, int directionToGetHere) {
 	// TODO: fix this directionToGetHere garbage, way too confusing -- just do cardinal directions
+    // TODO: assert direction is good here
 
 	int newGridX;
 	int newGridY;
 	int openings;
 
 	switch (directionToGetHere) {
-	case (UP):
-		newGridX = attachedWorldMapX;
-		newGridY = attachedWorldMapY + 1;
-		openings = DOWN;
-		break;
-	case (DOWN):
-		newGridX = attachedWorldMapX;
-		newGridY = attachedWorldMapY - 1;
-		openings = UP;
-		break;
-	case (LEFT):
-		newGridX = attachedWorldMapX - 1;
-		newGridY = attachedWorldMapY;
-		openings = RIGHT;
-		break;
-	case (RIGHT):
-		newGridX = attachedWorldMapX + 1;
-		newGridY = attachedWorldMapY;
-		openings = LEFT;
-		break;
+        case (UP):
+            newGridX = attachedWorldMapX;
+            newGridY = attachedWorldMapY + 1;
+            openings = DOWN;
+            break;
+        case (DOWN):
+            newGridX = attachedWorldMapX;
+            newGridY = attachedWorldMapY - 1;
+            openings = UP;
+            break;
+        case (LEFT):
+            newGridX = attachedWorldMapX - 1;
+            newGridY = attachedWorldMapY;
+            openings = RIGHT;
+            break;
+        case (RIGHT):
+            newGridX = attachedWorldMapX + 1;
+            newGridY = attachedWorldMapY;
+            openings = LEFT;
+            break;
+        default:
+            newGridX = 0;
+            newGridY = 0;
+            std::cout << "ERROR: Create Adjacent Maps invoked without direction" << std::endl;
+            printf("ERROR: Create Adjacent Maps invoked without direction");
 	}
 
 	world->allMaps[newGridX][newGridY].initialized = true;

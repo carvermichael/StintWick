@@ -1,12 +1,12 @@
 #pragma once
 
-typedef void (*control)(int action, int key);
+typedef void (*control)(int action, int key, float deltaTime);
 
 // NOTE: The check for GLFW_RELEASE relies on Windows repeat logic,
 //		 probably don't want to rely on that long-term.		
 //									-carver (8-10-20)
 
-void control_play(int action, int key) {
+void control_play(int action, int key, float deltaTime) {
 	if (action == GLFW_RELEASE) return;
 
 	if (key == GLFW_KEY_L) {
@@ -87,7 +87,7 @@ void control_play(int action, int key) {
 	
 }
 
-void control_freeCam(int action, int key) {
+void control_freeCam(int action, int key, float deltaTime) {
 	if (action == GLFW_RELEASE) return;
 
 	if (key == GLFW_KEY_L) {
@@ -114,7 +114,7 @@ void control_freeCam(int action, int key) {
 	}
 }
 
-void control_edit(int action, int key) {
+void control_edit(int action, int key, float deltaTime) {
 	if (action != GLFW_PRESS) return;
 	
 	const float cameraSpeed = 5.0f * deltaTime;

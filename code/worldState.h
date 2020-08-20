@@ -21,8 +21,8 @@ struct Entity {
 	int worldCoordX;
 	int worldCoordY;
 	
-	glm::uvec3 gridCoords;
-	glm::uvec3 destinationGridCoords;
+	glm::ivec3 gridCoords;
+	glm::ivec3 destinationGridCoords;
 
 	int actionState;
 
@@ -64,7 +64,7 @@ struct Entity {
 	}
 
 	void draw(Light light) {
-		model->draw(worldOffset, directionFacing, light);
+		model->draw(worldOffset, light);
 	}
 };
 

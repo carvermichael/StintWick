@@ -6,3 +6,4 @@
 *.map
 external/
 build/
+*.swp

@@ -121,7 +121,7 @@ struct Console {
 		historyTextbox.flip = true;
 	}
 
-	void addInput(unsigned int input) {
+	void addInput(char input) {
 		inputString.push_back(input);
 	}
 

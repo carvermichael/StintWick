@@ -76,7 +76,7 @@ struct Mesh {
 
 	Mesh() {};
 
-	void draw(glm::vec3 worldOffset, int directionFacing, Light light) {
+	void draw(glm::vec3 worldOffset, Light light) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 
@@ -94,7 +94,7 @@ struct Mesh {
 		setUniform3f(shaderProgramID, "lightDiffuse", light.diffuse);
 		setUniform3f(shaderProgramID, "lightSpecular", light.specular);
 
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, (GLsizei) indices.size(), GL_UNSIGNED_INT, 0);
 	}
 
 	void scale(glm::vec3 scale) {
@@ -153,9 +153,9 @@ struct Model {
 	}
 	// TODO TODAY: create constructor (with name)
 
-	void draw(glm::vec3 worldOffset, int directionFacing, Light light) {
+	void draw(glm::vec3 worldOffset, Light light) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(worldOffset, directionFacing, light);
+			meshes[i].draw(worldOffset, light);
 		}
 	}
 

@@ -17,11 +17,19 @@
 	- frame timing
 	- create movement for player and enemy -- don't just jump over (could add move buffer here, too)
 		-- same with switching between 3rd and 1st person -- slowly zoom in and rotate camera (will help you get a better hold on camera stuffs)
-	- probably want to get away from just using headers -- the ordering of includes is getting to be a pain (also, this'll help you bring global state back into main + keep it there/pass references)
 */
 
+// suppress warnings from non-standard lib external sources
+#pragma warning (push, 0)
 #include <glad/glad.h>
 #include <glfw3.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#pragma warning (pop)
 
 #include <time.h>
 
@@ -31,13 +39,6 @@
 #include <vector>
 #include <stdlib.h>
 #include <map>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include <ft2build.h>
-#include FT_FREETYPE_H
 
 #include "constants.h"
 
@@ -77,7 +78,8 @@ unsigned int textShaderProgramID;
 
 unsigned int mode = MODE_PLAY;
 
-float deltaTime = 0.0f;
+// Note: Can't add an extra param to key callback. Could use the window's user pointer, but I'm lazy. (carver - 8-20-20)
+float globalDeltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
 float lastCursorX = 400;
@@ -304,7 +306,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 bool isEnemyHere(int worldX, int worldY, int gridX, int gridY) {
 	return	world.enemy.worldCoordX == worldX &&
 			world.enemy.worldCoordY == worldY &&
-			world.enemy.gridCoords.x  == gridX  &&
+			world.enemy.gridCoords.x  == gridX &&
 			world.enemy.gridCoords.y  == gridY;
 }
 
@@ -501,7 +503,7 @@ void moveEnemy() {
 void character_callback(GLFWwindow* window, unsigned int codepoint)
 {
 	if (console.isOut) {
-		console.addInput(codepoint);
+		console.addInput((char) codepoint);
 	}
 }
 
@@ -529,7 +531,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 	
 	control ctlFunc = getControlFunc();
-	if(ctlFunc) ctlFunc(action, key);
+	if(ctlFunc) ctlFunc(action, key, globalDeltaTime);
 }
 
 std::vector<std::string> splitString(std::string str, char delimiter) {
@@ -592,7 +594,7 @@ void processConsoleCommand(std::string command) {
 	}
 }
 
-void processKeyboardInput(GLFWwindow *window) {
+void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 	// NOTE: Using the callback for free camera movement is super choppy,
 	//		 Cause it's the only thing that involves holding down keys?
 	if (mode == MODE_FREE_CAMERA) {
@@ -770,9 +772,9 @@ void drawGrid() {
 			glm::vec3 worldOffset = glm::vec3(xOffset, yOffset, zOffset);
 
 			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
-				models.wallModel.draw(worldOffset, UP, world.light);
+				models.wallModel.draw(worldOffset, world.light);
 			} else {
-				models.floorModel.draw(worldOffset, UP, world.light);
+				models.floorModel.draw(worldOffset, world.light);
 			}
 		}
 	}
@@ -1059,9 +1061,11 @@ int main() {
 	world.player.model = &models.player;
 	world.enemy.model = &models.enemy;
 
+    float deltaTime = 0.0f;
+
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
-		processKeyboardInput(window);
+		processKeyboardInput(window, deltaTime);
 		
 		glfwPollEvents();
 
@@ -1090,6 +1094,7 @@ int main() {
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;
+        globalDeltaTime = deltaTime;
 		lastFrameTime = currentFrame;
 
 		glfwSwapBuffers(window);
