@@ -11,6 +11,7 @@ struct Map {
 	int openings;
 };
 
+
 struct Entity {
 	Model *model;
 
@@ -29,44 +30,36 @@ struct Entity {
 	int hitPoints;
 	int strength;
 
-	float speed = 15.0f;
-
-	bool update(float deltaTime) {
-
-		destinationWorldOffset.x =  0.5f * gridCoords.x;
-		destinationWorldOffset.y = -0.5f * gridCoords.y;
-		destinationWorldOffset.z =  0.5f * gridCoords.z;
-
-		if (gridCoords == destinationGridCoords) {
-			worldOffset = destinationWorldOffset;
-		}
-		else {
-			float distX = destinationWorldOffset.x - worldOffset.x;
-			float distY = destinationWorldOffset.y - worldOffset.y;
-			float distZ = destinationWorldOffset.z - worldOffset.z;
-
-			if (glm::abs(distX) < 0.005f) worldOffset.x = destinationWorldOffset.x;
-			if (glm::abs(distY) < 0.005f) worldOffset.y = destinationWorldOffset.y;
-			if (glm::abs(distZ) < 0.005f) worldOffset.z = destinationWorldOffset.z;
-
-			float distToMoveX = distX * deltaTime * speed;
-			float distToMoveY = distY * deltaTime * speed;
-			float distToMoveZ = distZ * deltaTime * speed;
-
-			worldOffset.x += distToMoveX;
-			worldOffset.y += distToMoveY;
-			worldOffset.z += distToMoveZ;
-		}
-
-		if (worldOffset == destinationWorldOffset) return true;
-
-		return false;
-	}
+	float speed = 0.2f;
 
 	void draw(Light light) {
 		model->draw(worldOffset, light);
 	}
 };
+
+glm::vec3 gridCoordsToWorldOffset(glm::ivec3 gridCoords) {
+    glm::vec3 worldOffset;
+
+    worldOffset.x =  0.5f * gridCoords.x;
+    worldOffset.y = -0.5f * gridCoords.y;
+    worldOffset.z =  0.5f * gridCoords.z;
+
+    return worldOffset;
+}
+
+glm::ivec3 worldOffsetToGridCoords(glm::vec3 worldOffset) {
+    
+    glm::ivec3 gridCoords;
+
+    // TODO: verify this truncation results in the desired result
+    gridCoords.x = (int)(worldOffset.x /  0.5f); 
+    gridCoords.y = (int)(worldOffset.y / -0.5f); 
+    gridCoords.z = (int)(worldOffset.z /  0.5f); 
+    
+    printf("World: (%.2f, %.2f) --> Grid: (%i, %i)\n", worldOffset.x, worldOffset.y, gridCoords.x, gridCoords.y);
+
+    return gridCoords;
+}
 
 #define MAX_ENTITIES 100
 #define NUM_TURN_ENTITIES 2
@@ -74,31 +67,25 @@ struct Entity {
 struct WorldState {
 	unsigned int seed;
 
-	// This setup will result in a sparse world map. Not a big deal for now, but there is a risk for memory explosion if the size of the possible map expands. (carver - 7-20-20)
-	Map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
+    Map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
 	bool storePlaced = false;
 	bool someOtherThingPlaced = false;
+
+    int currentMapX = PLAYER_WORLD_START_X;
+    int currentMapY = PLAYER_WORLD_START_Y;
 
 	Camera camera;
 
 	Light light;
 
-	//Entity lightEntity;
 	Entity player;
 	Entity enemy;
 
 	Entity entities[MAX_ENTITIES];
 
-	Entity *turnOrder[NUM_TURN_ENTITIES];
-	unsigned int currentTurnEntity = 0;
-	bool turnInProgress = false;
-
-	WorldState() {
-		turnOrder[0] = &player;
-		turnOrder[1] = &enemy;
-	}
-
-	// TODO: maybe put a draw call here for the entire world state???
+    Map *currentMap() {
+        return &allMaps[currentMapX][currentMapY];
+    }
 };
 
 

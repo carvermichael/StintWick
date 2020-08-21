@@ -91,6 +91,7 @@ bool freeCamera = false;
 
 Textbox eventTextBox = {};
 
+
 float cubeVertices[] = {
 	// top
 	// 1, 2, 3, 4
@@ -224,6 +225,25 @@ Console console;
 
 WorldState world;
 
+void movePlayer(float X, float Y) {
+    
+    // naive version
+    // 
+    // translate next X, Y to gridCoord
+    // if gridCoord != 1, move player there
+
+    float prospectiveX = world.player.worldOffset.x + X * world.player.speed;
+    float prospectiveY = world.player.worldOffset.y - Y * world.player.speed;
+
+    // NOTE: hack here to get the player's center point (world offset is on upper left)
+    glm::ivec3 gridCoords = worldOffsetToGridCoords(glm::vec3(prospectiveX, prospectiveY, 1.0f));  
+
+    if(world.currentMap()->grid[gridCoords.x][gridCoords.y] == 1) return;
+
+    world.player.worldOffset.x = prospectiveX;
+    world.player.worldOffset.y = prospectiveY;
+}
+
 void resetProjectionMatrices() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
@@ -281,12 +301,7 @@ void refreshView() {
 	// TODO: create union with all shaders, then can reference by name, but also iterate through in cases like this
 	//					and projection matrix setting -- similar thing for fonts? models? materials?
 	glm::mat4 view;
-	if (mode == MODE_PLAY_FIRST_PERSON) {
-		view = world.camera.generateFirstPersonView(world.player.directionFacing);
-	}
-	else {
-		view = world.camera.generateView();
-	}
+	view = world.camera.generateView();
 
 	setUniformMat4(regularShaderProgramID, "view", view);
 	setUniformMat4(lightShaderProgramID, "view", view);
@@ -313,190 +328,6 @@ bool isEnemyHere(int worldX, int worldY, int gridX, int gridY) {
 
 bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
 	return world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[gridY][gridX] == 0;
-}
-
-void movePlayer(int direction) {
-	if (world.turnInProgress) return;
-	if(mode != MODE_PLAY_FIRST_PERSON) world.player.directionFacing = direction;
-
-	if (direction == UP) {
-		int prospectiveYCoord = world.player.gridCoords.y - PLAYER_SPEED;
-		if (prospectiveYCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoords.x] == 0 &&
-			!isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoords.x, prospectiveYCoord)) {
-			world.player.gridCoords.y = prospectiveYCoord;
-		}
-		else if (prospectiveYCoord < 0) {
-			world.player.worldCoordY++;
-			world.player.gridCoords.y = GRID_MAP_SIZE_X - PLAYER_SPEED;
-		}
-	}
-
-	if (direction == DOWN) {
-		int prospectiveYCoord = world.player.gridCoords.y + PLAYER_SPEED;
-		if (prospectiveYCoord < GRID_MAP_SIZE_Y && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[prospectiveYCoord][world.player.gridCoords.x] == 0
-			&& !isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, world.player.gridCoords.x, prospectiveYCoord)) {
-			world.player.gridCoords.y = prospectiveYCoord;
-		}
-		else if (prospectiveYCoord == GRID_MAP_SIZE_X) {
-			world.player.worldCoordY--;
-			world.player.gridCoords.y = 0;
-		}
-	}
-
-	if (direction == LEFT) {
-		int prospectiveXCoord = world.player.gridCoords.x - PLAYER_SPEED;
-		if (prospectiveXCoord >= 0 && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoords.y][prospectiveXCoord] == 0 &&
-			!isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoords.y)) {
-			world.player.gridCoords.x = prospectiveXCoord;
-		}
-		else if (prospectiveXCoord < 0) {
-			world.player.worldCoordX--;
-			world.player.gridCoords.x = GRID_MAP_SIZE_Y - PLAYER_SPEED;
-		}
-	}
-
-	if (direction == RIGHT) {
-		int prospectiveXCoord = world.player.gridCoords.x + PLAYER_SPEED;
-		if (prospectiveXCoord < GRID_MAP_SIZE_X && world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[world.player.gridCoords.y][prospectiveXCoord] == 0 &&
-			!isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, prospectiveXCoord, world.player.gridCoords.y)) {
-			world.player.gridCoords.x = prospectiveXCoord;
-		}
-		else if (prospectiveXCoord == GRID_MAP_SIZE_Y) {
-			world.player.worldCoordX++;
-			world.player.gridCoords.x = 0;
-		}
-	}
-
-	world.turnInProgress = true;
-
-	//if(mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
-}
-
-void movePlayerForward() {
-	switch (world.player.directionFacing) {
-		case UP:
-			movePlayer(UP);
-			break;
-		case DOWN:
-			movePlayer(DOWN);
-			break;
-		case LEFT:
-			movePlayer(LEFT);
-			break;
-		case RIGHT:
-			movePlayer(RIGHT);
-			break;
-	}
-}
-
-void movePlayerBackward() {
-	switch (world.player.directionFacing) {
-		case UP:
-			movePlayer(DOWN);
-			break;
-		case DOWN:
-			movePlayer(UP);
-			break;
-		case LEFT:
-			movePlayer(RIGHT);
-			break;
-		case RIGHT:
-			movePlayer(LEFT);
-			break;	
-	}
-}
-
-void rotatePlayer(int direction) {
-	if (direction == LEFT) {
-		if (world.player.directionFacing == UP)		world.player.directionFacing = LEFT;
-		else if (world.player.directionFacing == LEFT)	world.player.directionFacing = DOWN;
-		else if (world.player.directionFacing == DOWN)	world.player.directionFacing = RIGHT;
-		else if (world.player.directionFacing == RIGHT)	world.player.directionFacing = UP;
-	}
-
-	if (direction == RIGHT) {
-		if (world.player.directionFacing == UP)		world.player.directionFacing = RIGHT;
-		else if (world.player.directionFacing == RIGHT)	world.player.directionFacing = DOWN;
-		else if (world.player.directionFacing == DOWN)	world.player.directionFacing = LEFT;
-		else if (world.player.directionFacing == LEFT)	world.player.directionFacing = UP;
-	}
-}
-
-void attack() {
-	int xAttack = world.player.gridCoords.x;
-	int yAttack = world.player.gridCoords.y;
-
-	switch (world.player.directionFacing) {
-		case (UP):
-			yAttack--;
-			break;
-		case (DOWN):
-			yAttack++;
-			break;
-		case (LEFT):
-			xAttack--;
-			break;
-		case (RIGHT):
-			xAttack++;
-			break;
-	}
-
-	if (isEnemyHere(world.player.worldCoordX, world.player.worldCoordY, xAttack, yAttack)) {
-		world.enemy.hitPoints -= world.player.strength;
-		if (world.enemy.hitPoints <= 0) {
-			world.enemy.worldCoordX = 20;
-			world.enemy.worldCoordY = 20;
-		}
-	}
-}
-
-void moveEnemy() {
-	if (world.enemy.worldCoordX != world.player.worldCoordX ||
-		world.enemy.worldCoordY != world.player.worldCoordY) return;
-
-	int diffToPlayerX = world.enemy.gridCoords.x - world.player.gridCoords.x;
-	int diffToPlayerY = world.enemy.gridCoords.y - world.player.gridCoords.y;
-
-	int prospectiveGridCoordX = world.enemy.gridCoords.x;
-	int prospectiveGridCoordY = world.enemy.gridCoords.y;
-
-	if (world.enemy.actionState == ACTION_STATE_SEEKING) {
-		
-		if (diffToPlayerX == 0 && diffToPlayerY == 0) return;
-		if (diffToPlayerX == 0 && abs(diffToPlayerY) == 1) return;
-		if (abs(diffToPlayerX) == 1 && diffToPlayerY == 0) return;
-
-		if (rand() % 2 == 0 && diffToPlayerX != 0) {
-			if (diffToPlayerX > 0)		prospectiveGridCoordX = world.enemy.gridCoords.x - 1;
-			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.enemy.gridCoords.x + 1;
-		}
-		else {
-			if (diffToPlayerY == 0) {
-				if (diffToPlayerX > 0)		prospectiveGridCoordX = world.enemy.gridCoords.x - 1;
-				else if (diffToPlayerX < 0) prospectiveGridCoordX = world.enemy.gridCoords.x + 1;
-			}
-
-			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.enemy.gridCoords.y - 1;
-			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.enemy.gridCoords.y + 1;
-		}
-	}
-	// TODO: Finish this. The Other can go off map when avoidant.
-	else if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
-		if (diffToPlayerX > diffToPlayerY) {
-			if		(diffToPlayerX > 0)	prospectiveGridCoordX = world.enemy.gridCoords.x + 1;
-			else if (diffToPlayerX < 0) prospectiveGridCoordX = world.enemy.gridCoords.x - 1;
-
-			
-		}	else {
-			if (diffToPlayerY > 0)		prospectiveGridCoordY = world.enemy.gridCoords.y + 1;
-			else if (diffToPlayerY < 0) prospectiveGridCoordY = world.enemy.gridCoords.y - 1;
-		}
-	}
-
-	if (isMapSpaceEmpty(world.player.worldCoordX, world.player.worldCoordY, prospectiveGridCoordX, prospectiveGridCoordY)) {
-		world.enemy.gridCoords.x = prospectiveGridCoordX;
-		world.enemy.gridCoords.y = prospectiveGridCoordY;
-	}
 }
 
 #include "controls.h"
@@ -749,11 +580,11 @@ void createPlayerAndEnemyModels() {
 
 	playerMesh.setupVAO();
 	playerMesh.shaderProgramID = regularShaderProgramID;
-	playerMesh.material = &materials.gold;
+	playerMesh.material = &materials.chrome;
 
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
-	models.player.scale(glm::vec3(0.75f, 0.75f, 1.5f));
+	//models.player.scale(glm::vec3(0.9f, 0.9f, 0.25f));
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
 		enemyMesh.vertices.push_back(cubeVertices[i]);
@@ -790,23 +621,6 @@ void drawGrid() {
 		}
 	}
 }
-
-//glm::vec3 getEntityOffset(Entity entity) {
-//	float zOffset = 0.5f;
-//
-//	float yOffset = -0.5f * entity.gridCoords.y;
-//	float xOffset = 0.5f * entity.gridCoords.x;
-//
-//	return glm::vec3(xOffset, yOffset, zOffset);
-//}
-//
-//glm::vec3 getPlayerModelCoords() {
-//	glm::vec3 coords = getEntityOffset(world.player);
-//	
-//	if (mode == MODE_PLAY_FIRST_PERSON) coords.z += 0.25f;
-//	
-//	return coords;
-//}
 
 void moveLightAroundOrbit(float deltaTime) {
 	float radius = 5.0f;
@@ -951,30 +765,6 @@ void drawPlayer(float deltaTime) {
 	world.player.draw(world.light);
 }
 
-void drawEnemy() {
-	if (world.enemy.worldCoordX != world.player.worldCoordX ||
-		world.enemy.worldCoordY != world.player.worldCoordY) return; 
-	
-	world.enemy.draw(world.light);
-}
-
-void updateEntities(float deltaTime) {
-	if (!world.turnInProgress) return;
-
-	unsigned int currentTurnIndex = world.currentTurnEntity;
-	
-	bool finished = world.turnOrder[world.currentTurnEntity]->update(deltaTime);
-
-	if (finished) {
-		currentTurnIndex++;
-		if (currentTurnIndex >= NUM_TURN_ENTITIES) {
-			currentTurnIndex = 0;
-			world.turnInProgress = false;
-		}
-	}
-
-	world.currentTurnEntity = currentTurnIndex;
-}
 
 int main() {
 	// ------------ INIT STUFF -------------
@@ -1041,6 +831,7 @@ int main() {
 	world.player.gridCoords.y = PLAYER_GRID_START_Y;
 	world.player.gridCoords.z = 1;
 	world.player.destinationGridCoords = world.player.gridCoords;
+    world.player.worldOffset = gridCoordsToWorldOffset(world.player.gridCoords);
 	world.player.strength = 1;
 	world.player.hitPoints = 20;
 	world.player.directionFacing = UP;
@@ -1095,9 +886,7 @@ int main() {
 		
 		//world.lightEntity.draw(world.light);
 		drawGrid();
-		if (mode != MODE_PLAY_FIRST_PERSON) drawPlayer(deltaTime); // TODO: first person update
-		updateEntities(deltaTime);
-		drawEnemy();
+		if (mode != MODE_PLAY_FIRST_PERSON) drawPlayer(deltaTime);
 
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls

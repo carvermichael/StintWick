@@ -17,14 +17,14 @@
 #define WORLD_MAP_SIZE_Y 5
 
 // maps must be even and square
-#define GRID_MAP_SIZE_X	12
-#define GRID_MAP_SIZE_Y	12
+#define GRID_MAP_SIZE_X	30
+#define GRID_MAP_SIZE_Y	30
 
 #define PLAYER_WORLD_START_X 2
 #define PLAYER_WORLD_START_Y 2
 
-#define PLAYER_GRID_START_X 4
-#define PLAYER_GRID_START_Y 4
+#define PLAYER_GRID_START_X 15
+#define PLAYER_GRID_START_Y 26
 
 #define ACTION_STATE_SEEKING	0
 #define ACTION_STATE_AVOIDANT	1

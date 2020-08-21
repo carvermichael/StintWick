@@ -5,126 +5,81 @@ typedef void (*control)(int action, int key, float deltaTime);
 // NOTE: The check for GLFW_RELEASE relies on Windows repeat logic,
 //		 probably don't want to rely on that long-term.		
 //									-carver (8-10-20)
-
 void moveWithController(GLFWgamepadstate state) {
 
-    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP] == GLFW_PRESS) {
-        moveEnemy();
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			movePlayerForward();
-		}
-		else {
-			movePlayer(UP);
-		}
-    }
-    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN] == GLFW_PRESS) {
-		moveEnemy();
+    float leftX = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X]; 
+    float leftY = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y]; 
 
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			movePlayerBackward();
-		}
-		else {
-			movePlayer(DOWN);
-		}
-    }
-    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_LEFT] == GLFW_PRESS) {
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			rotatePlayer(LEFT);
-		}
-		else {
-			moveEnemy();
-			movePlayer(LEFT);
-		}
-    }
-    if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_RIGHT] == GLFW_PRESS) {
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			rotatePlayer(RIGHT);
-		}
-		else {
-			moveEnemy();
-			movePlayer(RIGHT);
-		}
-    }
+    if(glm::abs(leftX) < 0.1f) leftX = 0;
+    if(glm::abs(leftY) < 0.1f) leftY = 0;
+
+    movePlayer(leftX, leftY);
 }
 
+
 void control_play(int action, int key, float deltaTime) {
-	if (action == GLFW_RELEASE) return;
-
-	if (key == GLFW_KEY_L) {
-		if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
-			addTextToBox("AI Set To SEEKING", &eventTextBox);
-			world.enemy.actionState = ACTION_STATE_SEEKING;
-		}
-		else if (world.enemy.actionState == ACTION_STATE_SEEKING) {
-			addTextToBox("AI Set To AVOIDANT", &eventTextBox);
-			world.enemy.actionState = ACTION_STATE_AVOIDANT;
-		}
-	}
-
-	if (world.turnInProgress) return;
-
-	if (key == GLFW_KEY_1) {
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			mode = MODE_PLAY;
-			addTextToBox("First Person Off", &eventTextBox);
-			world.camera.initializeForGrid();
-		}
-		else {
-			mode = MODE_PLAY_FIRST_PERSON;
-			addTextToBox("First Person On", &eventTextBox);
-			world.camera.initializeForPlayer();
-		}
-	}
-	
-	if (key == GLFW_KEY_W) {
-		moveEnemy();
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			movePlayerForward();
-		}
-		else {
-			movePlayer(UP);
-		}
-	}
-
-	if (key == GLFW_KEY_A) {
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			rotatePlayer(LEFT);
-		}
-		else {
-			moveEnemy();
-			movePlayer(LEFT);
-		}
-	}
-	
-	if (key == GLFW_KEY_S) {
-		moveEnemy();
-
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			movePlayerBackward();
-		}
-		else {
-			movePlayer(DOWN);
-		}
-	}
-
-	if (key == GLFW_KEY_D) {
-		if (mode == MODE_PLAY_FIRST_PERSON) {
-			rotatePlayer(RIGHT);
-		}
-		else {
-			moveEnemy();
-			movePlayer(RIGHT);
-		}
-	}
-
-	if (key == GLFW_KEY_SPACE) {
-		moveEnemy();
-	}
-
-	if (key == GLFW_KEY_ENTER) {
-		attack();
-	}
-
+//	if (action == GLFW_RELEASE) return;
+//
+//	if (key == GLFW_KEY_L) {
+//		if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
+//			addTextToBox("AI Set To SEEKING", &eventTextBox);
+//			world.enemy.actionState = ACTION_STATE_SEEKING;
+//		}
+//		else if (world.enemy.actionState == ACTION_STATE_SEEKING) {
+//			addTextToBox("AI Set To AVOIDANT", &eventTextBox);
+//			world.enemy.actionState = ACTION_STATE_AVOIDANT;
+//		}
+//	}
+//
+//	if (key == GLFW_KEY_W) {
+//		moveEnemy();
+//		if (mode == MODE_PLAY_FIRST_PERSON) {
+//			movePlayerForward();
+//		}
+//		else {
+//			movePlayer(UP);
+//		}
+//	}
+//
+//	if (key == GLFW_KEY_A) {
+//		if (mode == MODE_PLAY_FIRST_PERSON) {
+//			rotatePlayer(LEFT);
+//		}
+//		else {
+//			moveEnemy();
+//			movePlayer(LEFT);
+//		}
+//	}
+//	
+//	if (key == GLFW_KEY_S) {
+//		moveEnemy();
+//
+//		if (mode == MODE_PLAY_FIRST_PERSON) {
+//			movePlayerBackward();
+//		}
+//		else {
+//			movePlayer(DOWN);
+//		}
+//	}
+//
+//	if (key == GLFW_KEY_D) {
+//		if (mode == MODE_PLAY_FIRST_PERSON) {
+//			rotatePlayer(RIGHT);
+//		}
+//		else {
+//			moveEnemy();
+//			movePlayer(RIGHT);
+//		}
+//	}
+//
+//	if (key == GLFW_KEY_SPACE) {
+//		moveEnemy();
+//	}
+//
+//	if (key == GLFW_KEY_ENTER) {
+//		attack();
+//	}
+//
 	
 }
 

@@ -56,47 +56,12 @@ struct Camera {
 		up = glm::normalize(glm::cross(direction, cameraRight));
 	}
 
-	void initializeForPlayer() {
-		yaw = 0.0f;
-		pitch = 0.0f;
-
-		up = glm::vec3(0.0f, 0.0f, 1.0f);
-
-		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		direction.y = sin(glm::radians(pitch));
-		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-
-		glm::vec3 cameraRight = glm::normalize(glm::cross(up, direction));
-
-		up = glm::normalize(glm::cross(direction, cameraRight));
-	}
-
 	glm::mat4 generateView() {
 		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 		direction.y = sin(glm::radians(pitch));
 		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
 		front = glm::normalize(direction);
 
-		glm::mat4 view = glm::lookAt(position, position + front, up);
-		return view;
-	}
-
-	glm::mat4 generateFirstPersonView(int directionFacing) {
-		switch (directionFacing) {
-			case UP:
-				front = glm::vec3(0.0f, 1.0f, 0.0f);
-				break;
-			case DOWN:
-				front = glm::vec3(0.0f, -1.0f, 0.0f);
-				break;
-			case LEFT:
-				front = glm::vec3(-1.0f, 0.0f, 0.0f);
-				break;
-			case RIGHT:
-				front = glm::vec3(1.0f, 0.0f, 0.0f);
-				break;
-		};
-		
 		glm::mat4 view = glm::lookAt(position, position + front, up);
 		return view;
 	}
