@@ -28,7 +28,7 @@ struct WorldState {
 
 	Light light;
 
-	Entity player;
+	Player player;
     
     Bullet bullets[MAX_BULLETS];
 

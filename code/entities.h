@@ -60,7 +60,7 @@ struct Light {
 };
 
 // TODO: rename to Player
-struct Entity {
+struct Player {
 	Model *model;
 
 	int directionFacing = DOWN;
