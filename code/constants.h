@@ -31,6 +31,18 @@
 
 #define PLAYER_SPEED 1
 
+#define GRID_FLOOR  0
+#define GRID_WALL   1
+#define GRID_EXIT   2
+
+#define NUM_MODELS 6
+#define NUM_MATS 7
+
+#define MODE_PLAY				0
+#define MODE_FREE_CAMERA		1
+#define MODE_LEVEL_EDIT			2
+#define MODE_PLAY_FIRST_PERSON  3
+
 #define CONSTANTS
 #endif // !CONSTANTS
 

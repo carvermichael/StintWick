@@ -9,13 +9,15 @@ void generateWorldMap(WorldState *world) {
 	// TODO: clear out world state here, so that you can regen entire world state
 	//		 Should I also create a new seed here??
 
-	createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
+    // NOTE: moving away from multiple rooms while working on new twin stick direction. (carver - 8-22-20)
+	//createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP | DOWN | LEFT | RIGHT, false);
+	createSingleGrid(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, 0, false);
 	world->allMaps[PLAYER_WORLD_START_X][PLAYER_WORLD_START_Y].initialized = true;
-
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP);
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN);
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT);
-	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT);
+//
+//	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, UP);
+//	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, DOWN);
+//	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, LEFT);
+//	createAdjacentMaps(world, PLAYER_WORLD_START_X, PLAYER_WORLD_START_Y, RIGHT);
 }
 
 void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openings, int roomType) {
@@ -26,52 +28,52 @@ void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openi
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
 			if (row == 0 || row == GRID_MAP_SIZE_X - 1 ||
 				column == 0 || column == GRID_MAP_SIZE_Y - 1) {
-				newGrid[row][column] = 1;
+				newGrid[row][column] = GRID_WALL;
 			}
 		}
 	}
 
 	// NOTE: Relies on even rows/columns to keep exits centered.
 	if (openings & LEFT) { // up
-		newGrid[GRID_MAP_SIZE_X / 2 - 2][0] = 0;
-		newGrid[GRID_MAP_SIZE_X / 2 - 1][0] = 0;
-		newGrid[GRID_MAP_SIZE_X / 2][0] = 0;
-		newGrid[GRID_MAP_SIZE_X / 2 + 1][0] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2 - 2][0] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X / 2 - 1][0] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X / 2 + 0][0] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X / 2 + 1][0] = GRID_EXIT;
 	}
 
 	if (openings & RIGHT) { // down
-		newGrid[GRID_MAP_SIZE_X / 2 - 2][GRID_MAP_SIZE_Y - 1] = 0;
-		newGrid[GRID_MAP_SIZE_X / 2 - 1][GRID_MAP_SIZE_Y - 1] = 0;
-		newGrid[GRID_MAP_SIZE_X / 2][GRID_MAP_SIZE_Y - 1] = 0;
-		newGrid[GRID_MAP_SIZE_X / 2 + 1][GRID_MAP_SIZE_Y - 1] = 0;
+		newGrid[GRID_MAP_SIZE_X / 2 - 2][GRID_MAP_SIZE_Y - 1] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X / 2 - 1][GRID_MAP_SIZE_Y - 1] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X / 2 + 0][GRID_MAP_SIZE_Y - 1] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X / 2 + 1][GRID_MAP_SIZE_Y - 1] = GRID_EXIT;
 	}
 
 	if (openings & UP) { // left
-		newGrid[0][GRID_MAP_SIZE_Y / 2 - 2] = 0;
-		newGrid[0][GRID_MAP_SIZE_Y / 2 - 1] = 0;
-		newGrid[0][GRID_MAP_SIZE_Y / 2] = 0;
-		newGrid[0][GRID_MAP_SIZE_Y / 2 + 1] = 0;
+		newGrid[0][GRID_MAP_SIZE_Y / 2 - 2] = GRID_EXIT;
+		newGrid[0][GRID_MAP_SIZE_Y / 2 - 1] = GRID_EXIT;
+		newGrid[0][GRID_MAP_SIZE_Y / 2 + 0] = GRID_EXIT;
+		newGrid[0][GRID_MAP_SIZE_Y / 2 + 1] = GRID_EXIT;
 	}
 
 	if (openings & DOWN) { // right
-		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 2] = 0;
-		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 1] = 0;
-		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2] = 0;
-		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 + 1] = 0;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 2] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 - 1] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 + 0] = GRID_EXIT;
+		newGrid[GRID_MAP_SIZE_X - 1][GRID_MAP_SIZE_Y / 2 + 1] = GRID_EXIT;
 	}
 
 	if (roomType == STORE) {
-		newGrid[2][GRID_MAP_SIZE_Y / 2 - 2] = 1;
-		newGrid[2][GRID_MAP_SIZE_Y / 2 - 1] = 1;
-		newGrid[2][GRID_MAP_SIZE_Y / 2] = 1;
-		newGrid[2][GRID_MAP_SIZE_Y / 2 + 1] = 1;
+		newGrid[2][GRID_MAP_SIZE_Y / 2 - 2] = GRID_WALL;
+		newGrid[2][GRID_MAP_SIZE_Y / 2 - 1] = GRID_WALL;
+		newGrid[2][GRID_MAP_SIZE_Y / 2 + 0] = GRID_WALL;
+		newGrid[2][GRID_MAP_SIZE_Y / 2 + 1] = GRID_WALL;
 	}
 
 	if (roomType == SOMEOTHERTHING) {
-		newGrid[2][GRID_MAP_SIZE_Y / 2 - 1] = 1;
-		newGrid[3][GRID_MAP_SIZE_Y / 2 - 1] = 1;
-		newGrid[4][GRID_MAP_SIZE_Y / 2 - 1] = 1;
-		newGrid[5][GRID_MAP_SIZE_Y / 2 + 0] = 1;
+		newGrid[2][GRID_MAP_SIZE_Y / 2 - 1] = GRID_WALL;
+		newGrid[3][GRID_MAP_SIZE_Y / 2 - 1] = GRID_WALL;
+		newGrid[4][GRID_MAP_SIZE_Y / 2 - 1] = GRID_WALL;
+		newGrid[5][GRID_MAP_SIZE_Y / 2 + 0] = GRID_WALL;
 	}
 
 	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
@@ -79,15 +81,6 @@ void createSingleGrid(WorldState *world, int worldMapX, int worldMapY, int openi
 			world->allMaps[worldMapX][worldMapY].grid[row][column] = newGrid[row][column];
 		}
 	}
-
-	// Setting random walls within playable subsection of grid
-	//for (int row = 1; row < GRID_MAP_SIZE_X - 1; row++) {
-	//	for (int column = 1; column < GRID_MAP_SIZE_Y - 1; column++) {
-	//		if (rand() % 10 == 3) {
-	//			world->allMaps[worldMapX][worldMapY].grid[row][column] = 1;
-	//		}
-	//	}
-	//}
 
 	world->allMaps[worldMapX][worldMapY].openings = openings;
 }
@@ -174,6 +167,7 @@ void createAdjacentMaps(WorldState *world, int attachedWorldMapX, int attachedWo
 	createSingleGrid(world, newGridX, newGridY, openings, roomType);
 }
 
+// TODO: fix this. it's busted.
 void regenerateMap(WorldState *world) {
 	*world = {};
 	world->someOtherThingPlaced = false;

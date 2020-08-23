@@ -1,40 +1,7 @@
 #if !defined(MODEL)
 
-#include <iostream>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
-#include <assimp/scene.h>
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <vector>
-
 #include "constants.h"
-
-void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform1f(location, value);
-}
-
-void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform3f(location, vec3.x, vec3.y, vec3.z);
-}
-
-void setUniform4f(unsigned int shaderProgramID, const char *uniformName, glm::vec4 vec4) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform4f(location, vec4.x, vec4.y, vec4.z, vec4.w);
-}
-
-void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat4));
-}
+#include "console.h"
 
 struct Material {
 	std::string name;
@@ -56,6 +23,74 @@ struct Material {
 	}
 };
 
+struct Materials {
+	
+
+	union {
+		Material mats[NUM_MATS];
+
+		struct {
+			Material light;
+			Material emerald;
+			Material chrome;
+			Material silver;
+			Material gold;
+			Material blackRubber;
+			Material ruby;
+		};
+	};
+
+    Materials() {
+        // pulled from http://devernay.free.fr/cours/opengl/materials.html
+        emerald = Material("emerald", glm::vec3(0.0215f, 0.1745f, 0.0215f),
+            glm::vec3(0.07568f, 0.61424f, 0.07568f),
+            glm::vec3(0.633f, 0.727811f, 0.633f),
+            0.6f);
+
+        chrome = Material("chrome", glm::vec3(0.25f, 0.25f, 0.25f),
+            glm::vec3(0.4f, 0.4f, 0.4f),
+            glm::vec3(0.774597f, 0.774597f, 0.774597f),
+            0.6f);
+
+        silver = Material("silver", glm::vec3(0.19225, 0.19225, 0.19225),
+            glm::vec3(0.50754, 0.50754, 0.50754),
+            glm::vec3(0.508273, 0.508273, 0.508273),
+            0.4f);
+
+        gold = Material("gold", glm::vec3(0.24725, 0.1995, 0.0745),
+            glm::vec3(0.75164, 0.60648, 0.22648),
+            glm::vec3(0.628281, 0.555802, 0.366065),
+            0.4f);
+
+        blackRubber = Material("blackRubber", glm::vec3(0.02, 0.02, 0.02),
+            glm::vec3(0.01, 0.01, 0.01),
+            glm::vec3(0.4, 0.4, 0.4),
+            .078125f);
+
+        ruby = Material("ruby", glm::vec3(0.1745, 0.01175, 0.01175),
+            glm::vec3(0.61424, 0.04136, 0.04136),
+            glm::vec3(0.727811, 0.626959, 0.626959),
+            0.6f);
+
+        light = Material("light", glm::vec3(1.0f),
+            glm::vec3(1.0f),
+            glm::vec3(1.0f),
+            1.0f);
+    }
+
+	~Materials() {};
+};
+
+Material* getMaterial(std::string name, Materials *materials) {
+	for (int i = 0; i < NUM_MATS; i++) {
+		if (materials->mats[i].name == name) {
+			return &materials->mats[i];
+		}
+	}
+
+	return NULL;
+}
+
 struct Mesh {
 
 	std::vector<float> vertices;
@@ -76,7 +111,7 @@ struct Mesh {
 
 	Mesh() {};
 
-	void draw(glm::vec3 worldOffset, Light light) {
+	void draw(glm::vec3 worldOffset) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 
@@ -88,11 +123,6 @@ struct Mesh {
 		setUniform3f(shaderProgramID, "materialDiffuse", material->diffuse);
 		setUniform3f(shaderProgramID, "materialSpecular", material->specular);
 		setUniform1f(shaderProgramID, "materialShininess", material->shininess);
-
-		setUniform3f(shaderProgramID, "lightPos", light.pos);
-		setUniform3f(shaderProgramID, "lightAmbient", light.ambient);
-		setUniform3f(shaderProgramID, "lightDiffuse", light.diffuse);
-		setUniform3f(shaderProgramID, "lightSpecular", light.specular);
 
 		glDrawElements(GL_TRIANGLES, (GLsizei) indices.size(), GL_UNSIGNED_INT, 0);
 	}
@@ -142,6 +172,7 @@ struct Mesh {
 	}
 };
 
+// www.youtube.com/watch?v=BTGo-JHuCGc
 struct Model {
 	std::string name;
 
@@ -151,11 +182,10 @@ struct Model {
 	Model(std::string name) {
 		this->name = name;
 	}
-	// TODO TODAY: create constructor (with name)
 
-	void draw(glm::vec3 worldOffset, Light light) {
+	void draw(glm::vec3 worldOffset) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(worldOffset, light);
+			meshes[i].draw(worldOffset);
 		}
 	}
 
@@ -165,6 +195,59 @@ struct Model {
 		}
 	}
 };
+
+struct Models {
+
+	Models() {};
+	~Models() {};
+
+	union {
+		Model mods[NUM_MODELS];
+
+		struct {
+			Model player;
+			Model enemy;
+            Model bullet;
+
+			Model floorModel;
+			Model wallModel;
+
+			Model lightCube;
+
+			Model guidingGrid;
+		};
+	};
+};
+
+Model* getModel(std::string name, Models *models) {
+	for (int i = 0; i < NUM_MODELS; i++) {
+		if (models->mods[i].name == name) {
+			return &models->mods[i];
+		}
+	}
+
+	return NULL;
+}
+
+void setMaterial(std::string modelName, std::string matName, Materials *materials, Models *models, Console *console) {
+	Material *mat = getMaterial(matName, materials);
+	Model *model = getModel(modelName, models);
+	bool fail = false;
+
+	if (mat == NULL) {
+		addTextToBox("Material not found: " + matName, &console->historyTextbox);
+		fail = true;
+	}
+	if (model == NULL) {
+		addTextToBox("Model not found: " + modelName, &console->historyTextbox);
+		fail = true;
+	}
+	if (fail) return;
+
+	for (int i = 0; i < model->meshes.size(); i++) {
+		model->meshes[i].material = mat;
+	}
+}
 
 #define MODEL
 #endif

@@ -3,6 +3,7 @@
 #include "constants.h"
 #include "camera.h"
 #include "model.h"
+#include "entities.h"
 
 struct Map {
 	bool initialized = false;
@@ -11,31 +12,40 @@ struct Map {
 	int openings;
 };
 
+struct WorldState {
+	unsigned int seed;
 
-struct Entity {
-	Model *model;
+    Map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
+	bool storePlaced = false;
+	bool someOtherThingPlaced = false;
 
-	int directionFacing = DOWN;
-	glm::vec3 worldOffset;
-	glm::vec3 destinationWorldOffset;
+    int currentMapX = PLAYER_WORLD_START_X;
+    int currentMapY = PLAYER_WORLD_START_Y;
 
-	int worldCoordX;
-	int worldCoordY;
-	
-	glm::ivec3 gridCoords;
-	glm::ivec3 destinationGridCoords;
+    AABB wallBounds;
 
-	int actionState;
+	Camera camera;
 
-	int hitPoints;
-	int strength;
+	Light light;
 
-	float speed = 0.2f;
+	Entity player;
+    
+    std::vector<Bullet> bullets;
 
-	void draw(Light light) {
-		model->draw(worldOffset, light);
-	}
+    WorldState() {
+        // @HARDCODE: this is set relative to wall cube sizes
+        wallBounds.AX =  0.5f;
+        wallBounds.AY = -0.5f;
+
+        wallBounds.BX =  0.5f * (GRID_MAP_SIZE_X - 1); 
+        wallBounds.BY = -0.5f * (GRID_MAP_SIZE_Y - 1); 
+    }
+
+    Map *currentMap() {
+        return &allMaps[currentMapX][currentMapY];
+    }
 };
+
 
 glm::vec3 gridCoordsToWorldOffset(glm::ivec3 gridCoords) {
     glm::vec3 worldOffset;
@@ -56,38 +66,13 @@ glm::ivec3 worldOffsetToGridCoords(glm::vec3 worldOffset) {
     gridCoords.y = (int)(worldOffset.y / -0.5f); 
     gridCoords.z = (int)(worldOffset.z /  0.5f); 
     
-    printf("World: (%.2f, %.2f) --> Grid: (%i, %i)\n", worldOffset.x, worldOffset.y, gridCoords.x, gridCoords.y);
+    //printf("World: (%.2f, %.2f) --> Grid: (%i, %i)\n", worldOffset.x, worldOffset.y, gridCoords.x, gridCoords.y);
 
     return gridCoords;
 }
 
 #define MAX_ENTITIES 100
 #define NUM_TURN_ENTITIES 2
-
-struct WorldState {
-	unsigned int seed;
-
-    Map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
-	bool storePlaced = false;
-	bool someOtherThingPlaced = false;
-
-    int currentMapX = PLAYER_WORLD_START_X;
-    int currentMapY = PLAYER_WORLD_START_Y;
-
-	Camera camera;
-
-	Light light;
-
-	Entity player;
-	Entity enemy;
-
-	Entity entities[MAX_ENTITIES];
-
-    Map *currentMap() {
-        return &allMaps[currentMapX][currentMapY];
-    }
-};
-
 
 /*
 

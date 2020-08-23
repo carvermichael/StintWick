@@ -1,25 +1,3 @@
-/*
-	Random TODOs:
-    - replace std::cout's with printf's
-	- simple move animation 
-	- add timestep for animations and whatnot
-	- fix first person mode after moving world offset info into entity
-	- make more than one enemy
-	- make some sense with all the directions being thrown around
-		- directions for movement of camera
-		- directions for movement along the "play grid"
-		- probably others I'm not thinking of right now
-		- note: use cardinal directions for grid movement
-	- draw entire world grid?
-	- minimap
-	- figure out how to metaprogram in C/C++ (see: jon blow's console commands created in jai)
-	- figure out why regenerateMap breaks all the things (probably something stupid)	
-	- keep consistent viewport ratio when resizing window
-	- frame timing
-	- create movement for player and enemy -- don't just jump over (could add move buffer here, too)
-		-- same with switching between 3rd and 1st person -- slowly zoom in and rotate camera (will help you get a better hold on camera stuffs)
-*/
-
 // suppress warnings from non-standard lib external sources
 #pragma warning (push, 0)
 #include <glad/glad.h>
@@ -41,19 +19,16 @@
 #include <stdlib.h>
 #include <map>
 
+void processConsoleCommand(std::string command);
+void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
+void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3);
+void setUniform4f(unsigned int shaderProgramID, const char *uniformName, glm::vec4 vec4);
+void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4);
+
 #include "constants.h"
 
-struct Light {
-
-	glm::vec3 pos = glm::vec3(0.0f);;
-
-	// TODO: maybe make a material???
-	glm::vec3 ambient = glm::vec3(1.0f);
-	glm::vec3 diffuse = glm::vec3(1.0f);
-	glm::vec3 specular = glm::vec3(1.0f);
-
-	float currentDegrees = 0;
-};
+unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
+unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
 
 #include "model.h"
 #include "camera.h"
@@ -63,14 +38,8 @@ struct Light {
 #include "shader.h"
 #include "worldGeneration.h"
 #include "textBox.h"
-
-#define MODE_PLAY				0
-#define MODE_FREE_CAMERA		1
-#define MODE_LEVEL_EDIT			2
-#define MODE_PLAY_FIRST_PERSON  3
-
-unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
-unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
+#include "console.h"
+#include "shapeData.h"
 
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
@@ -91,124 +60,7 @@ bool freeCamera = false;
 
 Textbox eventTextBox = {};
 
-
-float cubeVertices[] = {
-	// top
-	// 1, 2, 3, 4
-	0.0f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
-	0.5f, 0.5f, 0.5f,	0.0f, 0.0f, 1.0f,
-	0.5f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
-	0.0f, 0.0f, 0.5f,	0.0f, 0.0f, 1.0f,
-
-	// bottom
-	// 5, 6, 7, 8
-	0.0f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-	0.5f, 0.5f, 0.0f,	0.0f, 0.0f, -1.0f,
-	0.5f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-	0.0f, 0.0f, 0.0f,	0.0f, 0.0f, -1.0f,
-
-	// left
-	// 1, 4, 5, 8
-	0.0f, 0.5f, 0.5f,	-1.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 0.5f,	-1.0f, 0.0f, 0.0f,
-	0.0f, 0.5f, 0.0f,	-1.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 0.0f,	-1.0f, 0.0f, 0.0f,
-
-	// right
-	// 2, 3, 6, 7
-	0.5f, 0.5f, 0.5f,	1.0f, 0.0f, 0.0f,
-	0.5f, 0.0f, 0.5f,	1.0f, 0.0f, 0.0f,
-	0.5f, 0.5f, 0.0f,	1.0f, 0.0f, 0.0f,
-	0.5f, 0.0f, 0.0f,	1.0f, 0.0f, 0.0f,
-
-	// front
-	// 4, 3, 8, 7
-	0.0f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
-	0.5f, 0.0f, 0.5f,	0.0f, 1.0f, 0.0f,
-	0.0f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
-	0.5f, 0.0f, 0.0f,	0.0f, 1.0f, 0.0f,
-
-	// back		
-	// 1, 2, 5, 6
-	0.0f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
-	0.5f, 0.5f, 0.5f,	0.0f, -1.0f, 0.0f,
-	0.0f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
-	0.5f, 0.5f, 0.0f,	0.0f, -1.0f, 0.0f,
-};
-unsigned int cubeIndices[] = {
-	// top
-	0, 1, 3,
-	1, 2, 3,
-
-	// bottom
-	4, 5, 7,
-	5, 6, 7,
-
-	// left
-	8, 9, 10,
-	9, 10, 11,
-
-	// right
-	12, 13, 14,
-	13, 14, 15,
-
-	// front
-	16, 17, 18,
-	17, 18, 19,
-
-	// back
-	20, 21, 22,
-	21, 22, 23
-};
-
-#define NUM_MODELS 6
-
-struct Models {
-
-	Models() {};
-	~Models() {};
-
-	union {
-		Model mods[NUM_MODELS];
-
-		struct {
-			Model player;
-			Model enemy;
-
-			Model floorModel;
-			Model wallModel;
-
-			Model lightCube;
-
-			Model guidingGrid;
-		};
-	};
-};
-
 Models models;
-
-#define NUM_MATS 7
-
-struct Materials {
-	
-	Materials() {};
-	~Materials() {};
-
-	union {
-		Material mats[NUM_MATS];
-
-		struct {
-			Material light;
-			Material emerald;
-			Material chrome;
-			Material silver;
-			Material gold;
-			Material blackRubber;
-			Material ruby;
-		};
-	};
-};
-
 Materials materials;
 
 glm::mat4 projection;
@@ -216,35 +68,10 @@ glm::mat4 projection;
 bool lightOrbit = false;
 bool guidingGrid = false;
 
-void moveLightAroundOrbit(float deltaTime);
-void processConsoleCommand(std::string command);
-
-#include "console.h"
-
 Console console;
-
 WorldState world;
 
-void movePlayer(float X, float Y) {
-    
-    // naive version
-    // 
-    // translate next X, Y to gridCoord
-    // if gridCoord != 1, move player there
-
-    float prospectiveX = world.player.worldOffset.x + X * world.player.speed;
-    float prospectiveY = world.player.worldOffset.y - Y * world.player.speed;
-
-    // NOTE: hack here to get the player's center point (world offset is on upper left)
-    glm::ivec3 gridCoords = worldOffsetToGridCoords(glm::vec3(prospectiveX, prospectiveY, 1.0f));  
-
-    if(world.currentMap()->grid[gridCoords.x][gridCoords.y] == 1) return;
-
-    world.player.worldOffset.x = prospectiveX;
-    world.player.worldOffset.y = prospectiveY;
-}
-
-void resetProjectionMatrices() {
+void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
 	setUniformMat4(regularShaderProgramID, "projection", projection);
@@ -256,50 +83,7 @@ void resetProjectionMatrices() {
 	setUniformMat4(UIShaderProgramID, "projection", UIProjection);
 }
 
-Material* getMaterial(std::string name) {
-	for (int i = 0; i < NUM_MATS; i++) {
-		if (materials.mats[i].name == name) {
-			return &materials.mats[i];
-		}
-	}
-
-	return NULL;
-}
-
-Model* getModel(std::string name) {
-	for (int i = 0; i < NUM_MODELS; i++) {
-		if (models.mods[i].name == name) {
-			return &models.mods[i];
-		}
-	}
-
-	return NULL;
-}
-
-void setMaterial(std::string modelName, std::string matName) {
-	Material *mat = getMaterial(matName);
-	Model *model = getModel(modelName);
-	bool fail = false;
-
-	if (mat == NULL) {
-		addTextToBox("Material not found: " + matName, &console.historyTextbox);
-		fail = true;
-	}
-	if (model == NULL) {
-		addTextToBox("Model not found: " + modelName, &console.historyTextbox);
-		fail = true;
-	}
-	if (fail) return;
-
-	for (int i = 0; i < model->meshes.size(); i++) {
-		model->meshes[i].material = mat;
-	}
-	
-}
-
 void refreshView() {
-	// TODO: create union with all shaders, then can reference by name, but also iterate through in cases like this
-	//					and projection matrix setting -- similar thing for fonts? models? materials?
 	glm::mat4 view;
 	view = world.camera.generateView();
 
@@ -310,24 +94,21 @@ void refreshView() {
 	setUniform3f(lightShaderProgramID, "viewPos", world.camera.position);
 }
 
+void refreshLight() {
+
+	setUniform3f(regularShaderProgramID, "lightPos", world.light.pos);
+	setUniform3f(regularShaderProgramID, "lightAmbient", world.light.ambient);
+	setUniform3f(regularShaderProgramID, "lightDiffuse", world.light.diffuse);
+	setUniform3f(regularShaderProgramID, "lightSpecular", world.light.specular);
+}
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 
 	currentScreenWidth	= width;
 	currentScreenHeight = height;
 
-	resetProjectionMatrices();
-}
-
-bool isEnemyHere(int worldX, int worldY, int gridX, int gridY) {
-	return	world.enemy.worldCoordX == worldX &&
-			world.enemy.worldCoordY == worldY &&
-			world.enemy.gridCoords.x  == gridX &&
-			world.enemy.gridCoords.y  == gridY;
-}
-
-bool isMapSpaceEmpty(int worldX, int worldY, int gridX, int gridY) {
-	return world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[gridY][gridX] == 0;
+    refreshProjection();
 }
 
 #include "controls.h"
@@ -385,47 +166,6 @@ std::vector<std::string> splitString(std::string str, char delimiter) {
 	return returnStrings;
 }
 
-void processConsoleCommand(std::string command) {
-	std::vector<std::string> commandVector = splitString(command, ' ');
-	
-	if (commandVector[0] == "play") {
-		world.camera.initializeForGrid();
-
-		mode = MODE_PLAY;
-		addTextToBox("Mode: Play", &eventTextBox);
-	}
-
-	if (commandVector[0] == "freecam") {
-		mode = MODE_FREE_CAMERA;
-
-		world.camera.initializeForGrid();
-		addTextToBox("Mode: Free Camera", &eventTextBox);
-	}
-
-	if (commandVector[0] == "edit") {
-		world.camera.initializeOverhead();
-
-		mode = MODE_LEVEL_EDIT;
-		addTextToBox("Mode: Level Edit", &eventTextBox);
-	}
-
-	if (commandVector[0] == "grid") {
-		guidingGrid = !guidingGrid;
-		addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &console.historyTextbox);
-	}
-
-	if (commandVector[0] == "orbit") {
-		lightOrbit = !lightOrbit;
-		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
-	}
-
-	if (commandVector[0] == "mat") {
-		if (commandVector.size() < 3) return;
-
-		setMaterial(commandVector[1], commandVector[2]);
-	}
-}
-
 void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 	// NOTE: Using the callback for free camera movement is super choppy,
 	//		 Cause it's the only thing that involves holding down keys?
@@ -446,13 +186,13 @@ void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 	}
 }
 
-void processJoystickInput() {
+void processJoystickInput(float deltaTime) {
     if(mode != MODE_PLAY) return; 
     
     GLFWgamepadstate state;
 
     if(glfwGetGamepadState(GLFW_JOYSTICK_1, &state)) {
-        moveWithController(state);
+        moveWithController(state, deltaTime);
     }
 }
 
@@ -512,28 +252,91 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	lastCursorY = (float)yPos;
 }
 
-//void createLightCube() {
-//	Mesh lightMesh;
-//	
-//	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-//		lightMesh.vertices.push_back(cubeVertices[i]);
-//	}
-//
-//	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
-//		lightMesh.indices.push_back(cubeIndices[i]);		
-//	}
-//
-//	lightMesh.setupVAO();
-//	lightMesh.shaderProgramID = lightShaderProgramID;
-//	lightMesh.material = &materials.light;
-//
-//	models.lightCube.name = std::string("light");
-//	models.lightCube.meshes.push_back(lightMesh);
-//
-//	//world.lightEntity.model = &models.lightCube;
-//
-//	//world.lightEntity.worldOffset = glm::vec3(-2.0f, -5.0f, 4.0f);
-//}
+void processConsoleCommand(std::string command) {
+	std::vector<std::string> commandVector = splitString(command, ' ');
+	
+	if (commandVector[0] == "play") {
+		//world.camera.initializeForGrid();
+
+		mode = MODE_PLAY;
+		addTextToBox("Mode: Play", &eventTextBox);
+	}
+
+	if (commandVector[0] == "freecam") {
+		mode = MODE_FREE_CAMERA;
+
+		world.camera.initializeForGrid();
+		addTextToBox("Mode: Free Camera", &eventTextBox);
+	}
+
+	if (commandVector[0] == "edit") {
+		world.camera.initializeOverhead();
+
+		mode = MODE_LEVEL_EDIT;
+		addTextToBox("Mode: Level Edit", &eventTextBox);
+	}
+
+	if (commandVector[0] == "grid") {
+		guidingGrid = !guidingGrid;
+		addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &console.historyTextbox);
+	}
+
+	if (commandVector[0] == "orbit") {
+		lightOrbit = !lightOrbit;
+		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
+	}
+
+	if (commandVector[0] == "mat") {
+		if (commandVector.size() < 3) return;
+
+		setMaterial(commandVector[1], commandVector[2], &materials, &models, &console);
+	}
+}
+
+void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform1f(location, value);
+}
+
+void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform3f(location, vec3.x, vec3.y, vec3.z);
+}
+
+void setUniform4f(unsigned int shaderProgramID, const char *uniformName, glm::vec4 vec4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform4f(location, vec4.x, vec4.y, vec4.z, vec4.w);
+}
+
+void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat4));
+}
+
+// TODO: clean up model creation
+void createBulletModel() {
+	Mesh bulletMesh;	
+
+	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+		bulletMesh.vertices.push_back(cubeVertices[i]);
+	}
+
+	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
+		bulletMesh.indices.push_back(cubeIndices[i]);
+	}
+	
+	bulletMesh.setupVAO();
+	bulletMesh.shaderProgramID = regularShaderProgramID;
+	bulletMesh.material = &materials.silver;
+
+	models.bullet.name = std::string("bullet");
+	models.bullet.meshes.push_back(bulletMesh);
+	models.bullet.scale(glm::vec3(0.5f));
+}
 
 void createGridFloorAndWallModels() {
 	Mesh floorMesh;	
@@ -612,12 +415,17 @@ void drawGrid() {
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
 			float xOffset = 0.5f * column;
 			glm::vec3 worldOffset = glm::vec3(xOffset, yOffset, zOffset);
+            int currentSpace = world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column];
 
-			if (world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column] != 0) {
-				models.wallModel.draw(worldOffset, world.light);
-			} else {
-				models.floorModel.draw(worldOffset, world.light);
+			if (currentSpace == GRID_WALL) {
+				models.wallModel.draw(worldOffset);
 			}
+            else if (currentSpace == GRID_FLOOR) {
+				models.floorModel.draw(worldOffset);
+			}
+            else if (currentSpace == GRID_EXIT) {
+                // TODO
+            }
 		}
 	}
 }
@@ -721,50 +529,19 @@ void drawGuidingGrid() {
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
 
-void initMaterials() {
-	// pulled from http://devernay.free.fr/cours/opengl/materials.html
-	materials.emerald = Material("emerald", glm::vec3(0.0215f, 0.1745f, 0.0215f),
-		glm::vec3(0.07568f, 0.61424f, 0.07568f),
-		glm::vec3(0.633f, 0.727811f, 0.633f),
-		0.6f);
-
-	materials.chrome = Material("chrome", glm::vec3(0.25f, 0.25f, 0.25f),
-		glm::vec3(0.4f, 0.4f, 0.4f),
-		glm::vec3(0.774597f, 0.774597f, 0.774597f),
-		0.6f);
-
-	materials.silver = Material("silver", glm::vec3(0.19225, 0.19225, 0.19225),
-		glm::vec3(0.50754, 0.50754, 0.50754),
-		glm::vec3(0.508273, 0.508273, 0.508273),
-		0.4f);
-
-	materials.gold = Material("gold", glm::vec3(0.24725, 0.1995, 0.0745),
-		glm::vec3(0.75164, 0.60648, 0.22648),
-		glm::vec3(0.628281, 0.555802, 0.366065),
-		0.4f);
-
-	materials.blackRubber = Material("blackRubber", glm::vec3(0.02, 0.02, 0.02),
-		glm::vec3(0.01, 0.01, 0.01),
-		glm::vec3(0.4, 0.4, 0.4),
-		.078125f);
-
-	materials.ruby = Material("ruby", glm::vec3(0.1745, 0.01175, 0.01175),
-		glm::vec3(0.61424, 0.04136, 0.04136),
-		glm::vec3(0.727811, 0.626959, 0.626959),
-		0.6f);
-
-	glm::vec3 white = glm::vec3(1.0f, 1.0f, 1.0f);
-	materials.light.name = "whiteLight";
-	materials.light.diffuse = white;
-	materials.light.ambient = white;
-	materials.light.specular = white;
-	materials.light.shininess = 1.0f;
+void updateBullets() {
+    for(int i = 0; i < world.bullets.size(); i++) {
+        Bullet *bullet = &world.bullets[i];
+        bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed, 
+                                  bullet->worldOffset.y + bullet->direction.y * bullet->speed); 
+    }
 }
 
-void drawPlayer(float deltaTime) {
-	world.player.draw(world.light);
+void drawBullets() {
+    for(int i = 0; i < world.bullets.size(); i++) {
+        world.bullets[i].draw();
+    }
 }
-
 
 int main() {
 	// ------------ INIT STUFF -------------
@@ -781,14 +558,14 @@ int main() {
 
 	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "GridGame1", NULL, NULL);
 	if (window == NULL) {
-		std::cout << "Failed to create GLFW window" << std::endl;
+		printf("Failed to create GLFW window");
 		glfwTerminate();
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		std::cout << "Failed to initialize GLAD" << std::endl;
+		printf("Failed to initialize GLAD");
 		return -1;
 	}
 
@@ -801,7 +578,7 @@ int main() {
 	// ------------- FONTS   -------------
 	Font arial = Font("arial.ttf", textShaderProgramID);
 
-	resetProjectionMatrices();
+    refreshProjection();
 
 	// initializing viewport and setting callbacks
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -816,6 +593,7 @@ int main() {
 	
 	createGridFloorAndWallModels();
 	createPlayerAndEnemyModels();
+    createBulletModel();
 
 	// set seed and generate map
 	unsigned int seed = (unsigned int)time(NULL); // seconds since Jan 1, 2000
@@ -827,23 +605,10 @@ int main() {
 	// CHARACTER INITIALIZATION
 	world.player.worldCoordX = PLAYER_WORLD_START_X;
 	world.player.worldCoordY = PLAYER_WORLD_START_Y;
-	world.player.gridCoords.x = PLAYER_GRID_START_X;
-	world.player.gridCoords.y = PLAYER_GRID_START_Y;
-	world.player.gridCoords.z = 1;
-	world.player.destinationGridCoords = world.player.gridCoords;
-    world.player.worldOffset = gridCoordsToWorldOffset(world.player.gridCoords);
+    world.player.worldOffset = gridCoordsToWorldOffset(glm::ivec3(15, 20, 1));
 	world.player.strength = 1;
 	world.player.hitPoints = 20;
 	world.player.directionFacing = UP;
-
-	world.enemy.worldCoordX = PLAYER_WORLD_START_X;
-	world.enemy.worldCoordY = PLAYER_WORLD_START_Y;
-	world.enemy.gridCoords.x = 1;
-	world.enemy.gridCoords.y = 2;
-	world.enemy.gridCoords.z = 1;
-	world.enemy.destinationGridCoords = world.enemy.gridCoords;
-	world.enemy.hitPoints = 3;
-	world.enemy.strength = 1;
 
 	lastFrameTime = (float)glfwGetTime();
 
@@ -857,23 +622,20 @@ int main() {
 
 	guidingGridSetup();
 
-	console.setup();
-	initMaterials();
+	console.setup(UIShaderProgramID);
 
 	world.player.model = &models.player;
-	world.enemy.model = &models.enemy;
+	//world.enemy.model = &models.enemy;
 
     float deltaTime = 0.0f;
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window, deltaTime);
-        processJoystickInput();
+        processJoystickInput(deltaTime);
 		
 		glfwPollEvents();
 
-		//if (mode == MODE_PLAY_FIRST_PERSON) world.camera.position = getPlayerModelCoords();
-		
 		refreshView();
 
 		// Clear color and z-buffer
@@ -883,10 +645,13 @@ int main() {
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
 		if(lightOrbit) moveLightAroundOrbit(deltaTime);
+
+        refreshLight();
+        updateBullets();
 		
-		//world.lightEntity.draw(world.light);
 		drawGrid();
-		if (mode != MODE_PLAY_FIRST_PERSON) drawPlayer(deltaTime);
+	    world.player.draw();
+        drawBullets();
 
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls

@@ -3,6 +3,7 @@
 pushd build
 
 REM 64-bit build
+del main.exe
 del *.pdb > NUL 2> NUL
 
 REM wd4201 nonstandard extension used : namless struct/union (this one is both in project code, and in dependencies)
@@ -14,6 +15,8 @@ REM NOTE: just moving font and shader files into the build dir for now. Later, I
 cp ../code/*.ttf .
 cp ../code/*.frag .
 cp ../code/*.vert .
+
+main.exe
 
 popd
 

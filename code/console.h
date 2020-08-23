@@ -1,6 +1,6 @@
 #if !defined(CONSOLE)
+
 #include "textBox.h"
-#include "model.h"
 
 struct UI_Rect {
 
@@ -17,7 +17,7 @@ struct UI_Rect {
 	float alpha;
 
 	// should only need to call this once
-	void setup() {
+	void setup(unsigned int shaderProgramId) {
 		if (initialized) return;
 
 		glGenVertexArrays(1, &VAO_ID);
@@ -35,7 +35,7 @@ struct UI_Rect {
 		color = glm::vec3(0.2f, 0.2f, 0.2f);
 		alpha = 0.7f;
 
-		shaderProgramID = UIShaderProgramID;
+		this->shaderProgramID = shaderProgramId;
 
 		initialized = true;
 	}
@@ -50,7 +50,7 @@ struct UI_Rect {
 
 	void draw() {
 		glUseProgram(this->shaderProgramID);
-		setUniform4f(UIShaderProgramID, "color", glm::vec4(color.x, color.y, color.z, alpha));
+		setUniform4f(this->shaderProgramID, "color", glm::vec4(color.x, color.y, color.z, alpha));
 
 		glBindVertexArray(VAO_ID);
 
@@ -106,14 +106,14 @@ struct Console {
 		isOut = !isOut;
 	}
 
-	void setup() {
-		boundingRect.setup();
+	void setup(unsigned int shaderProgramId) {
+		boundingRect.setup(shaderProgramId);
 
-		inputRect.setup();
+		inputRect.setup(shaderProgramId);
 		inputRect.color = glm::vec3(0.1f, 0.1f, 0.1f);
 		inputRect.alpha = 0.7f;
 		
-		editMarkerRect.setup();
+		editMarkerRect.setup(shaderProgramId);
 		editMarkerRect.color = glm::vec3(0.1f, 0.1f, 0.1f);
 		editMarkerRect.alpha = 1.0f;
 
