@@ -415,7 +415,7 @@ void drawGrid() {
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
 			float xOffset = 0.5f * column;
 			glm::vec3 worldOffset = glm::vec3(xOffset, yOffset, zOffset);
-            int currentSpace = world.allMaps[world.player.worldCoordX][world.player.worldCoordY].grid[row][column];
+            int currentSpace = world.currentMap()->grid[row][column];
 
 			if (currentSpace == GRID_WALL) {
 				models.wallModel.draw(worldOffset);
@@ -541,31 +541,27 @@ void updateBullets() {
 
 void drawBullets() {
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(world.bullets[i].current) {
-            world.bullets[i].draw();
-        }
+        if(world.bullets[i].current) world.bullets[i].draw();
     }
 }
 
-bool isOutOfWorldBounds(Bullet bullet) {
-    
-    if(bullet.worldOffset.x < world.wallBounds.AX) return true;
-
-    return false;
+void drawEnemies() {
+    for(int i = 0; i < MAX_ENEMIES; i++) {
+        if(world.enemies[i].current) world.enemies[i].draw();
+    }
 }
 
 void checkBulletCollisions() {
 
     for(int i = 0; i < MAX_BULLETS; i++) {
+        if(!world.bullets[i].current) continue;
         if(world.bullets[i].worldOffset.x < world.wallBounds.AX ||
            world.bullets[i].worldOffset.x > world.wallBounds.BX ||
            world.bullets[i].worldOffset.y > world.wallBounds.AY ||
            world.bullets[i].worldOffset.y < world.wallBounds.BY) {
             world.bullets[i].current = false;  
         }
-
     }   
-
 }
 
 int main() {
@@ -628,12 +624,16 @@ int main() {
 	generateWorldMap(&world);
 
 	// CHARACTER INITIALIZATION
-	world.player.worldCoordX = PLAYER_WORLD_START_X;
-	world.player.worldCoordY = PLAYER_WORLD_START_Y;
     world.player.worldOffset = gridCoordsToWorldOffset(glm::ivec3(15, 20, 1));
-	world.player.strength = 1;
-	world.player.hitPoints = 20;
-	world.player.directionFacing = UP;
+
+    
+    // CREATION OF ENEMIES
+    world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(4, 2, 1)), &models.enemy);
+    world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(8, 2, 1)), &models.enemy);
+    world.enemies[2].init(gridCoordsToWorldOffset(glm::ivec3(12, 2, 1)), &models.enemy);
+    world.enemies[3].init(gridCoordsToWorldOffset(glm::ivec3(16, 2, 1)), &models.enemy);
+    world.enemies[4].init(gridCoordsToWorldOffset(glm::ivec3(20, 2, 1)), &models.enemy);
+    world.enemies[5].init(gridCoordsToWorldOffset(glm::ivec3(24, 2, 1)), &models.enemy);
 
 	lastFrameTime = (float)glfwGetTime();
 
@@ -677,6 +677,7 @@ int main() {
 		
 		drawGrid();
 	    world.player.draw();
+        drawEnemies();
         drawBullets();
 
 		// UI Elements

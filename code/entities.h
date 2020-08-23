@@ -27,7 +27,7 @@ struct Bullet {
         direction = dirVec;
         model = newModel;
 
-        speed = 1.0f;
+        speed = 0.28f;
     }
 
 	void draw() {
@@ -59,24 +59,11 @@ struct Light {
 	float currentDegrees = 0;
 };
 
-// TODO: rename to Player
-struct Player {
+struct Entity {
 	Model *model;
 
-	int directionFacing = DOWN;
 	glm::vec3 worldOffset;
     AABB bounds;
-
-    float timeSinceLastShot = 0.0f; // seconds
-    float timeBetweenShots = 0.3f; // seconds
-
-	int worldCoordX;
-	int worldCoordY;
-	
-	int actionState;
-
-	int hitPoints;
-	int strength;
 
 	float speed = 0.2f;
 
@@ -93,6 +80,28 @@ struct Player {
 
         bounds.BX = x + 0.5f;
         bounds.BY = y - 0.5f;
+    }
+};
+
+struct Player : Entity {
+
+    float timeSinceLastShot = 0.0f; // seconds
+    float timeBetweenShots = 0.3f; // seconds
+
+};
+
+struct Enemy : Entity {
+
+    bool current = false;
+	int actionState;
+
+    void init(glm::vec3 offset, Model *newModel) {
+        worldOffset.z = offset.z;
+        updateWorldOffset(offset.x, offset.y);
+
+        model = newModel;
+
+        current = true; 
     }
 };
 

@@ -44,7 +44,7 @@
 #define MODE_PLAY_FIRST_PERSON  3
 
 #define MAX_BULLETS 25
-
+#define MAX_ENEMIES 20
 
 #define CONSTANTS
 #endif // !CONSTANTS

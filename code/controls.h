@@ -31,68 +31,6 @@ void moveWithController(GLFWgamepadstate state, float deltaTime) {
 }
 
 void control_play(int action, int key, float deltaTime) {
-//	if (action == GLFW_RELEASE) return;
-//
-//	if (key == GLFW_KEY_L) {
-//		if (world.enemy.actionState == ACTION_STATE_AVOIDANT) {
-//			addTextToBox("AI Set To SEEKING", &eventTextBox);
-//			world.enemy.actionState = ACTION_STATE_SEEKING;
-//		}
-//		else if (world.enemy.actionState == ACTION_STATE_SEEKING) {
-//			addTextToBox("AI Set To AVOIDANT", &eventTextBox);
-//			world.enemy.actionState = ACTION_STATE_AVOIDANT;
-//		}
-//	}
-//
-//	if (key == GLFW_KEY_W) {
-//		moveEnemy();
-//		if (mode == MODE_PLAY_FIRST_PERSON) {
-//			movePlayerForward();
-//		}
-//		else {
-//			movePlayer(UP);
-//		}
-//	}
-//
-//	if (key == GLFW_KEY_A) {
-//		if (mode == MODE_PLAY_FIRST_PERSON) {
-//			rotatePlayer(LEFT);
-//		}
-//		else {
-//			moveEnemy();
-//			movePlayer(LEFT);
-//		}
-//	}
-//	
-//	if (key == GLFW_KEY_S) {
-//		moveEnemy();
-//
-//		if (mode == MODE_PLAY_FIRST_PERSON) {
-//			movePlayerBackward();
-//		}
-//		else {
-//			movePlayer(DOWN);
-//		}
-//	}
-//
-//	if (key == GLFW_KEY_D) {
-//		if (mode == MODE_PLAY_FIRST_PERSON) {
-//			rotatePlayer(RIGHT);
-//		}
-//		else {
-//			moveEnemy();
-//			movePlayer(RIGHT);
-//		}
-//	}
-//
-//	if (key == GLFW_KEY_SPACE) {
-//		moveEnemy();
-//	}
-//
-//	if (key == GLFW_KEY_ENTER) {
-//		attack();
-//	}
-//
 	
 }
 
@@ -114,7 +52,7 @@ void control_freeCam(int action, int key, float deltaTime) {
 	
 	if (key == GLFW_KEY_R) {
 		// Grid goes bye-bye when this happens.
-		regenerateMap(&world);
+		//regenerateMap(&world);
 	}
 	
 	if (key == GLFW_KEY_O) {

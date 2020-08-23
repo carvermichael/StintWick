@@ -9,14 +9,13 @@ struct Camera {
 
 	glm::vec3 direction;
 
-	float speed = 5.0f;
+	float speed = 15.0f;
 
 	float sensitivity = 0.1f;
 	float yaw = -90.0f;
 	float pitch = 45.0f;
 
 	void initializeOverhead() {
-		// speed = 100.0f;
 		yaw = -90.0f;
 		pitch = 0.0f;
 

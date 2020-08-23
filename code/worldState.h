@@ -16,8 +16,8 @@ struct WorldState {
 	unsigned int seed;
 
     Map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
-	bool storePlaced = false;
-	bool someOtherThingPlaced = false;
+    bool storePlaced = false;
+    bool someOtherThingPlaced = false;
 
     int currentMapX = PLAYER_WORLD_START_X;
     int currentMapY = PLAYER_WORLD_START_Y;
@@ -29,6 +29,7 @@ struct WorldState {
 	Light light;
 
 	Player player;
+    Enemy enemies[MAX_ENEMIES];
     
     Bullet bullets[MAX_BULLETS];
 
