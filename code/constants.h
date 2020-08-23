@@ -43,6 +43,9 @@
 #define MODE_LEVEL_EDIT			2
 #define MODE_PLAY_FIRST_PERSON  3
 
+#define MAX_BULLETS 25
+
+
 #define CONSTANTS
 #endif // !CONSTANTS
 

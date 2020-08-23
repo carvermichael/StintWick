@@ -71,6 +71,8 @@ bool guidingGrid = false;
 Console console;
 WorldState world;
 
+#include "controls.h"
+
 void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
@@ -110,8 +112,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
     refreshProjection();
 }
-
-#include "controls.h"
 
 void character_callback(GLFWwindow* window, unsigned int codepoint)
 {
@@ -530,17 +530,42 @@ void drawGuidingGrid() {
 }
 
 void updateBullets() {
-    for(int i = 0; i < world.bullets.size(); i++) {
-        Bullet *bullet = &world.bullets[i];
-        bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed, 
-                                  bullet->worldOffset.y + bullet->direction.y * bullet->speed); 
+    for(int i = 0; i < MAX_BULLETS; i++) {
+        if(world.bullets[i].current) {
+            Bullet *bullet = &world.bullets[i];
+            bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed, 
+                                      bullet->worldOffset.y + bullet->direction.y * bullet->speed); 
+        }
     }
 }
 
 void drawBullets() {
-    for(int i = 0; i < world.bullets.size(); i++) {
-        world.bullets[i].draw();
+    for(int i = 0; i < MAX_BULLETS; i++) {
+        if(world.bullets[i].current) {
+            world.bullets[i].draw();
+        }
     }
+}
+
+bool isOutOfWorldBounds(Bullet bullet) {
+    
+    if(bullet.worldOffset.x < world.wallBounds.AX) return true;
+
+    return false;
+}
+
+void checkBulletCollisions() {
+
+    for(int i = 0; i < MAX_BULLETS; i++) {
+        if(world.bullets[i].worldOffset.x < world.wallBounds.AX ||
+           world.bullets[i].worldOffset.x > world.wallBounds.BX ||
+           world.bullets[i].worldOffset.y > world.wallBounds.AY ||
+           world.bullets[i].worldOffset.y < world.wallBounds.BY) {
+            world.bullets[i].current = false;  
+        }
+
+    }   
+
 }
 
 int main() {
@@ -648,6 +673,7 @@ int main() {
 
         refreshLight();
         updateBullets();
+        checkBulletCollisions();
 		
 		drawGrid();
 	    world.player.draw();

@@ -9,6 +9,8 @@ struct AABB {
 
 struct Bullet {
 
+    bool current = false;
+
     glm::vec2 direction;
 
     float speed;
@@ -17,6 +19,16 @@ struct Bullet {
 
 	glm::vec3 worldOffset;
     AABB bounds;
+
+    void init(glm::vec3 offset, glm::vec2 dirVec, Model *newModel) {
+        current = true;
+
+        worldOffset = offset;
+        direction = dirVec;
+        model = newModel;
+
+        speed = 1.0f;
+    }
 
 	void draw() {
 		model->draw(worldOffset);

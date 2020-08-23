@@ -68,17 +68,19 @@ void playerShoot(float x, float y, float deltaTime) {
     world.player.timeSinceLastShot += deltaTime;
     if(world.player.timeSinceLastShot < world.player.timeBetweenShots) return;
 
-    Bullet bullet;
-    bullet.direction = glm::normalize(glm::vec2(x, y));
-    bullet.speed = 1.0f;
+    bool foundBullet = false;
+    for(int i = 0; i < MAX_BULLETS; i++) {
+        if(!world.bullets[i].current) {
+            world.bullets[i].init(world.player.worldOffset, 
+                                  glm::normalize(glm::vec2(x, y)),
+                                  &models.bullet);
+            foundBullet = true;
+            break;
+        }
+    }
 
-    bullet.model = &models.bullet;
-    
-    bullet.worldOffset = world.player.worldOffset;
-
-    world.bullets.push_back(bullet);
-
-    world.player.timeSinceLastShot = 0.0f;
+    if(!foundBullet) printf("Bullet array full! Ah!\n");
+    else world.player.timeSinceLastShot = 0.0f;
 }
 
 #define PLAYER_ACTION

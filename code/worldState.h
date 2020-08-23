@@ -30,7 +30,7 @@ struct WorldState {
 
 	Entity player;
     
-    std::vector<Bullet> bullets;
+    Bullet bullets[MAX_BULLETS];
 
     WorldState() {
         // @HARDCODE: this is set relative to wall cube sizes
