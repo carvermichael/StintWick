@@ -1,10 +1,22 @@
 #if !defined(ENTITIES)
 
 struct AABB {
-    float AX;
-    float AY;
-    float BX;
-    float BY;
+
+    union {
+        struct {
+            float AX;
+            float AY;
+            float BX;
+            float BY;
+        };
+
+        struct {
+            float left;
+            float top;
+            float right;
+            float bottom;
+        };
+    }; 
 };
 
 struct Bullet {
@@ -27,7 +39,7 @@ struct Bullet {
         direction = dirVec;
         model = newModel;
 
-        speed = 0.28f;
+        speed = 25.00f;
     }
 
 	void draw() {
@@ -51,7 +63,6 @@ struct Light {
 
 	glm::vec3 pos = glm::vec3(0.0f);;
 
-	// TODO: maybe make a material???
 	glm::vec3 ambient = glm::vec3(1.0f);
 	glm::vec3 diffuse = glm::vec3(1.0f);
 	glm::vec3 specular = glm::vec3(1.0f);

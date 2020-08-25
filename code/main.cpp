@@ -57,6 +57,7 @@ float lastCursorY = 300;
 
 bool firstMouse = true;
 bool freeCamera = false;
+int timeStepDenom = 1;
 
 Textbox eventTextBox = {};
 
@@ -331,7 +332,7 @@ void createBulletModel() {
 	
 	bulletMesh.setupVAO();
 	bulletMesh.shaderProgramID = regularShaderProgramID;
-	bulletMesh.material = &materials.silver;
+	bulletMesh.material = &materials.blackRubber;
 
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
@@ -520,7 +521,7 @@ void drawGuidingGrid() {
 	glBindVertexArray(gridVAO_ID);
 	glBindBuffer(GL_ARRAY_BUFFER, gridVBO_ID);
 
-	glm::mat4 currentModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f)); // TODO: this can just be the 0 mat4, right?
+	glm::mat4 currentModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
 	setUniformMat4(regularShaderProgramID, "model", currentModel);
 
 	setUniform3f(regularShaderProgramID, "objectDiffuse", glm::vec3(1.0f, 1.0f, 1.0f));
@@ -529,12 +530,12 @@ void drawGuidingGrid() {
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
 
-void updateBullets() {
+void updateBullets(float deltaTime) {
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(world.bullets[i].current) {
             Bullet *bullet = &world.bullets[i];
-            bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed, 
-                                      bullet->worldOffset.y + bullet->direction.y * bullet->speed); 
+            bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime, 
+                                      bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime); 
         }
     }
 }
@@ -551,17 +552,42 @@ void drawEnemies() {
     }
 }
 
-void checkBulletCollisions() {
+void checkBulletsForWallCollisions() {
 
+    // TODO: bug: collision with north wall is off (I would guess by 0.5f) --> bullet detects hit too early
+    //            Is BY off by 0.5f?
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(!world.bullets[i].current) continue;
         if(world.bullets[i].worldOffset.x < world.wallBounds.AX ||
            world.bullets[i].worldOffset.x > world.wallBounds.BX ||
            world.bullets[i].worldOffset.y > world.wallBounds.AY ||
            world.bullets[i].worldOffset.y < world.wallBounds.BY) {
-            world.bullets[i].current = false;  
+            world.bullets[i].current = false;
         }
     }   
+}
+
+// TODO: this is garbage
+void checkBulletsForEnemyCollisions() {
+
+    for(int i = 0; i < MAX_BULLETS; i++) {
+
+        if(!world.bullets[i].current) continue;
+        Bullet *bullet = &world.bullets[i];
+
+        for(int j = 0; j < MAX_ENEMIES; j++) {
+
+            if(!world.enemies[j].current) continue;
+            Enemy *enemy = &world.enemies[j];
+
+            if(bullet->bounds.left   > enemy->bounds.right)  continue; // right
+            if(bullet->bounds.right  < enemy->bounds.left)   continue; // left 
+            if(bullet->bounds.top    < enemy->bounds.bottom) continue; // bottom 
+            if(bullet->bounds.bottom > enemy->bounds.top)    continue; // top
+
+            enemy->current = false;
+        }
+    }
 }
 
 int main() {
@@ -626,7 +652,6 @@ int main() {
 	// CHARACTER INITIALIZATION
     world.player.worldOffset = gridCoordsToWorldOffset(glm::ivec3(15, 20, 1));
 
-    
     // CREATION OF ENEMIES
     world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(4, 2, 1)), &models.enemy);
     world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(8, 2, 1)), &models.enemy);
@@ -643,14 +668,13 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	world.camera.initializeForGrid();
+	world.camera.initializeOverhead();
 
 	guidingGridSetup();
 
 	console.setup(UIShaderProgramID);
 
 	world.player.model = &models.player;
-	//world.enemy.model = &models.enemy;
 
     float deltaTime = 0.0f;
 
@@ -672,8 +696,9 @@ int main() {
 		if(lightOrbit) moveLightAroundOrbit(deltaTime);
 
         refreshLight();
-        updateBullets();
-        checkBulletCollisions();
+        updateBullets(deltaTime);
+        checkBulletsForWallCollisions();
+        checkBulletsForEnemyCollisions();
 		
 		drawGrid();
 	    world.player.draw();
@@ -687,6 +712,8 @@ int main() {
 
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;
+        deltaTime = deltaTime / timeStepDenom;
+
         globalDeltaTime = deltaTime;
 		lastFrameTime = currentFrame;
 
