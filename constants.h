@@ -3,6 +3,8 @@
 #define INITIAL_SCREEN_WIDTH	800
 #define INITIAL_SCREEN_HEIGHT	600
 
+#define FRAMES_PER_SECOND 60
+
 #define UP		1
 #define DOWN	2
 #define LEFT	4

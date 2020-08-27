@@ -1,3 +1,4 @@
+#include <windows.h>
 // suppress warnings from non-standard lib external sources
 #pragma warning (push, 0)
 #include <glad/glad.h>
@@ -60,6 +61,7 @@ bool freeCamera = false;
 int timeStepDenom = 1;
 
 Textbox eventTextBox = {};
+Textbox fpsBox = {};
 
 Models models;
 Materials materials;
@@ -678,6 +680,16 @@ int main() {
 
     float deltaTime = 0.0f;
 
+    float targetFrameTime = 1.0f / 60.0f;
+    fpsBox.x = (float) (currentScreenWidth - 150);
+    fpsBox.y = (float) (currentScreenHeight - 50);
+
+	LARGE_INTEGER queryPerfFreq;
+	QueryPerformanceFrequency(&queryPerfFreq);
+
+	LARGE_INTEGER startPerfCounter;
+	QueryPerformanceCounter(&startPerfCounter);
+
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window, deltaTime);
@@ -709,14 +721,39 @@ int main() {
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		console.draw(deltaTime, &arial);
 		drawTextBox(&eventTextBox, &arial);
-
+		drawTextBox(&fpsBox, &arial);
+		
 		float currentFrame = (float)glfwGetTime();
-		deltaTime = currentFrame - lastFrameTime;
+		deltaTime = currentFrame - lastFrameTime;	
+		//printf("DeltaTime: %f ", deltaTime);
+		
+        if(deltaTime < targetFrameTime) {
+			int timeToSleepMS = (int) (1000.0f * (targetFrameTime - deltaTime));
+            
+			if (timeToSleepMS > 1) {
+				Sleep(timeToSleepMS);
+			}
+
+			while (((float)glfwGetTime() - lastFrameTime) < targetFrameTime) {
+				//deltaTime = (float)glfwGetTime() - lastFrameTime;
+			}
+		}
+		else {
+			printf("MISSED FRAME! AHH\n"); // TODO: logging
+		}
+
+		float frameTime = deltaTime * 1000.0f;
+
+		// TODO: fix this hack --> should be a simple ACTUAL textbox that you can put this into. The "textBox" then is a group of those.
+		//addTextToBoxAtLine("FPS: " + std::to_string(fps), 0, &fpsBox); 
+		//printf("FrameTime(ms): %f ", frameTime); // put these in a textbox
+		//printf("FPS: %f \n", 1.0f / deltaTime);
+
+        // TODO: Use some other variable to communicate a timestep.
         deltaTime = deltaTime / timeStepDenom;
-
         globalDeltaTime = deltaTime;
-		lastFrameTime = currentFrame;
 
+		lastFrameTime = (float)glfwGetTime();
 		glfwSwapBuffers(window);
 	}
 

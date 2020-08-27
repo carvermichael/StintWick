@@ -144,7 +144,7 @@ struct Textbox {
 	std::string lines[LIMIT_LINES];
 	unsigned int numLinesUsed = 0;
 	unsigned int maxLinesToShow = 4;
- bool flip = false;
+    bool flip = false;
 
 	float x = 0.0f;
 	float y = 0.0f;
@@ -185,6 +185,11 @@ void addTextToBox(std::string newText, Textbox *textbox) {
 	textbox->lines[textbox->numLinesUsed] = newText;
 
 	textbox->numLinesUsed++;
+}
+
+void addTextToBoxAtLine(std::string newText, int lineNum, Textbox *textbox) {
+	textbox->lines[lineNum] = newText;
+    textbox->numLinesUsed = 1;
 }
 
 #define TEXTBOX

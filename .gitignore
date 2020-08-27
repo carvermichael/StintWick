@@ -7,3 +7,6 @@
 external/
 build/
 *.swp
+*.sln
+x64/
+*.vcxproj*
