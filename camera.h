@@ -22,10 +22,10 @@ struct Camera {
 		yaw = -90.0f;
 		pitch = 0.0f;
 
-		float midGridX = 0.5f * (GRID_MAP_SIZE_X / 2);
-		float midGridY = -0.5f * (GRID_MAP_SIZE_Y / 2);
+		float midGridX = GRID_MAP_SIZE_X / 2;
+		float midGridY = -GRID_MAP_SIZE_Y / 2;
 
-		position = glm::vec3(midGridX, midGridY, 20.0f);
+		position = glm::vec3(midGridX, midGridY, 45.0f);
 
 		up = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -42,10 +42,10 @@ struct Camera {
 		yaw = -90.0f;
 		pitch = 45.0f;
 
-		float midGridX = 0.5f * (GRID_MAP_SIZE_X / 2);
-		float bottomGridY = -0.5f * (GRID_MAP_SIZE_Y * 2);
+		float midGridX = GRID_MAP_SIZE_X / 2;
+		float bottomGridY = -GRID_MAP_SIZE_Y * 2.0f;
 
-		position = glm::vec3(midGridX, bottomGridY, (GRID_MAP_SIZE_X / 1.5f));
+		position = glm::vec3(midGridX, bottomGridY, GRID_MAP_SIZE_X * 1.5f);
 
 		up = glm::vec3(0.0f, 1.0f, 0.0f);
 

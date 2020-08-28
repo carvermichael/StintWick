@@ -262,7 +262,7 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 	
 	if (commandVector[0] == "play") {
-		//world.camera.initializeForGrid();
+		world.camera.initializeForGrid();
 
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
@@ -416,10 +416,10 @@ void drawGrid() {
 
 	float zOffset = 0.0f;
 	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
-		float yOffset = -0.5f * row;
+		float yOffset = (float) -row;
 
 		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
-			float xOffset = 0.5f * column;
+			float xOffset = (float) column;
 			glm::vec3 worldOffset = glm::vec3(xOffset, yOffset, zOffset);
             int currentSpace = world.currentMap()->grid[row][column];
 
@@ -441,8 +441,8 @@ void moveLightAroundOrbit(float deltaTime) {
 	float speed = 90.0f; // degrees / second
 	float degreesMoved = speed * deltaTime;
 
-	float midGridX = 0.5f * (GRID_MAP_SIZE_X / 2);
-	float midGridY = -0.5f * GRID_MAP_SIZE_Y / 2;
+	float midGridX = GRID_MAP_SIZE_X / 2;
+	float midGridY = -GRID_MAP_SIZE_Y / 2;
 
 	float newDegrees = world.light.currentDegrees + degreesMoved;
 	if (newDegrees > 360) newDegrees -= 360;
@@ -673,7 +673,7 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	world.camera.initializeOverhead();
+	world.camera.initializeForGrid();
 
 	guidingGridSetup();
 

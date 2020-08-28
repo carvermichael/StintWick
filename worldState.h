@@ -35,11 +35,11 @@ struct WorldState {
 
     WorldState() {
         // @HARDCODE: this is set relative to wall cube sizes
-        wallBounds.AX =  0.5f;
-        wallBounds.AY = -0.5f;
+        wallBounds.AX =  1.0f;
+        wallBounds.AY = -1.0f;
 
-        wallBounds.BX =  0.5f * (GRID_MAP_SIZE_X - 1); 
-        wallBounds.BY = -0.5f * (GRID_MAP_SIZE_Y - 1); 
+        wallBounds.BX =  (GRID_MAP_SIZE_X - 1); 
+        wallBounds.BY = -(GRID_MAP_SIZE_Y - 1); 
     }
 
     Map *currentMap() {
@@ -51,9 +51,9 @@ struct WorldState {
 glm::vec3 gridCoordsToWorldOffset(glm::ivec3 gridCoords) {
     glm::vec3 worldOffset;
 
-    worldOffset.x =  0.5f * gridCoords.x;
-    worldOffset.y = -0.5f * gridCoords.y;
-    worldOffset.z =  0.5f * gridCoords.z;
+    worldOffset.x = (float) gridCoords.x;
+    worldOffset.y = (float)-gridCoords.y;
+    worldOffset.z = (float) gridCoords.z;
 
     return worldOffset;
 }
@@ -63,9 +63,9 @@ glm::ivec3 worldOffsetToGridCoords(glm::vec3 worldOffset) {
     glm::ivec3 gridCoords;
 
     // TODO: verify this truncation results in the desired result
-    gridCoords.x = (int)(worldOffset.x /  0.5f); 
-    gridCoords.y = (int)(worldOffset.y / -0.5f); 
-    gridCoords.z = (int)(worldOffset.z /  0.5f); 
+    gridCoords.x = (int)( worldOffset.x); 
+    gridCoords.y = (int)(-worldOffset.y); 
+    gridCoords.z = (int)( worldOffset.z); 
     
     //printf("World: (%.2f, %.2f) --> Grid: (%i, %i)\n", worldOffset.x, worldOffset.y, gridCoords.x, gridCoords.y);
 

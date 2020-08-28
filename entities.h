@@ -53,9 +53,8 @@ struct Bullet {
         bounds.AX = x;
         bounds.AY = y;
 
-        //@HARDCODE
-        bounds.BX = x + 0.5f;
-        bounds.BY = y - 0.5f;
+        bounds.BX = x + model->scaleFactor.x;
+        bounds.BY = y - model->scaleFactor.y;
     }
 };
 
@@ -89,8 +88,8 @@ struct Entity {
         bounds.AX = x;
         bounds.AY = y;
 
-        bounds.BX = x + 0.5f;
-        bounds.BY = y - 0.5f;
+		bounds.BX = x + model->scaleFactor.x;
+		bounds.BY = y - model->scaleFactor.y;
     }
 };
 
@@ -107,10 +106,10 @@ struct Enemy : Entity {
 	int actionState;
 
     void init(glm::vec3 offset, Model *newModel) {
-        worldOffset.z = offset.z;
-        updateWorldOffset(offset.x, offset.y);
+		model = newModel;
 
-        model = newModel;
+		worldOffset.z = offset.z;
+        updateWorldOffset(offset.x, offset.y);       
 
         current = true; 
     }

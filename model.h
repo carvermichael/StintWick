@@ -178,9 +178,15 @@ struct Model {
 
 	std::vector<Mesh> meshes;
 
-	Model() {}
+	// TODO: Visual Studio likes to think this line isn't here.
+	glm::vec3 scaleFactor = glm::vec3(1.0f);
+
+	Model() {
+		scaleFactor = glm::vec3(1.0f);		
+	}
 	Model(std::string name) {
 		this->name = name;
+		scaleFactor = glm::vec3(1.0f);
 	}
 
 	void draw(glm::vec3 worldOffset) {
@@ -189,7 +195,16 @@ struct Model {
 		}
 	}
 
-	void scale(glm::vec3 scale) {
+	void scale(glm::vec3 scale) {	
+		if(scaleFactor.x != 0.0f) scaleFactor.x *= scale.x;
+		else					  scaleFactor.x  = scale.x;
+
+		if (scaleFactor.y != 0.0f) scaleFactor.y *= scale.y;
+		else					   scaleFactor.y  = scale.y;
+
+		if (scaleFactor.z != 0.0f) scaleFactor.z *= scale.z;
+		else					   scaleFactor.z  = scale.z;
+		
 		for (int i = 0; i < meshes.size(); i++) {
 			meshes[i].scale(scale);
 		}
