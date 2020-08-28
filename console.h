@@ -106,6 +106,22 @@ struct Console {
 		isOut = !isOut;
 	}
 
+	void refresh() {
+		timeToFlip = 0.5f;
+		markerSize = 1.5f;
+		markerStartLocation = 4.0f;
+		markerLocation = markerStartLocation;
+
+		height = 100.0f;
+		width = (float)currentScreenWidth;
+
+		location = (float)currentScreenHeight;
+		destination = (float)currentScreenHeight;
+		speed = 10.0f;
+
+		isOut = false;
+	}
+
 	void setup(unsigned int shaderProgramId) {
 		boundingRect.setup(shaderProgramId);
 

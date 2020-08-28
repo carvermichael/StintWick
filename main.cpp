@@ -108,10 +108,13 @@ void refreshLight() {
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-	glViewport(0, 0, width, height);
-
-	currentScreenWidth	= width;
 	currentScreenHeight = height;
+	
+	currentScreenWidth = (INITIAL_SCREEN_WIDTH * currentScreenHeight) / INITIAL_SCREEN_HEIGHT;
+	
+	glViewport((width - currentScreenWidth) / 2, 0, currentScreenWidth, currentScreenHeight);
+
+	console.refresh();
 
     refreshProjection();
 }
@@ -734,8 +737,8 @@ int main() {
 				Sleep(timeToSleepMS);
 			}
 
-			while (((float)glfwGetTime() - lastFrameTime) < targetFrameTime) {
-				//deltaTime = (float)glfwGetTime() - lastFrameTime;
+			while (deltaTime < targetFrameTime) {
+				deltaTime = (float)glfwGetTime() - lastFrameTime;
 			}
 		}
 		else {
