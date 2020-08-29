@@ -76,7 +76,10 @@ struct Entity {
 	glm::vec3 worldOffset;
     AABB bounds;
 
-	float speed = 0.2f;
+	float timeSinceLastShot = 0.0f; // seconds
+	float timeBetweenShots = 0.25f; // seconds
+
+	float speed = 10.0f;
 
 	void draw() {
 		model->draw(worldOffset);
@@ -96,24 +99,45 @@ struct Entity {
 
 struct Player : Entity {
 
-    float timeSinceLastShot = 0.0f; // seconds
-    float timeBetweenShots = 0.3f; // seconds	
+	void init(glm::vec3 offset, Model *newModel) {
+		model = newModel;
 
+		// bump up to see outline better
+		worldOffset.z = offset.z + 0.05f;
+		updateWorldOffset(offset.x, offset.y);
+
+		timeBetweenShots = 0.3f;
+
+		speed = 15.0f;
+	}
+};
+
+struct EnemyStrat {
+	virtual void update(Entity *entity, Player *player, float deltaTime) {};
 };
 
 struct Enemy : Entity {
 
     bool current = false;
 	int actionState;
+	EnemyStrat *strat;	
 
-    void init(glm::vec3 offset, Model *newModel) {
+	void init(glm::vec3 offset, Model *newModel, EnemyStrat *newStrat) {
 		model = newModel;
 
-		worldOffset.z = offset.z;
-        updateWorldOffset(offset.x, offset.y);       
+		// bump up to see outline better
+		worldOffset.z = offset.z + 0.05f;
+        updateWorldOffset(offset.x, offset.y);
 
-        current = true; 
+		strat = newStrat;
+
+        current = true;
     }
+
+	// simple following
+	void update(Player *player, float deltaTime) {
+		strat->update(this, player, deltaTime);
+	}
 };
 
 #define ENTITIES

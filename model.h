@@ -253,7 +253,9 @@ struct Models {
 		struct {
 			Model player;
 			Model enemy;
+			
             Model bullet;
+			Model enemyBullet;
 
 			Model floorModel;
 			Model wallTopModel;

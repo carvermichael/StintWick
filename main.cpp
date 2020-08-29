@@ -32,6 +32,9 @@ unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
 unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
 
 #include "model.h"
+Models models;
+Materials materials;
+
 #include "camera.h"
 
 #include "worldState.h"
@@ -62,9 +65,6 @@ int timeStepDenom = 1;
 Textbox eventTextBox = {};
 Textbox fpsBox = {};
 
-Models models;
-Materials materials;
-
 glm::mat4 projection;
 
 bool lightOrbit = false;
@@ -74,6 +74,40 @@ Console console;
 WorldState world;
 
 #include "controls.h"
+
+struct Follow : EnemyStrat {
+
+	void update(Entity *entity, Player *player, float deltaTime) {
+		glm::vec3 dirVec = glm::normalize(player->worldOffset - entity->worldOffset);
+		glm::vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
+
+		entity->updateWorldOffset(newWorldOffset.x, newWorldOffset.y);
+	}
+};
+
+struct Shoot : EnemyStrat {
+
+	void update(Entity *entity, Player *player, float deltaTime) {
+		glm::vec3 dirVec = glm::normalize(player->worldOffset - entity->worldOffset);
+
+		entity->timeSinceLastShot += deltaTime;
+		if (entity->timeSinceLastShot < entity->timeBetweenShots) return;
+
+		bool foundBullet = false;
+		for (int i = 0; i < MAX_BULLETS; i++) {
+			if (!world.enemyBullets[i].current) {
+				world.enemyBullets[i].init(entity->worldOffset,
+					glm::vec2(dirVec.x, dirVec.y),
+					&models.enemyBullet);
+				foundBullet = true;
+				break;
+			}
+		}
+
+		if (!foundBullet) printf("Bullet array full! Ah!\n");
+		else entity->timeSinceLastShot = 0.0f;
+	}
+};
 
 void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
@@ -324,18 +358,22 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::
 
 // TODO: clean up model creation
 void createBulletModel() {
-	Mesh bulletMesh;	
+	Mesh bulletMesh;
+	Mesh enemyBulletMesh;
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
 		bulletMesh.vertices.push_back(cubeVertices[i]);
+		enemyBulletMesh.vertices.push_back(cubeVertices[i]);
 	}
 
 	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
 		bulletMesh.indices.push_back(cubeIndices[i]);
+		enemyBulletMesh.indices.push_back(cubeIndices[i]);
 	}
 
 	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
 		bulletMesh.outlineIndices.push_back(cubeOutlineIndices[i]);		
+		enemyBulletMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
 	}
 	
 	bulletMesh.setupVAO();
@@ -346,6 +384,15 @@ void createBulletModel() {
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
 	models.bullet.scale(glm::vec3(0.5f));
+
+	enemyBulletMesh.setupVAO();
+	enemyBulletMesh.shaderProgramID = regularShaderProgramID;
+	enemyBulletMesh.material = &materials.gold;
+	enemyBulletMesh.drawOutline = true;
+
+	models.enemyBullet.name = std::string("enemyBullet");
+	models.enemyBullet.meshes.push_back(enemyBulletMesh);
+	models.enemyBullet.scale(glm::vec3(0.5f));
 }
 
 void createGridFloorAndWallModels() {
@@ -562,19 +609,30 @@ void drawGuidingGrid() {
 
 void updateBullets(float deltaTime) {
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(world.bullets[i].current) {
-            Bullet *bullet = &world.bullets[i];
+        if(world.playerBullets[i].current) {
+            Bullet *bullet = &world.playerBullets[i];
             bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime, 
                                       bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime); 
 			//bullet.outlineFactor = 
         }
+
+		if (world.enemyBullets[i].current) {
+			Bullet *bullet = &world.enemyBullets[i];
+			bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime,
+				bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
+			//bullet.outlineFactor = 
+		}
     }
 }
 
 void drawBullets() {
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(world.bullets[i].current) world.bullets[i].draw();
+        if(world.playerBullets[i].current) world.playerBullets[i].draw();
     }
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (world.enemyBullets[i].current) world.enemyBullets[i].draw();
+	}
 }
 
 void drawEnemies() {
@@ -583,19 +641,35 @@ void drawEnemies() {
     }
 }
 
+void updateEnemies() {
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		if (world.enemies[i].current) world.enemies[i].update(&world.player, globalDeltaTime);
+	}
+}
+
 void checkBulletsForWallCollisions() {
 
     // TODO: bug: collision with north wall is off (I would guess by 0.5f) --> bullet detects hit too early
     //            Is BY off by 0.5f?
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(!world.bullets[i].current) continue;
-        if(world.bullets[i].worldOffset.x < world.wallBounds.AX ||
-           world.bullets[i].worldOffset.x > world.wallBounds.BX ||
-           world.bullets[i].worldOffset.y > world.wallBounds.AY ||
-           world.bullets[i].worldOffset.y < world.wallBounds.BY) {
-            world.bullets[i].current = false;
+        if(!world.playerBullets[i].current) continue;
+        if(world.playerBullets[i].worldOffset.x < world.wallBounds.AX ||
+           world.playerBullets[i].worldOffset.x > world.wallBounds.BX ||
+           world.playerBullets[i].worldOffset.y > world.wallBounds.AY ||
+           world.playerBullets[i].worldOffset.y < world.wallBounds.BY) {
+            world.playerBullets[i].current = false;
         }
     }
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (!world.enemyBullets[i].current) continue;
+		if (world.enemyBullets[i].worldOffset.x < world.wallBounds.AX ||
+			world.enemyBullets[i].worldOffset.x > world.wallBounds.BX ||
+			world.enemyBullets[i].worldOffset.y > world.wallBounds.AY ||
+			world.enemyBullets[i].worldOffset.y < world.wallBounds.BY) {
+			world.enemyBullets[i].current = false;
+		}
+	}
 }
 
 // TODO: this is garbage
@@ -603,8 +677,8 @@ void checkBulletsForEnemyCollisions() {
 
     for(int i = 0; i < MAX_BULLETS; i++) {
 
-        if(!world.bullets[i].current) continue;
-        Bullet *bullet = &world.bullets[i];
+        if(!world.playerBullets[i].current) continue;
+        Bullet *bullet = &world.playerBullets[i];
 
         for(int j = 0; j < MAX_ENEMIES; j++) {
 
@@ -681,18 +755,22 @@ int main() {
 	//generateWorldMap(&world);
 
 	// CHARACTER INITIALIZATION
-    world.player.worldOffset = gridCoordsToWorldOffset(glm::ivec3(15, 20, 1));
-	world.player.worldOffset.z = 1.05f;
-	world.player.speed = 15.0f;
-
+    world.player.init(gridCoordsToWorldOffset(glm::ivec3(15, 20, 1)), &models.player);
+	
     // CREATION OF ENEMIES
-    world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(4, 4, 1)), &models.enemy);
-    world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(8, 4, 1)), &models.enemy);
+    //world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(4, 4, 1)), &models.enemy);
+	Follow follow;
+	Shoot shoot;
+	
+	//world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(15, 4, 1)), &models.enemy, &follow);
+	world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(15, 4, 1)), &models.enemy, &shoot);
+	
+    /*world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(8, 4, 1)), &models.enemy);
     world.enemies[2].init(gridCoordsToWorldOffset(glm::ivec3(12, 4, 1)), &models.enemy);
     world.enemies[3].init(gridCoordsToWorldOffset(glm::ivec3(16, 4, 1)), &models.enemy);
     world.enemies[4].init(gridCoordsToWorldOffset(glm::ivec3(20, 4, 1)), &models.enemy);
     world.enemies[5].init(gridCoordsToWorldOffset(glm::ivec3(24, 4, 1)), &models.enemy);
-
+*/
 	lastFrameTime = (float)glfwGetTime();
 
 	// need alpha blending for text transparency
@@ -706,9 +784,7 @@ int main() {
 
 	guidingGridSetup();
 
-	console.setup(UIShaderProgramID);
-
-	world.player.model = &models.player;
+	console.setup(UIShaderProgramID);	
 
     float deltaTime = 0.0f;
 	float timeStep	= deltaTime;
@@ -744,6 +820,7 @@ int main() {
         updateBullets(timeStep);
         checkBulletsForWallCollisions();
         checkBulletsForEnemyCollisions();
+		updateEnemies();
 		
 		drawGrid();
 	    world.player.draw();

@@ -20,7 +20,8 @@ struct WorldState {
 	Player player;
     Enemy enemies[MAX_ENEMIES];
     
-    Bullet bullets[MAX_BULLETS];
+    Bullet playerBullets[MAX_BULLETS];
+	Bullet enemyBullets[MAX_BULLETS];
 
     WorldState() {
 		gridSizeX = GRID_MAP_SIZE_X;
@@ -49,13 +50,10 @@ glm::ivec3 worldOffsetToGridCoords(glm::vec3 worldOffset) {
     
     glm::ivec3 gridCoords;
 
-    // TODO: verify this truncation results in the desired result
     gridCoords.x = (int)( worldOffset.x); 
     gridCoords.y = (int)(-worldOffset.y); 
     gridCoords.z = (int)( worldOffset.z); 
     
-    //printf("World: (%.2f, %.2f) --> Grid: (%i, %i)\n", worldOffset.x, worldOffset.y, gridCoords.x, gridCoords.y);
-
     return gridCoords;
 }
 

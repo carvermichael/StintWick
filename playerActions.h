@@ -70,8 +70,8 @@ void playerShoot(float x, float y, float deltaTime) {
 
     bool foundBullet = false;
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(!world.bullets[i].current) {
-            world.bullets[i].init(world.player.worldOffset, 
+        if(!world.playerBullets[i].current) {
+            world.playerBullets[i].init(world.player.worldOffset, 
                                   glm::normalize(glm::vec2(x, y)),
                                   &models.bullet);
             foundBullet = true;
