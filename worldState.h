@@ -5,22 +5,11 @@
 #include "model.h"
 #include "entities.h"
 
-struct Map {
-	bool initialized = false;
-	unsigned int grid[GRID_MAP_SIZE_Y][GRID_MAP_SIZE_X];
-
-	int openings;
-};
-
 struct WorldState {
 	unsigned int seed;
 
-    Map allMaps[WORLD_MAP_SIZE_X][WORLD_MAP_SIZE_Y];
-    bool storePlaced = false;
-    bool someOtherThingPlaced = false;
-
-    int currentMapX = PLAYER_WORLD_START_X;
-    int currentMapY = PLAYER_WORLD_START_Y;
+	unsigned int gridSizeX;
+	unsigned int gridSizeY;
 
     AABB wallBounds;
 
@@ -34,19 +23,17 @@ struct WorldState {
     Bullet bullets[MAX_BULLETS];
 
     WorldState() {
+		gridSizeX = GRID_MAP_SIZE_X;
+		gridSizeY = GRID_MAP_SIZE_Y;
+
         // @HARDCODE: this is set relative to wall cube sizes
         wallBounds.AX =  1.0f;
         wallBounds.AY = -1.0f;
 
-        wallBounds.BX =  (GRID_MAP_SIZE_X - 1); 
-        wallBounds.BY = -(GRID_MAP_SIZE_Y - 1); 
-    }
-
-    Map *currentMap() {
-        return &allMaps[currentMapX][currentMapY];
+        wallBounds.BX =  (float)(gridSizeX - 1);
+        wallBounds.BY = -(float)(gridSizeY - 1); 
     }
 };
-
 
 glm::vec3 gridCoordsToWorldOffset(glm::ivec3 gridCoords) {
     glm::vec3 worldOffset;

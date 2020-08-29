@@ -37,8 +37,8 @@
 #define GRID_WALL   1
 #define GRID_EXIT   2
 
-#define NUM_MODELS 6
-#define NUM_MATS 7
+#define NUM_MODELS	8
+#define NUM_MATS	8
 
 #define MODE_PLAY				0
 #define MODE_FREE_CAMERA		1

@@ -69,5 +69,11 @@ unsigned int cubeIndices[] = {
 	21, 22, 23
 };
 
+unsigned int cubeOutlineIndices[] = {
+	0, 4, 0, 1, 5, 1,
+	2, 6, 2, 3, 7, 3,
+	0, 4, 5, 6, 7, 4
+};
+
 #define SHAPE_DATA
 #endif

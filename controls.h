@@ -17,6 +17,9 @@ void moveWithController(GLFWgamepadstate state, float deltaTime) {
     if(glm::abs(leftX) < 0.1f) leftX = 0;
     if(glm::abs(leftY) < 0.1f) leftY = 0;
 
+	leftX *= deltaTime;
+	leftY *= deltaTime;
+
     // Up on Y joystick is negative. Flipping here to make it easier to work with in relation to world space.
     movePlayer(leftX, leftY * -1.0f);
 
@@ -54,22 +57,9 @@ void control_play(int action, int key, float deltaTime) {
 void control_freeCam(int action, int key, float deltaTime) {
 	if (action == GLFW_RELEASE) return;
 
-	if (key == GLFW_KEY_L) {
-		models.wallModel.scale(glm::vec3(0, 0, 1.1f));
-	}
-	
-	if (key == GLFW_KEY_M) {
-		models.wallModel.scale(glm::vec3(0, 0, 0.89f));
-	}
-
 	if (key == GLFW_KEY_G) {
 		guidingGrid = !guidingGrid;
 		addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &eventTextBox);
-	}
-	
-	if (key == GLFW_KEY_R) {
-		// Grid goes bye-bye when this happens.
-		//regenerateMap(&world);
 	}
 	
 	if (key == GLFW_KEY_O) {

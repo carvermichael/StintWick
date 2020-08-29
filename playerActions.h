@@ -14,10 +14,10 @@ void movePlayer(float x, float y) {
 
     if(x > 0) {
         playerBoundX = world.player.bounds.BX + x;
-        worldBoundX = world.wallBounds.BX;
+        worldBoundX = world.wallBounds.BX - 1.0f;
 
         if(playerBoundX > worldBoundX) {
-            finalOffsetX = worldBoundX - 0.5f;
+            finalOffsetX = worldBoundX;
         } else {
             
             finalOffsetX = world.player.worldOffset.x + x;
@@ -40,7 +40,7 @@ void movePlayer(float x, float y) {
 
     if(y > 0) {
         playerBoundY = world.player.bounds.AY + y;
-        worldBoundY = world.wallBounds.AY;
+        worldBoundY = world.wallBounds.AY - 1.0f;
 
         if(playerBoundY > worldBoundY) {
             finalOffsetY = worldBoundY;
@@ -53,7 +53,7 @@ void movePlayer(float x, float y) {
         worldBoundY = world.wallBounds.BY;
 
         if(playerBoundY < worldBoundY) {
-            finalOffsetY = worldBoundY + 0.5f;
+            finalOffsetY = worldBoundY;
         } else {
             finalOffsetY = world.player.worldOffset.y + y;
         }

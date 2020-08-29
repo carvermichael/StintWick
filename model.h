@@ -37,6 +37,7 @@ struct Materials {
 			Material gold;
 			Material blackRubber;
 			Material ruby;
+			Material grey;
 		};
 	};
 
@@ -76,6 +77,11 @@ struct Materials {
             glm::vec3(1.0f),
             glm::vec3(1.0f),
             1.0f);
+
+		grey = Material("grey", glm::vec3(0.23f),
+			glm::vec3(0.23f),
+			glm::vec3(0.23f),
+			1.0f);
     }
 
 	~Materials() {};
@@ -97,6 +103,9 @@ struct Mesh {
 	std::vector<float> texCoords;
 	std::vector<float> normals;
 	std::vector<unsigned int> indices;
+	std::vector<unsigned int> outlineIndices;
+
+	bool drawOutline = false;
 
 	float scaleFactor;
 
@@ -106,14 +115,17 @@ struct Mesh {
 	unsigned int verticesVBO_ID;
 	unsigned int normalsVBO_ID;
 	unsigned int EBO_ID;
+	unsigned int outline_EBO_ID;
 
 	unsigned int shaderProgramID;
 
 	Mesh() {};
 
-	void draw(glm::vec3 worldOffset) {
+	void draw(glm::vec3 worldOffset, float outlineFactor) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
+		glDepthFunc(GL_LESS);
 
 		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), worldOffset);
 		
@@ -125,6 +137,17 @@ struct Mesh {
 		setUniform1f(shaderProgramID, "materialShininess", material->shininess);
 
 		glDrawElements(GL_TRIANGLES, (GLsizei) indices.size(), GL_UNSIGNED_INT, 0);
+
+		if (drawOutline) {
+			setUniform3f(shaderProgramID, "materialAmbient", material->ambient * outlineFactor);
+			setUniform3f(shaderProgramID, "materialDiffuse", material->diffuse * outlineFactor);
+			setUniform3f(shaderProgramID, "materialSpecular", material->specular * outlineFactor);
+			setUniform1f(shaderProgramID, "materialShininess", 1.0f);
+
+			glDepthFunc(GL_LEQUAL);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_EBO_ID);
+			glDrawElements(GL_LINE_LOOP, (GLsizei)outlineIndices.size(), GL_UNSIGNED_INT, 0);
+		}
 	}
 
 	void scale(glm::vec3 scale) {
@@ -169,6 +192,10 @@ struct Mesh {
 		glGenBuffers(1, &EBO_ID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(this->indices[0]) * this->indices.size(), &this->indices[0], GL_STATIC_DRAW);
+
+		glGenBuffers(1, &outline_EBO_ID);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_EBO_ID);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(this->outlineIndices[0]) * this->outlineIndices.size(), &this->outlineIndices[0], GL_STATIC_DRAW);
 	}
 };
 
@@ -189,10 +216,14 @@ struct Model {
 		scaleFactor = glm::vec3(1.0f);
 	}
 
-	void draw(glm::vec3 worldOffset) {
+	void draw(glm::vec3 worldOffset, float outlineFactor) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(worldOffset);
+			meshes[i].draw(worldOffset, outlineFactor);
 		}
+	}
+
+	void draw(glm::vec3 worldOffset) {
+		draw(worldOffset, 1.0f);
 	}
 
 	void scale(glm::vec3 scale) {	
@@ -225,7 +256,8 @@ struct Models {
             Model bullet;
 
 			Model floorModel;
-			Model wallModel;
+			Model wallTopModel;
+			Model wallLeftModel;
 
 			Model lightCube;
 

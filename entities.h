@@ -28,6 +28,7 @@ struct Bullet {
     float speed;
 
     Model *model;
+	float outlineFactor = 1.0f;
 
 	glm::vec3 worldOffset;
     AABB bounds;
@@ -43,7 +44,7 @@ struct Bullet {
     }
 
 	void draw() {
-		model->draw(worldOffset);
+		model->draw(worldOffset, outlineFactor);
 	}
 
     void updateWorldOffset(float x, float y) {
@@ -96,7 +97,7 @@ struct Entity {
 struct Player : Entity {
 
     float timeSinceLastShot = 0.0f; // seconds
-    float timeBetweenShots = 0.3f; // seconds
+    float timeBetweenShots = 0.3f; // seconds	
 
 };
 

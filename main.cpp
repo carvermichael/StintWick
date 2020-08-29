@@ -37,7 +37,6 @@ unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
 #include "worldState.h"
 
 #include "shader.h"
-#include "worldGeneration.h"
 #include "textBox.h"
 #include "console.h"
 #include "shapeData.h"
@@ -176,7 +175,7 @@ void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 	// NOTE: Using the callback for free camera movement is super choppy,
 	//		 Cause it's the only thing that involves holding down keys?
 	if (mode == MODE_FREE_CAMERA) {
-		const float cameraSpeed = 5.0f * deltaTime;
+		const float cameraSpeed = 25.0f * deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			world.camera.moveForward(deltaTime);		
 		}
@@ -334,10 +333,15 @@ void createBulletModel() {
 	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
 		bulletMesh.indices.push_back(cubeIndices[i]);
 	}
+
+	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
+		bulletMesh.outlineIndices.push_back(cubeOutlineIndices[i]);		
+	}
 	
 	bulletMesh.setupVAO();
 	bulletMesh.shaderProgramID = regularShaderProgramID;
-	bulletMesh.material = &materials.blackRubber;
+	bulletMesh.material = &materials.grey;
+	bulletMesh.drawOutline = true;
 
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
@@ -346,33 +350,53 @@ void createBulletModel() {
 
 void createGridFloorAndWallModels() {
 	Mesh floorMesh;	
-	Mesh wallMesh;
+	Mesh wallTopMesh;
+	Mesh wallLeftMesh;
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
 		floorMesh.vertices.push_back(cubeVertices[i]);
-		wallMesh.vertices.push_back(cubeVertices[i]);
+		wallTopMesh.vertices.push_back(cubeVertices[i]);
+		wallLeftMesh.vertices.push_back(cubeVertices[i]);
 	}
 
 	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
 		floorMesh.indices.push_back(cubeIndices[i]);
-		wallMesh.indices.push_back(cubeIndices[i]);
+		wallTopMesh.indices.push_back(cubeIndices[i]);
+		wallLeftMesh.indices.push_back(cubeIndices[i]);
+	}
+
+	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
+		floorMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
+		wallTopMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
+		wallLeftMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
 	}
 	
 	floorMesh.setupVAO();
 	floorMesh.shaderProgramID = regularShaderProgramID;
 	floorMesh.material = &materials.emerald;
+	floorMesh.drawOutline = false;
+	
+	wallTopMesh.setupVAO();
+	wallTopMesh.shaderProgramID = regularShaderProgramID;
+	wallTopMesh.material = &materials.gold;
+	wallTopMesh.drawOutline = false;
 
-	wallMesh.setupVAO();
-	wallMesh.shaderProgramID = regularShaderProgramID;
-	wallMesh.material = &materials.gold;
+	wallLeftMesh.setupVAO();
+	wallLeftMesh.shaderProgramID = regularShaderProgramID;
+	wallLeftMesh.material = &materials.gold;
+	wallLeftMesh.drawOutline = false;
 
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
+	models.floorModel.scale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
 
-	models.wallModel.name = std::string("wall");
-	models.wallModel.meshes.push_back(wallMesh);
+	models.wallLeftModel.name = std::string("wall");
+	models.wallLeftModel.meshes.push_back(wallLeftMesh);
+	models.wallLeftModel.scale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
 
-	models.wallModel.scale(glm::vec3(1.0f, 1.0f, 2.0f));
+	models.wallTopModel.name = std::string("wall");
+	models.wallTopModel.meshes.push_back(wallTopMesh);
+	models.wallTopModel.scale(glm::vec3((float) world.gridSizeX - 2.0f, -1.0f, 2.0f));	
 }
 
 void createPlayerAndEnemyModels() {
@@ -387,9 +411,14 @@ void createPlayerAndEnemyModels() {
 		playerMesh.indices.push_back(cubeIndices[i]);
 	}
 
+	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
+		playerMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
+	}
+
 	playerMesh.setupVAO();
 	playerMesh.shaderProgramID = regularShaderProgramID;
 	playerMesh.material = &materials.chrome;
+	playerMesh.drawOutline = true;
 
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
@@ -403,9 +432,14 @@ void createPlayerAndEnemyModels() {
 		enemyMesh.indices.push_back(cubeIndices[i]);
 	}
 
+	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
+		enemyMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
+	}
+
 	enemyMesh.setupVAO();
 	enemyMesh.shaderProgramID = regularShaderProgramID;
 	enemyMesh.material = &materials.ruby;
+	playerMesh.drawOutline = true;
 
 	models.enemy.name = std::string("enemy");
 	models.enemy.meshes.push_back(enemyMesh);
@@ -413,31 +447,22 @@ void createPlayerAndEnemyModels() {
 }
 
 void drawGrid() {
+	glm::vec3 floorWorldOffset = glm::vec3(1.0f, -1.0f, 0.0f);
+	models.floorModel.draw(floorWorldOffset);
 
-	float zOffset = 0.0f;
-	for (int row = 0; row < GRID_MAP_SIZE_X; row++) {
-		float yOffset = (float) -row;
-
-		for (int column = 0; column < GRID_MAP_SIZE_Y; column++) {
-			float xOffset = (float) column;
-			glm::vec3 worldOffset = glm::vec3(xOffset, yOffset, zOffset);
-            int currentSpace = world.currentMap()->grid[row][column];
-
-			if (currentSpace == GRID_WALL) {
-				models.wallModel.draw(worldOffset);
-			}
-            else if (currentSpace == GRID_FLOOR) {
-				models.floorModel.draw(worldOffset);
-			}
-            else if (currentSpace == GRID_EXIT) {
-                // TODO
-            }
-		}
-	}
+	// left
+	models.wallLeftModel.draw(glm::vec3(0.0f, 0.0f, 0.0f));
+	// top
+	models.wallTopModel.draw(glm::vec3(1.0f, 0.0f, 0.0f));
+	
+	// right
+	models.wallLeftModel.draw(glm::vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
+	// bottom
+	models.wallTopModel.draw(glm::vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
 }
 
 void moveLightAroundOrbit(float deltaTime) {
-	float radius = 5.0f;
+	float radius = 35.0f;
 	float speed = 90.0f; // degrees / second
 	float degreesMoved = speed * deltaTime;
 
@@ -541,6 +566,7 @@ void updateBullets(float deltaTime) {
             Bullet *bullet = &world.bullets[i];
             bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime, 
                                       bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime); 
+			//bullet.outlineFactor = 
         }
     }
 }
@@ -569,7 +595,7 @@ void checkBulletsForWallCollisions() {
            world.bullets[i].worldOffset.y < world.wallBounds.BY) {
             world.bullets[i].current = false;
         }
-    }   
+    }
 }
 
 // TODO: this is garbage
@@ -652,18 +678,20 @@ int main() {
 	srand(seed);
 	addTextToBox("seed: " + std::to_string(seed), &eventTextBox);
 	
-	generateWorldMap(&world);
+	//generateWorldMap(&world);
 
 	// CHARACTER INITIALIZATION
     world.player.worldOffset = gridCoordsToWorldOffset(glm::ivec3(15, 20, 1));
+	world.player.worldOffset.z = 1.05f;
+	world.player.speed = 15.0f;
 
     // CREATION OF ENEMIES
-    world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(4, 2, 1)), &models.enemy);
-    world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(8, 2, 1)), &models.enemy);
-    world.enemies[2].init(gridCoordsToWorldOffset(glm::ivec3(12, 2, 1)), &models.enemy);
-    world.enemies[3].init(gridCoordsToWorldOffset(glm::ivec3(16, 2, 1)), &models.enemy);
-    world.enemies[4].init(gridCoordsToWorldOffset(glm::ivec3(20, 2, 1)), &models.enemy);
-    world.enemies[5].init(gridCoordsToWorldOffset(glm::ivec3(24, 2, 1)), &models.enemy);
+    world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(4, 4, 1)), &models.enemy);
+    world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(8, 4, 1)), &models.enemy);
+    world.enemies[2].init(gridCoordsToWorldOffset(glm::ivec3(12, 4, 1)), &models.enemy);
+    world.enemies[3].init(gridCoordsToWorldOffset(glm::ivec3(16, 4, 1)), &models.enemy);
+    world.enemies[4].init(gridCoordsToWorldOffset(glm::ivec3(20, 4, 1)), &models.enemy);
+    world.enemies[5].init(gridCoordsToWorldOffset(glm::ivec3(24, 4, 1)), &models.enemy);
 
 	lastFrameTime = (float)glfwGetTime();
 
@@ -673,7 +701,8 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	world.camera.initializeForGrid();
+	//world.camera.initializeForGrid();
+	world.camera.initializeOverhead();
 
 	guidingGridSetup();
 
@@ -682,6 +711,7 @@ int main() {
 	world.player.model = &models.player;
 
     float deltaTime = 0.0f;
+	float timeStep	= deltaTime;
 
     float targetFrameTime = 1.0f / 60.0f;
     fpsBox.x = (float) (currentScreenWidth - 150);
@@ -696,7 +726,7 @@ int main() {
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window, deltaTime);
-        processJoystickInput(deltaTime);
+        processJoystickInput(timeStep);
 		
 		glfwPollEvents();
 
@@ -708,10 +738,10 @@ int main() {
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
-		if(lightOrbit) moveLightAroundOrbit(deltaTime);
+		if(lightOrbit) moveLightAroundOrbit(timeStep);
 
         refreshLight();
-        updateBullets(deltaTime);
+        updateBullets(timeStep);
         checkBulletsForWallCollisions();
         checkBulletsForEnemyCollisions();
 		
@@ -719,6 +749,9 @@ int main() {
 	    world.player.draw();
         drawEnemies();
         drawBullets();
+			
+		// test cube
+		//models.floorModel.draw(glm::vec3(15.0f, -10.0f, -2.0f));
 
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
@@ -753,7 +786,7 @@ int main() {
 		//printf("FPS: %f \n", 1.0f / deltaTime);
 
         // TODO: Use some other variable to communicate a timestep.
-        deltaTime = deltaTime / timeStepDenom;
+        timeStep = deltaTime / timeStepDenom;
         globalDeltaTime = deltaTime;
 
 		lastFrameTime = (float)glfwGetTime();
