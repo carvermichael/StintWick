@@ -18,12 +18,12 @@ struct Camera {
 	float yaw = -90.0f;
 	float pitch = 45.0f;
 
-	void initializeOverhead() {
+	void initializeOverhead(unsigned int gridSizeX, unsigned int gridSizeY) {
 		yaw = -90.0f;
 		pitch = 0.0f;
 
-		float midGridX = GRID_MAP_SIZE_X / 2;
-		float midGridY = -GRID_MAP_SIZE_Y / 2;
+		float midGridX = (float) gridSizeX / 2;
+		float midGridY = -(float) gridSizeY / 2;
 
 		position = glm::vec3(midGridX, midGridY, 45.0f);
 
@@ -38,14 +38,14 @@ struct Camera {
 		up = glm::normalize(glm::cross(direction, cameraRight));
 	}
 
-	void initializeForGrid() {
+	void initializeForGrid(unsigned int gridSizeX, unsigned int gridSizeY) {
 		yaw = -90.0f;
 		pitch = 45.0f;
 
-		float midGridX = GRID_MAP_SIZE_X / 2;
-		float bottomGridY = -GRID_MAP_SIZE_Y * 2.0f;
+		float midGridX = (float) gridSizeX / 2;
+		float bottomGridY = -(float)gridSizeY * 2.0f;
 
-		position = glm::vec3(midGridX, bottomGridY, GRID_MAP_SIZE_X * 1.5f);
+		position = glm::vec3(midGridX, bottomGridY, (float) gridSizeX * 1.5f);
 
 		up = glm::vec3(0.0f, 1.0f, 0.0f);
 

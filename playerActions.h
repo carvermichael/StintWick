@@ -73,7 +73,7 @@ void playerShoot(float x, float y, float deltaTime) {
         if(!world.playerBullets[i].current) {
             world.playerBullets[i].init(world.player.worldOffset, 
                                   glm::normalize(glm::vec2(x, y)),
-                                  &models.bullet);
+                                  &models.bullet, world.player.shotSpeed);
             foundBullet = true;
             break;
         }

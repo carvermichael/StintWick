@@ -44,6 +44,7 @@ Materials materials;
 #include "textBox.h"
 #include "console.h"
 #include "shapeData.h"
+#include "levels.h"
 
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
@@ -99,7 +100,7 @@ struct Shoot : EnemyStrat {
 			if (!world.enemyBullets[i].current) {
 				world.enemyBullets[i].init(entity->worldOffset,
 					glm::vec2(dirVec.x, dirVec.y),
-					&models.enemyBullet);
+					&models.enemyBullet, entity->shotSpeed);
 				foundBullet = true;
 				break;
 			}
@@ -109,6 +110,15 @@ struct Shoot : EnemyStrat {
 		else entity->timeSinceLastShot = 0.0f;
 	}
 };
+
+struct EnemyStrats {
+
+	Follow follow;
+	Shoot shoot;
+
+};
+
+EnemyStrats enemyStrats;
 
 void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
@@ -305,12 +315,12 @@ void processConsoleCommand(std::string command) {
 	if (commandVector[0] == "freecam") {
 		mode = MODE_FREE_CAMERA;
 
-		world.camera.initializeForGrid();
+		world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
 		addTextToBox("Mode: Free Camera", &eventTextBox);
 	}
 
 	if (commandVector[0] == "edit") {
-		world.camera.initializeOverhead();
+		world.camera.initializeOverhead(world.gridSizeX, world.gridSizeY);
 
 		mode = MODE_LEVEL_EDIT;
 		addTextToBox("Mode: Level Edit", &eventTextBox);
@@ -449,15 +459,12 @@ void createGridFloorAndWallModels() {
 
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
-	models.floorModel.scale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
-
+	
 	models.wallLeftModel.name = std::string("wall");
 	models.wallLeftModel.meshes.push_back(wallLeftMesh);
-	models.wallLeftModel.scale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
-
+	
 	models.wallTopModel.name = std::string("wall");
-	models.wallTopModel.meshes.push_back(wallTopMesh);
-	models.wallTopModel.scale(glm::vec3((float) world.gridSizeX - 2.0f, -1.0f, 2.0f));	
+	models.wallTopModel.meshes.push_back(wallTopMesh);	
 }
 
 void createPlayerAndEnemyModels() {
@@ -527,8 +534,8 @@ void moveLightAroundOrbit(float deltaTime) {
 	float speed = 90.0f; // degrees / second
 	float degreesMoved = speed * deltaTime;
 
-	float midGridX = GRID_MAP_SIZE_X / 2;
-	float midGridY = -GRID_MAP_SIZE_Y / 2;
+	float midGridX = (float) world.gridSizeX / 2;
+	float midGridY = -(float) world.gridSizeY / 2;
 
 	float newDegrees = world.light.currentDegrees + degreesMoved;
 	if (newDegrees > 360) newDegrees -= 360;
@@ -553,16 +560,16 @@ void guidingGridSetup() {
 	//		 note: can't do this is with current mesh setup, as those meshes are made for triangle drawing (these are just lines)
 
 	float lowerZ = 0.0f;
-	float upperZ = 1.0f;
+	float upperZ = 5.0f;
 	float zStep	 = 1.0f;
 
-	float lowerY = -10.f;
-	float upperY =  10.f;
-	float yStep  =  0.5f;
+	float lowerY = -100.f;
+	float upperY =  100.f;
+	float yStep  =  1.0f;
 
-	float lowerX = -10.f;
-	float upperX =	10.f;
-	float xStep	 =  0.5;
+	float lowerX = -100.f;
+	float upperX =	100.f;
+	float xStep	 =  1.0f;
 
 	std::vector<float> vertices;
 
@@ -593,7 +600,7 @@ void guidingGridSetup() {
 			vertices.push_back(z);
 
 			numGridVertices += 2;
-		}		
+		}
 	}
 
 	glGenVertexArrays(1, &gridVAO_ID);
@@ -605,7 +612,6 @@ void guidingGridSetup() {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 }
-
 void drawGuidingGrid() {
 	glUseProgram(regularShaderProgramID);
 
@@ -738,6 +744,35 @@ void drawParticleEmitters() {
 	}
 }
 
+void initializeWorld(unsigned int level[]) {
+	world.init(level[0], level[1]);
+
+	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
+
+	world.player.init(gridCoordsToWorldOffset(glm::ivec3(level[2], level[3], 1)), &models.player);
+
+	unsigned int numOfEnemies = level[4];
+	for (unsigned int i = 5, j = 0; i < 5 + numOfEnemies * 3; i += 3, j++) {
+
+		unsigned int enemyType = level[i];
+		unsigned int gridX = level[i+1];
+		unsigned int gridY = level[i+2];
+
+		EnemyStrat *strat = &enemyStrats.shoot;
+		if (enemyType == 1) {
+			strat = &enemyStrats.shoot;
+		} else if (enemyType == 2) {
+			strat = &enemyStrats.follow;
+		}
+
+		world.enemies[j].init(gridCoordsToWorldOffset(glm::ivec3(gridX, gridY, 1)), &models.enemy, strat);
+	}
+	
+	models.floorModel.scale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
+	models.wallLeftModel.scale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
+	models.wallTopModel.scale(glm::vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
+}
+
 int main() {
 	// ------------ INIT STUFF -------------
 
@@ -784,63 +819,29 @@ int main() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glViewport(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
-	world.light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
+	// need alpha blending for text transparency
+	glEnable(GL_DEPTH_TEST);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
+	guidingGridSetup();
 	createGridFloorAndWallModels();
 	createPlayerAndEnemyModels();
     createBulletModel();
 
-	// set seed and generate map
-	unsigned int seed = (unsigned int)time(NULL); // seconds since Jan 1, 2000
-	srand(seed);
-	addTextToBox("seed: " + std::to_string(seed), &eventTextBox);
-	
-	//generateWorldMap(&world);
+	console.setup(UIShaderProgramID);
+	fpsBox.x = (float)(currentScreenWidth - 150);
+	fpsBox.y = (float)(currentScreenHeight - 50);
 
-	// CHARACTER INITIALIZATION
-    world.player.init(gridCoordsToWorldOffset(glm::ivec3(15, 20, 1)), &models.player);
-	
-    // CREATION OF ENEMIES
-    //world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(4, 4, 1)), &models.enemy);
-	Follow follow;
-	Shoot shoot;
-	
-	//world.enemies[0].init(gridCoordsToWorldOffset(glm::ivec3(15, 4, 1)), &models.enemy, &follow);
-	world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(15, 4, 1)), &models.enemy, &shoot);
-	
-    /*world.enemies[1].init(gridCoordsToWorldOffset(glm::ivec3(8, 4, 1)), &models.enemy);
-    world.enemies[2].init(gridCoordsToWorldOffset(glm::ivec3(12, 4, 1)), &models.enemy);
-    world.enemies[3].init(gridCoordsToWorldOffset(glm::ivec3(16, 4, 1)), &models.enemy);
-    world.enemies[4].init(gridCoordsToWorldOffset(glm::ivec3(20, 4, 1)), &models.enemy);
-    world.enemies[5].init(gridCoordsToWorldOffset(glm::ivec3(24, 4, 1)), &models.enemy);
-*/
+	initializeWorld(level_1);
+
 	lastFrameTime = (float)glfwGetTime();
-
-	// need alpha blending for text transparency
-	glEnable(GL_DEPTH_TEST);
-	
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	world.camera.initializeForGrid();
-	//world.camera.initializeOverhead();
-
-	guidingGridSetup();
-
-	console.setup(UIShaderProgramID);	
 
     float deltaTime = 0.0f;
 	float timeStep	= deltaTime;
 
-    float targetFrameTime = 1.0f / 60.0f;
-    fpsBox.x = (float) (currentScreenWidth - 150);
-    fpsBox.y = (float) (currentScreenHeight - 50);
-
-	LARGE_INTEGER queryPerfFreq;
-	QueryPerformanceFrequency(&queryPerfFreq);
-
-	LARGE_INTEGER startPerfCounter;
-	QueryPerformanceCounter(&startPerfCounter);
+    float targetFrameTime = 1.0f / 60.0f;    
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {

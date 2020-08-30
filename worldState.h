@@ -25,16 +25,18 @@ struct WorldState {
 
 	ParticleEmitter particleEmitters[MAX_PARTICLE_EMITTERS];
 
-    WorldState() {
-		gridSizeX = GRID_MAP_SIZE_X;
-		gridSizeY = GRID_MAP_SIZE_Y;
+    void init(unsigned int newGridSizeX, unsigned int newGridSizeY) {
+		gridSizeX = newGridSizeX;
+		gridSizeY = newGridSizeY;
 
         // @HARDCODE: this is set relative to wall cube sizes
         wallBounds.AX =  1.0f;
         wallBounds.AY = -1.0f;
 
         wallBounds.BX =  (float)(gridSizeX - 1);
-        wallBounds.BY = -(float)(gridSizeY - 1); 
+        wallBounds.BY = -(float)(gridSizeY - 1);
+
+		light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
     }
 };
 
@@ -67,7 +69,7 @@ glm::ivec3 worldOffsetToGridCoords(glm::vec3 worldOffset) {
 models
 worldState
 inputReplay
-sounds(when available)
+sounds
 
 shaderProgramIDs
 

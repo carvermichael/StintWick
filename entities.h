@@ -35,14 +35,14 @@ struct Bullet {
 	glm::vec3 worldOffset;
     AABB bounds;
 
-    void init(glm::vec3 offset, glm::vec2 dirVec, Model *newModel) {
+    void init(glm::vec3 offset, glm::vec2 dirVec, Model *newModel, float newSpeed) {
         current = true;
 
         worldOffset = offset;
         direction = dirVec;
         model = newModel;
 
-        speed = 45.00f;
+        speed = newSpeed;
     }
 
 	void draw() {
@@ -141,6 +141,7 @@ struct Entity {
 	float timeBetweenShots = 0.25f; // seconds
 
 	float speed = 10.0f;
+	float shotSpeed = 45.0f;
 
 	void draw() {
 		model->draw(worldOffset);
@@ -170,6 +171,7 @@ struct Player : Entity {
 		timeBetweenShots = 0.3f;
 
 		speed = 15.0f;
+		shotSpeed = 45.0f;
 	}
 };
 
@@ -189,6 +191,9 @@ struct Enemy : Entity {
 		// bump up to see outline better
 		worldOffset.z = offset.z + 0.05f;
         updateWorldOffset(offset.x, offset.y);
+		timeBetweenShots = 1.8f;
+		speed = 16.0f;
+		shotSpeed = 35.0f;
 
 		strat = newStrat;
 

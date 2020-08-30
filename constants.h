@@ -10,21 +10,6 @@
 #define LEFT	4
 #define RIGHT	8
 
-#define WORLD_MAP_SIZE_X 5
-#define WORLD_MAP_SIZE_Y 5
-
-#define GRID_MAP_SIZE_X	30
-#define GRID_MAP_SIZE_Y	30
-
-#define PLAYER_WORLD_START_X 2
-#define PLAYER_WORLD_START_Y 2
-
-#define PLAYER_GRID_START_X 15
-#define PLAYER_GRID_START_Y 26
-
-#define ACTION_STATE_SEEKING	0
-#define ACTION_STATE_AVOIDANT	1
-
 #define PLAYER_SPEED 1
 
 #define GRID_FLOOR  0
