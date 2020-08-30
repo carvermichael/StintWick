@@ -25,7 +25,6 @@ struct Material {
 
 struct Materials {
 	
-
 	union {
 		Material mats[NUM_MATS];
 
@@ -256,6 +255,7 @@ struct Models {
 			
             Model bullet;
 			Model enemyBullet;
+			Model bulletPart;
 
 			Model floorModel;
 			Model wallTopModel;

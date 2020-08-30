@@ -10,15 +10,9 @@
 #define LEFT	4
 #define RIGHT	8
 
-// Room Types
-#define NORMAL			0
-#define STORE			1
-#define SOMEOTHERTHING	2
-
 #define WORLD_MAP_SIZE_X 5
 #define WORLD_MAP_SIZE_Y 5
 
-// maps must be even and square
 #define GRID_MAP_SIZE_X	30
 #define GRID_MAP_SIZE_Y	30
 
@@ -37,7 +31,7 @@
 #define GRID_WALL   1
 #define GRID_EXIT   2
 
-#define NUM_MODELS	9
+#define NUM_MODELS	10
 #define NUM_MATS	8
 
 #define MODE_PLAY				0
@@ -47,6 +41,7 @@
 
 #define MAX_BULLETS 25
 #define MAX_ENEMIES 20
+#define MAX_PARTICLE_EMITTERS 30
 
 #define CONSTANTS
 #endif // !CONSTANTS

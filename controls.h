@@ -66,6 +66,11 @@ void control_freeCam(int action, int key, float deltaTime) {
 		lightOrbit = !lightOrbit;
 		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
 	}
+	if (key == GLFW_KEY_F2) {
+		mode = MODE_PLAY;
+		addTextToBox("Mode: Play", &eventTextBox);
+	}
+	
 }
 
 void control_edit(int action, int key, float deltaTime) {

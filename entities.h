@@ -1,5 +1,7 @@
 #if !defined(ENTITIES)
 
+#include "math.h"
+
 struct AABB {
 
     union {
@@ -16,7 +18,7 @@ struct AABB {
             float right;
             float bottom;
         };
-    }; 
+    };
 };
 
 struct Bullet {
@@ -40,7 +42,7 @@ struct Bullet {
         direction = dirVec;
         model = newModel;
 
-        speed = 25.00f;
+        speed = 45.00f;
     }
 
 	void draw() {
@@ -57,6 +59,65 @@ struct Bullet {
         bounds.BX = x + model->scaleFactor.x;
         bounds.BY = y - model->scaleFactor.y;
     }
+};
+
+struct ParticleEmitter {
+
+	bool current = false;
+
+	float t;
+	float maxT = 0.85f;
+	float height = 3.5f;
+
+	float speed = 15.0f;
+	glm::vec3 pos;
+
+	Model *model;
+	glm::vec2 directions[8];
+	glm::vec3 positions[8];
+
+	void init(glm::vec3 newPos, Model *newModel) {
+		pos = newPos;
+		t = 0.0f;
+		current = true;
+
+		for (int i = 0; i < 8; i++) {
+			positions[i] = newPos;
+		}
+
+		float angle = 0.0f;
+		for (int i = 0; i < 8; i++) {
+			directions[i] = glm::normalize(glm::vec2(rand() - (RAND_MAX / 2), rand() - (RAND_MAX / 2)));
+/*
+			directions[i].x = cos(glm::radians(angle));
+			directions[i].y = sin(glm::radians(angle));
+			angle += 45.0f;*/
+		}
+
+		model = newModel;
+	}
+
+	void draw() {
+		for (int i = 0; i < 8; i++) {
+			model->draw(positions[i]);
+		}
+	}
+
+	void update(float deltaTime) {
+		t += deltaTime;
+		if (t > maxT) current = false;
+
+		float preZ = mapToNewRange(t, 0.0f, maxT, 0.0f, PI);
+		float sinPreZ = sin(preZ);
+		float newZ = sinPreZ * height;
+		//printf("t: %.2f, preZ: %.2f, newZ: %.2f\n", t, preZ, newZ);
+		
+		for (int i = 0; i < 8; i++) {
+			positions[i].x += directions[i].x * speed * deltaTime;
+			positions[i].y += directions[i].y * speed * deltaTime;
+			positions[i].z = newZ;
+		}
+	}
 };
 
 struct Light {

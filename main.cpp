@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <map>
 
+void createParticleEmitter(glm::vec3 newPos);
 void processConsoleCommand(std::string command);
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
 void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3);
@@ -295,7 +296,7 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 	
 	if (commandVector[0] == "play") {
-		world.camera.initializeForGrid();
+		//world.camera.initializeForGrid();
 
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
@@ -360,20 +361,24 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::
 void createBulletModel() {
 	Mesh bulletMesh;
 	Mesh enemyBulletMesh;
+	Mesh bulletPartMesh;
 
 	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
 		bulletMesh.vertices.push_back(cubeVertices[i]);
 		enemyBulletMesh.vertices.push_back(cubeVertices[i]);
+		bulletPartMesh.vertices.push_back(cubeVertices[i]);
 	}
 
 	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
 		bulletMesh.indices.push_back(cubeIndices[i]);
 		enemyBulletMesh.indices.push_back(cubeIndices[i]);
+		bulletPartMesh.indices.push_back(cubeIndices[i]);
 	}
 
 	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
 		bulletMesh.outlineIndices.push_back(cubeOutlineIndices[i]);		
 		enemyBulletMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
+		bulletPartMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
 	}
 	
 	bulletMesh.setupVAO();
@@ -393,6 +398,15 @@ void createBulletModel() {
 	models.enemyBullet.name = std::string("enemyBullet");
 	models.enemyBullet.meshes.push_back(enemyBulletMesh);
 	models.enemyBullet.scale(glm::vec3(0.5f));
+
+	bulletPartMesh.setupVAO();
+	bulletPartMesh.shaderProgramID = regularShaderProgramID;
+	bulletPartMesh.material = &materials.grey;
+	bulletPartMesh.drawOutline = true;
+
+	models.bulletPart.name = std::string("bulletPart");
+	models.bulletPart.meshes.push_back(bulletPartMesh);
+	models.bulletPart.scale(glm::vec3(0.15f));
 }
 
 void createGridFloorAndWallModels() {
@@ -612,15 +626,13 @@ void updateBullets(float deltaTime) {
         if(world.playerBullets[i].current) {
             Bullet *bullet = &world.playerBullets[i];
             bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime, 
-                                      bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime); 
-			//bullet.outlineFactor = 
+                                      bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
         }
 
 		if (world.enemyBullets[i].current) {
 			Bullet *bullet = &world.enemyBullets[i];
 			bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime,
 				bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
-			//bullet.outlineFactor = 
 		}
     }
 }
@@ -641,9 +653,9 @@ void drawEnemies() {
     }
 }
 
-void updateEnemies() {
+void updateEnemies(float deltaTime) {
 	for (int i = 0; i < MAX_ENEMIES; i++) {
-		if (world.enemies[i].current) world.enemies[i].update(&world.player, globalDeltaTime);
+		if (world.enemies[i].current) world.enemies[i].update(&world.player, deltaTime);
 	}
 }
 
@@ -658,6 +670,9 @@ void checkBulletsForWallCollisions() {
            world.playerBullets[i].worldOffset.y > world.wallBounds.AY ||
            world.playerBullets[i].worldOffset.y < world.wallBounds.BY) {
             world.playerBullets[i].current = false;
+			createParticleEmitter(glm::vec3(world.playerBullets[i].worldOffset.x,
+											world.playerBullets[i].worldOffset.y,
+											1.5f));
         }
     }
 
@@ -672,7 +687,6 @@ void checkBulletsForWallCollisions() {
 	}
 }
 
-// TODO: this is garbage
 void checkBulletsForEnemyCollisions() {
 
     for(int i = 0; i < MAX_BULLETS; i++) {
@@ -685,14 +699,43 @@ void checkBulletsForEnemyCollisions() {
             if(!world.enemies[j].current) continue;
             Enemy *enemy = &world.enemies[j];
 
-            if(bullet->bounds.left   > enemy->bounds.right)  continue; // right
-            if(bullet->bounds.right  < enemy->bounds.left)   continue; // left 
-            if(bullet->bounds.top    < enemy->bounds.bottom) continue; // bottom 
-            if(bullet->bounds.bottom > enemy->bounds.top)    continue; // top
+            if(bullet->bounds.left   > enemy->bounds.right)  continue;
+            if(bullet->bounds.right  < enemy->bounds.left)   continue;
+            if(bullet->bounds.top    < enemy->bounds.bottom) continue;
+            if(bullet->bounds.bottom > enemy->bounds.top)    continue;
 
             enemy->current = false;
         }
     }
+}
+
+void createParticleEmitter(glm::vec3 newPos) {
+	bool foundEmitter = false;
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (!world.particleEmitters[i].current) {
+			world.particleEmitters[i].init(newPos, &models.bulletPart);
+			foundEmitter = true;
+			break;
+		}
+	}
+
+	if (!foundEmitter) printf("ParticleEmitter array full! Ah!\n");
+}
+
+void updateParticleEmitters(float deltaTime) {
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (world.particleEmitters[i].current) {
+			world.particleEmitters[i].update(deltaTime);
+		}
+	}
+}
+
+void drawParticleEmitters() {
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (world.particleEmitters[i].current) {
+			world.particleEmitters[i].draw();
+		}
+	}
 }
 
 int main() {
@@ -779,8 +822,8 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	//world.camera.initializeForGrid();
-	world.camera.initializeOverhead();
+	world.camera.initializeForGrid();
+	//world.camera.initializeOverhead();
 
 	guidingGridSetup();
 
@@ -820,12 +863,14 @@ int main() {
         updateBullets(timeStep);
         checkBulletsForWallCollisions();
         checkBulletsForEnemyCollisions();
-		updateEnemies();
+		updateEnemies(timeStep);
+		updateParticleEmitters(timeStep);
 		
 		drawGrid();
 	    world.player.draw();
         drawEnemies();
         drawBullets();
+		drawParticleEmitters();
 			
 		// test cube
 		//models.floorModel.draw(glm::vec3(15.0f, -10.0f, -2.0f));

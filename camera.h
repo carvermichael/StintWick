@@ -12,7 +12,7 @@ struct Camera {
 
 	glm::vec3 direction;
 
-	float speed = 15.0f;
+	float speed = 45.0f;
 
 	float sensitivity = 0.1f;
 	float yaw = -90.0f;

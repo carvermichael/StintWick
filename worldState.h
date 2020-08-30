@@ -23,6 +23,8 @@ struct WorldState {
     Bullet playerBullets[MAX_BULLETS];
 	Bullet enemyBullets[MAX_BULLETS];
 
+	ParticleEmitter particleEmitters[MAX_PARTICLE_EMITTERS];
+
     WorldState() {
 		gridSizeX = GRID_MAP_SIZE_X;
 		gridSizeY = GRID_MAP_SIZE_Y;
