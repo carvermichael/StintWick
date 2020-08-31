@@ -47,6 +47,16 @@ void moveWithController(GLFWgamepadstate state, float deltaTime) {
         }
     }
 
+	if (state.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_PRESS &&
+		prevState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
+		pause = !pause;
+		if (pause) {
+			addTextToBox("Pause", &eventTextBox);
+		} else {
+			addTextToBox("Un-Pause", &eventTextBox);
+		}
+	}
+
     prevState = state;
 }
 

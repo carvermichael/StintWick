@@ -61,6 +61,7 @@ struct Bullet {
     }
 };
 
+// TODO: actually create indpendent particles
 struct ParticleEmitter {
 
 	bool current = false;
@@ -88,10 +89,6 @@ struct ParticleEmitter {
 		float angle = 0.0f;
 		for (int i = 0; i < 8; i++) {
 			directions[i] = glm::normalize(glm::vec2(rand() - (RAND_MAX / 2), rand() - (RAND_MAX / 2)));
-/*
-			directions[i].x = cos(glm::radians(angle));
-			directions[i].y = sin(glm::radians(angle));
-			angle += 45.0f;*/
 		}
 
 		model = newModel;
@@ -182,8 +179,7 @@ struct EnemyStrat {
 struct Enemy : Entity {
 
     bool current = false;
-	int actionState;
-	EnemyStrat *strat;	
+	EnemyStrat *strat;
 
 	void init(glm::vec3 offset, Model *newModel, EnemyStrat *newStrat) {
 		model = newModel;

@@ -61,8 +61,8 @@ float lastCursorX = 400;
 float lastCursorY = 300;
 
 bool firstMouse = true;
-bool freeCamera = false;
 int timeStepDenom = 1;
+bool pause = true;
 
 Textbox eventTextBox = {};
 Textbox fpsBox = {};
@@ -369,50 +369,22 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::
 
 // TODO: clean up model creation
 void createBulletModel() {
-	Mesh bulletMesh;
-	Mesh enemyBulletMesh;
-	Mesh bulletPartMesh;
-
-	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-		bulletMesh.vertices.push_back(cubeVertices[i]);
-		enemyBulletMesh.vertices.push_back(cubeVertices[i]);
-		bulletPartMesh.vertices.push_back(cubeVertices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
-		bulletMesh.indices.push_back(cubeIndices[i]);
-		enemyBulletMesh.indices.push_back(cubeIndices[i]);
-		bulletPartMesh.indices.push_back(cubeIndices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
-		bulletMesh.outlineIndices.push_back(cubeOutlineIndices[i]);		
-		enemyBulletMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
-		bulletPartMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
-	}
-	
-	bulletMesh.setupVAO();
-	bulletMesh.shaderProgramID = regularShaderProgramID;
-	bulletMesh.material = &materials.grey;
+	Mesh bulletMesh = Mesh(regularShaderProgramID, &materials.grey);
 	bulletMesh.drawOutline = true;
+	
+	Mesh enemyBulletMesh = Mesh(regularShaderProgramID, &materials.gold);
+	enemyBulletMesh.drawOutline = true;
+	
+	Mesh bulletPartMesh = Mesh(regularShaderProgramID, &materials.grey);
+	bulletPartMesh.drawOutline = true;	
 
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
 	models.bullet.scale(glm::vec3(0.5f));
 
-	enemyBulletMesh.setupVAO();
-	enemyBulletMesh.shaderProgramID = regularShaderProgramID;
-	enemyBulletMesh.material = &materials.gold;
-	enemyBulletMesh.drawOutline = true;
-
 	models.enemyBullet.name = std::string("enemyBullet");
 	models.enemyBullet.meshes.push_back(enemyBulletMesh);
 	models.enemyBullet.scale(glm::vec3(0.5f));
-
-	bulletPartMesh.setupVAO();
-	bulletPartMesh.shaderProgramID = regularShaderProgramID;
-	bulletPartMesh.material = &materials.grey;
-	bulletPartMesh.drawOutline = true;
 
 	models.bulletPart.name = std::string("bulletPart");
 	models.bulletPart.meshes.push_back(bulletPartMesh);
@@ -420,42 +392,9 @@ void createBulletModel() {
 }
 
 void createGridFloorAndWallModels() {
-	Mesh floorMesh;	
-	Mesh wallTopMesh;
-	Mesh wallLeftMesh;
-
-	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-		floorMesh.vertices.push_back(cubeVertices[i]);
-		wallTopMesh.vertices.push_back(cubeVertices[i]);
-		wallLeftMesh.vertices.push_back(cubeVertices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
-		floorMesh.indices.push_back(cubeIndices[i]);
-		wallTopMesh.indices.push_back(cubeIndices[i]);
-		wallLeftMesh.indices.push_back(cubeIndices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
-		floorMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
-		wallTopMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
-		wallLeftMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
-	}
-	
-	floorMesh.setupVAO();
-	floorMesh.shaderProgramID = regularShaderProgramID;
-	floorMesh.material = &materials.emerald;
-	floorMesh.drawOutline = false;
-	
-	wallTopMesh.setupVAO();
-	wallTopMesh.shaderProgramID = regularShaderProgramID;
-	wallTopMesh.material = &materials.gold;
-	wallTopMesh.drawOutline = false;
-
-	wallLeftMesh.setupVAO();
-	wallLeftMesh.shaderProgramID = regularShaderProgramID;
-	wallLeftMesh.material = &materials.gold;
-	wallLeftMesh.drawOutline = false;
+	Mesh floorMesh = Mesh(regularShaderProgramID, &materials.emerald);
+	Mesh wallTopMesh = Mesh(regularShaderProgramID, &materials.gold);
+	Mesh wallLeftMesh = Mesh(regularShaderProgramID, &materials.gold);
 
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
@@ -468,47 +407,15 @@ void createGridFloorAndWallModels() {
 }
 
 void createPlayerAndEnemyModels() {
-	Mesh playerMesh;
-	Mesh enemyMesh;
-
-	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-		playerMesh.vertices.push_back(cubeVertices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
-		playerMesh.indices.push_back(cubeIndices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
-		playerMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
-	}
-
-	playerMesh.setupVAO();
-	playerMesh.shaderProgramID = regularShaderProgramID;
-	playerMesh.material = &materials.chrome;
+	Mesh playerMesh = Mesh(regularShaderProgramID, &materials.chrome);
+	playerMesh.drawOutline = true;
+	
+	Mesh enemyMesh = Mesh(regularShaderProgramID, &materials.ruby);
 	playerMesh.drawOutline = true;
 
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
-	//models.player.scale(glm::vec3(0.9f, 0.9f, 0.25f));
-
-	for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
-		enemyMesh.vertices.push_back(cubeVertices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeVertices) / sizeof(unsigned int); i++) {
-		enemyMesh.indices.push_back(cubeIndices[i]);
-	}
-
-	for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
-		enemyMesh.outlineIndices.push_back(cubeOutlineIndices[i]);
-	}
-
-	enemyMesh.setupVAO();
-	enemyMesh.shaderProgramID = regularShaderProgramID;
-	enemyMesh.material = &materials.ruby;
-	playerMesh.drawOutline = true;
-
+	
 	models.enemy.name = std::string("enemy");
 	models.enemy.meshes.push_back(enemyMesh);
 	models.enemy.scale(glm::vec3(1.0f, 1.0f, 0.5f));
@@ -612,6 +519,7 @@ void guidingGridSetup() {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 }
+
 void drawGuidingGrid() {
 	glUseProgram(regularShaderProgramID);
 
@@ -711,6 +619,7 @@ void checkBulletsForEnemyCollisions() {
             if(bullet->bounds.bottom > enemy->bounds.top)    continue;
 
             enemy->current = false;
+			world.numEnemies--;
         }
     }
 }
@@ -766,11 +675,25 @@ void initializeWorld(unsigned int level[]) {
 		}
 
 		world.enemies[j].init(gridCoordsToWorldOffset(glm::ivec3(gridX, gridY, 1)), &models.enemy, strat);
+		world.numEnemies++;
 	}
+
+	// reset camera
+	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
 	
-	models.floorModel.scale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
-	models.wallLeftModel.scale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
-	models.wallTopModel.scale(glm::vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
+	// clear particles
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		world.particleEmitters[i].current = false;
+	}
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		world.playerBullets[i].current = false;
+		world.enemyBullets[i].current = false;
+	}
+
+	models.floorModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
+	models.wallLeftModel.rescale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
+	models.wallTopModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
 }
 
 int main() {
@@ -872,7 +795,12 @@ int main() {
         drawEnemies();
         drawBullets();
 		drawParticleEmitters();
-			
+
+		if (world.numEnemies <= 0) {
+			pause = true;
+			initializeWorld(level_2);
+		}
+	
 		// test cube
 		//models.floorModel.draw(glm::vec3(15.0f, -10.0f, -2.0f));
 
@@ -910,7 +838,8 @@ int main() {
 
         // TODO: Use some other variable to communicate a timestep.
         timeStep = deltaTime / timeStepDenom;
-        globalDeltaTime = deltaTime;
+		if (pause) timeStep = 0.0f;
+		globalDeltaTime = deltaTime;
 
 		lastFrameTime = (float)glfwGetTime();
 		glfwSwapBuffers(window);

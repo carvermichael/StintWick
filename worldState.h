@@ -18,6 +18,7 @@ struct WorldState {
 	Light light;
 
 	Player player;
+	int numEnemies = 0;
     Enemy enemies[MAX_ENEMIES];
     
     Bullet playerBullets[MAX_BULLETS];

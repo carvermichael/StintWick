@@ -1,5 +1,6 @@
 #if !defined(MODEL)
 
+#include "shapeData.h"
 #include "constants.h"
 #include "console.h"
 
@@ -118,7 +119,26 @@ struct Mesh {
 
 	unsigned int shaderProgramID;
 
-	Mesh() {};
+	// just cube for now
+	// later, we can pass in some struct with vertices/indices
+	Mesh(unsigned int newShaderProgramID, Material *newMaterial) {
+		shaderProgramID = newShaderProgramID;
+		material = newMaterial;
+		
+		for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+			vertices.push_back(cubeVertices[i]);
+		}
+
+		for (int i = 0; i < sizeof(cubeIndices) / sizeof(unsigned int); i++) {
+			indices.push_back(cubeIndices[i]);
+		}
+
+		for (int i = 0; i < sizeof(cubeOutlineIndices) / sizeof(unsigned int); i++) {
+			outlineIndices.push_back(cubeOutlineIndices[i]);			
+		}
+
+		setupVAO();
+	};
 
 	void draw(glm::vec3 worldOffset, float outlineFactor) {
 		glUseProgram(shaderProgramID);
@@ -147,6 +167,16 @@ struct Mesh {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_EBO_ID);
 			glDrawElements(GL_LINE_LOOP, (GLsizei)outlineIndices.size(), GL_UNSIGNED_INT, 0);
 		}
+	}
+
+	void rescale(glm::vec3 scale) {
+		vertices.clear();
+		
+		for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
+			vertices.push_back(cubeVertices[i]);
+		}
+
+		this->scale(scale);
 	}
 
 	void scale(glm::vec3 scale) {
@@ -225,6 +255,14 @@ struct Model {
 		draw(worldOffset, 1.0f);
 	}
 
+	// puts vertices back to original, then scales
+	void rescale(glm::vec3 scale) {
+		for (int i = 0; i < meshes.size(); i++) {
+			meshes[i].rescale(scale);
+		}
+	}
+
+	// scales from current vertices
 	void scale(glm::vec3 scale) {	
 		if(scaleFactor.x != 0.0f) scaleFactor.x *= scale.x;
 		else					  scaleFactor.x  = scale.x;
