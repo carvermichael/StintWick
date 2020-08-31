@@ -14,6 +14,7 @@ unsigned int level_1[] = {
 	// type, gridX, gridY
 	1,  8, 4,
 	1, 12, 4,
+
 	1, 16, 4,
 	1, 20, 4,
 	1, 24, 4,
