@@ -43,9 +43,9 @@ struct Camera {
 		pitch = 45.0f;
 
 		float midGridX = (float) gridSizeX / 2;
-		float bottomGridY = -(float)gridSizeY * 2.0f;
+		float bottomGridY = -(float)gridSizeY * 1.65f;
 
-		position = glm::vec3(midGridX, bottomGridY, (float) gridSizeX * 1.5f);
+		position = glm::vec3(midGridX, bottomGridY, (float) gridSizeY);
 
 		up = glm::vec3(0.0f, 1.0f, 0.0f);
 

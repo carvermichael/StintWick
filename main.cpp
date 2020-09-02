@@ -60,6 +60,8 @@ float lastFrameTime = 0.0f;
 float lastCursorX = 400;
 float lastCursorY = 300;
 
+int currentLevel = 1;
+
 bool firstMouse = true;
 int timeStepDenom = 1;
 bool pause = true;
@@ -470,11 +472,11 @@ void guidingGridSetup() {
 	float upperZ = 5.0f;
 	float zStep	 = 1.0f;
 
-	float lowerY = -100.f;
-	float upperY =  100.f;
-	float yStep  =  1.0f;
+	float lowerY =  0.0f;
+	float upperY =  -100.f;
+	float yStep  =  -1.0f;
 
-	float lowerX = -100.f;
+	float lowerX =  0.0f;
 	float upperX =	100.f;
 	float xStep	 =  1.0f;
 
@@ -798,7 +800,20 @@ int main() {
 
 		if (world.numEnemies <= 0) {
 			pause = true;
-			initializeWorld(level_2);
+			if (currentLevel == 1) {
+				initializeWorld(level_2);
+				currentLevel = 2;
+			}
+			else if (currentLevel == 2) {
+				initializeWorld(level_3);
+				currentLevel = 3;
+			}
+			else if (currentLevel == 3) {
+				initializeWorld(level_1);
+				currentLevel = 1;
+			}
+
+			
 		}
 	
 		// test cube
