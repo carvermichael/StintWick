@@ -258,16 +258,27 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			addTextToBox("Cursor is off screen, &eventTextBox", &eventTextBox);
 		}
 		else {
-			addTextToBox("LastCursor: (" + std::to_string(lastCursorX) + ", " + std::to_string(lastCursorY) + ")", &eventTextBox);
-			glm::vec4 clickCoords = glm::vec4(lastCursorX, lastCursorY, 1.0f, 1.0f); // shouldn't this be a vec2???
-			glm::vec4 viewCoords  = clickCoords * glm::inverse(projection);
-			//glm::vec4 worldCoords = viewCoords * glm::inverse(world.camera.generateView());
+			// TODO: create dirVec normalized difference between starting vec and vec based on clickCoords
+			glm::vec3 startingPos = world.camera.position;
+			glm::vec3 dirVec = world.camera.front;
 
-			glm::vec4 worldCoords = glm::inverse(world.camera.generateView()) * glm::inverse(projection) * clickCoords;
+			addTextToBox("startingPos: (" + std::to_string(startingPos.x) + ", " + std::to_string(startingPos.y) + ", " + std::to_string(startingPos.z) + ")", &eventTextBox);
+			addTextToBox("dirVec: (" + std::to_string(dirVec.x) + ", " + std::to_string(dirVec.y) + ", " + std::to_string(dirVec.z) + ")", &eventTextBox);
 
-			addTextToBox("ClickCoords: (" + std::to_string(clickCoords.x) + ", " + std::to_string(clickCoords.y) + ", " + std::to_string(clickCoords.z) + ", " + std::to_string(clickCoords.w) + ")", &eventTextBox);
-			addTextToBox("ViewCoords: (" + std::to_string(viewCoords.x) + ", " + std::to_string(viewCoords.y) + ", " + std::to_string(viewCoords.z) + ", " + std::to_string(viewCoords.w) + ")", &eventTextBox);
-			addTextToBox("WorldCoords: (" + std::to_string(worldCoords.x) + ", " + std::to_string(worldCoords.y) + ", " + std::to_string(worldCoords.z) + ", " + std::to_string(worldCoords.w) + ")", &eventTextBox);
+			glm::vec3 current = startingPos;
+			
+			float rayStep = 0.1f;
+
+			// just checking against z = 0 plane for now, may need more robust solution later...not sure
+			while (current.z > 0) {
+				current.x += dirVec.x * rayStep;
+				current.y += dirVec.y * rayStep;
+				current.z += dirVec.z * rayStep;
+			}
+
+			addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
+			glm::vec2 gridCoords = worldOffsetToGridCoords(current);
+			addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);			
 		}
 	}
 }
@@ -698,6 +709,50 @@ void initializeWorld(unsigned int level[]) {
 	models.wallTopModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
 }
 
+void loadLevel(Level *level) {
+	world.init(level->sizeX, level->sizeY);
+
+	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
+
+	world.player.init(gridCoordsToWorldOffset(glm::ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
+
+	unsigned int numOfEnemies = level->numEnemies;
+	for (unsigned int i = 0; i < numOfEnemies; i++) {
+
+		unsigned int enemyType = level->enemies[i].enemyType;
+		unsigned int gridX = level->enemies[i].gridX;
+		unsigned int gridY = level->enemies[i].gridY;
+
+		EnemyStrat *strat = &enemyStrats.shoot;
+		if (enemyType == 1) {
+			strat = &enemyStrats.shoot;
+		}
+		else if (enemyType == 2) {
+			strat = &enemyStrats.follow;
+		}
+
+		world.enemies[i].init(gridCoordsToWorldOffset(glm::ivec3(gridX, gridY, 1)), &models.enemy, strat);
+		world.numEnemies++;
+	}
+
+	// reset camera
+	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
+
+	// clear particles
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		world.particleEmitters[i].current = false;
+	}
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		world.playerBullets[i].current = false;
+		world.enemyBullets[i].current = false;
+	}
+
+	models.floorModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
+	models.wallLeftModel.rescale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
+	models.wallTopModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
+}
+
 int main() {
 	// ------------ INIT STUFF -------------
 
@@ -759,14 +814,16 @@ int main() {
 	fpsBox.x = (float)(currentScreenWidth - 150);
 	fpsBox.y = (float)(currentScreenHeight - 50);
 
-	initializeWorld(level_1);
-
+	//initializeWorld(level_1);
+	loadLevels();
+	loadLevel(&levels[0]);
+	
 	lastFrameTime = (float)glfwGetTime();
 
     float deltaTime = 0.0f;
 	float timeStep	= deltaTime;
 
-    float targetFrameTime = 1.0f / 60.0f;    
+    float targetFrameTime = 1.0f / 60.0f;
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
@@ -783,7 +840,7 @@ int main() {
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
-		if(lightOrbit) moveLightAroundOrbit(timeStep);
+		if(lightOrbit) moveLightAroundOrbit(deltaTime);
 
         refreshLight();
         updateBullets(timeStep);
@@ -798,7 +855,7 @@ int main() {
         drawBullets();
 		drawParticleEmitters();
 
-		if (world.numEnemies <= 0) {
+		/*if (world.numEnemies <= 0) {
 			pause = true;
 			if (currentLevel == 1) {
 				initializeWorld(level_2);
@@ -811,10 +868,8 @@ int main() {
 			else if (currentLevel == 3) {
 				initializeWorld(level_1);
 				currentLevel = 1;
-			}
-
-			
-		}
+			}			
+		}*/
 	
 		// test cube
 		//models.floorModel.draw(glm::vec3(15.0f, -10.0f, -2.0f));
@@ -851,7 +906,6 @@ int main() {
 		//printf("FrameTime(ms): %f ", frameTime); // put these in a textbox
 		//printf("FPS: %f \n", 1.0f / deltaTime);
 
-        // TODO: Use some other variable to communicate a timestep.
         timeStep = deltaTime / timeStepDenom;
 		if (pause) timeStep = 0.0f;
 		globalDeltaTime = deltaTime;
