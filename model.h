@@ -38,6 +38,7 @@ struct Materials {
 			Material blackRubber;
 			Material ruby;
 			Material grey;
+			Material yellow;
 		};
 	};
 
@@ -82,6 +83,11 @@ struct Materials {
 			glm::vec3(0.23f),
 			glm::vec3(0.23f),
 			1.0f);
+
+		yellow = Material("yellow", glm::vec3(0.05, 0.05, 0.0),
+			glm::vec3(0.5, 0.5, 0.4),
+			glm::vec3(0.7, 0.7, 0.04),
+			0.078125f);
     }
 
 	~Materials() {};
@@ -141,6 +147,10 @@ struct Mesh {
 	};
 
 	void draw(glm::vec3 worldOffset, float outlineFactor) {
+		draw(worldOffset, outlineFactor, this->material);
+	}
+
+	void draw(glm::vec3 worldOffset, float outlineFactor, Material *mat) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
@@ -150,17 +160,17 @@ struct Mesh {
 		
 		setUniformMat4(shaderProgramID, "model", current_model);
 		
-		setUniform3f(shaderProgramID, "materialAmbient", material->ambient);
-		setUniform3f(shaderProgramID, "materialDiffuse", material->diffuse);
-		setUniform3f(shaderProgramID, "materialSpecular", material->specular);
-		setUniform1f(shaderProgramID, "materialShininess", material->shininess);
+		setUniform3f(shaderProgramID, "materialAmbient", mat->ambient);
+		setUniform3f(shaderProgramID, "materialDiffuse", mat->diffuse);
+		setUniform3f(shaderProgramID, "materialSpecular", mat->specular);
+		setUniform1f(shaderProgramID, "materialShininess", mat->shininess);
 
 		glDrawElements(GL_TRIANGLES, (GLsizei) indices.size(), GL_UNSIGNED_INT, 0);
 
 		if (drawOutline) {
-			setUniform3f(shaderProgramID, "materialAmbient", material->ambient * outlineFactor);
-			setUniform3f(shaderProgramID, "materialDiffuse", material->diffuse * outlineFactor);
-			setUniform3f(shaderProgramID, "materialSpecular", material->specular * outlineFactor);
+			setUniform3f(shaderProgramID, "materialAmbient", mat->ambient * outlineFactor);
+			setUniform3f(shaderProgramID, "materialDiffuse", mat->diffuse * outlineFactor);
+			setUniform3f(shaderProgramID, "materialSpecular", mat->specular * outlineFactor);
 			setUniform1f(shaderProgramID, "materialShininess", 1.0f);
 
 			glDepthFunc(GL_LEQUAL);
@@ -248,6 +258,12 @@ struct Model {
 	void draw(glm::vec3 worldOffset, float outlineFactor) {
 		for (int i = 0; i < meshes.size(); i++) {
 			meshes[i].draw(worldOffset, outlineFactor);
+		}
+	}
+
+	void draw(glm::vec3 worldOffset, float outlineFactor, Material *mat) {
+		for (int i = 0; i < meshes.size(); i++) {
+			meshes[i].draw(worldOffset, outlineFactor, mat);
 		}
 	}
 

@@ -80,26 +80,12 @@ void control_freeCam(int action, int key, float deltaTime) {
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
 	}
-	
 }
 
 void control_edit(int action, int key, float deltaTime) {
 	if (action != GLFW_PRESS) return;
 	
-	const float cameraSpeed = 5.0f * deltaTime;
-
-	if (key == GLFW_KEY_W) {
-		world.camera.moveForward(deltaTime);
-	}
-	if (key == GLFW_KEY_S) {
-		world.camera.moveBack(deltaTime);
-	}
-	if (key == GLFW_KEY_A) {
-		world.camera.moveLeft(deltaTime);
-	}
-	if (key == GLFW_KEY_D) {
-		world.camera.moveRight(deltaTime);
-	}
+	
 }
 
 control getControlFunc() {

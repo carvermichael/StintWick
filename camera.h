@@ -18,7 +18,7 @@ struct Camera {
 	float yaw = -90.0f;
 	float pitch = 45.0f;
 
-	void initializeOverhead(unsigned int gridSizeX, unsigned int gridSizeY) {
+	void initOverhead(unsigned int gridSizeX, unsigned int gridSizeY) {
 		yaw = -90.0f;
 		pitch = 0.0f;
 
@@ -38,7 +38,7 @@ struct Camera {
 		up = glm::normalize(glm::cross(direction, cameraRight));
 	}
 
-	void initializeForGrid(unsigned int gridSizeX, unsigned int gridSizeY) {
+	void initForGrid(unsigned int gridSizeX, unsigned int gridSizeY) {
 		yaw = -90.0f;
 		pitch = 45.0f;
 
@@ -87,6 +87,14 @@ struct Camera {
 
 	void moveBack(float deltaTime) {
 		position -= speed * deltaTime * front;
+	}
+
+	void moveUp(float deltaTime) {
+		position += speed * deltaTime * up;
+	}
+
+	void moveDown(float deltaTime) {
+		position -= speed * deltaTime * up;
 	}
 
 	void moveLeft(float deltaTime) {

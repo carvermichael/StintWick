@@ -17,7 +17,7 @@
 #define GRID_EXIT   2
 
 #define NUM_MODELS	10
-#define NUM_MATS	8
+#define NUM_MATS	9
 
 #define MODE_PLAY				0
 #define MODE_FREE_CAMERA		1

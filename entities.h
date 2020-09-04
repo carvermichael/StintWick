@@ -144,6 +144,10 @@ struct Entity {
 		model->draw(worldOffset);
 	}
 
+	void draw(float outlineFactor, Material *mat) {
+		model->draw(worldOffset, outlineFactor, mat);
+	}
+
     void updateWorldOffset(float x, float y) {
         worldOffset.x = x;
         worldOffset.y = y;
@@ -194,6 +198,8 @@ struct Enemy : Entity {
 		strat = newStrat;
 
         current = true;
+
+		timeSinceLastShot = (float)(rand() % 50) / 100.0f;
     }
 
 	// simple following

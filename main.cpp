@@ -151,6 +151,7 @@ void refreshLight() {
 	setUniform3f(regularShaderProgramID, "lightAmbient", world.light.ambient);
 	setUniform3f(regularShaderProgramID, "lightDiffuse", world.light.diffuse);
 	setUniform3f(regularShaderProgramID, "lightSpecular", world.light.specular);
+
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -235,6 +236,19 @@ void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 			world.camera.moveRight(deltaTime);
 		}
+	} else if (mode == MODE_LEVEL_EDIT) {
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+			world.camera.moveUp(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+			world.camera.moveDown(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			world.camera.moveLeft(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			world.camera.moveRight(deltaTime);
+		}
 	}
 }
 
@@ -246,6 +260,25 @@ void processJoystickInput(float deltaTime) {
     if(glfwGetGamepadState(GLFW_JOYSTICK_1, &state)) {
         moveWithController(state, deltaTime);
     }
+}
+
+void addEnemy(int type, glm::vec2 gridCoords) {
+	if (world.numEnemies >= MAX_ENEMIES) {
+		printf("ERROR: Max enemies reached.\n");
+		addTextToBox("ERROR: Max enemies reached.", &eventTextBox);
+		return;
+	}
+	
+	EnemyStrat *strat = &enemyStrats.shoot;
+	if (type == 1) {
+		strat = &enemyStrats.shoot;
+	}
+	else if (type == 2) {
+		strat = &enemyStrats.follow;
+	}
+
+	world.enemies[world.numEnemies].init(gridCoordsToWorldOffset(glm::ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, strat);
+	world.numEnemies++;
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -269,7 +302,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			
 			float rayStep = 0.1f;
 
-			// just checking against z = 0 plane for now, may need more robust solution later...not sure
+			// just checking against z = 0 plane for now, may need more robust solution later
 			while (current.z > 0) {
 				current.x += dirVec.x * rayStep;
 				current.y += dirVec.y * rayStep;
@@ -278,7 +311,9 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 
 			addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
 			glm::vec2 gridCoords = worldOffsetToGridCoords(current);
-			addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);			
+			addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
+
+			addEnemy(1, gridCoords);
 		}
 	}
 }
@@ -306,6 +341,8 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		firstMouse = true;
 
+		// TODO: light up moused over grid piece
+
 	} else if (mode == MODE_PLAY) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		firstMouse = true;
@@ -319,7 +356,7 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 	
 	if (commandVector[0] == "play") {
-		//world.camera.initializeForGrid();
+		world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
 
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
@@ -328,12 +365,12 @@ void processConsoleCommand(std::string command) {
 	if (commandVector[0] == "freecam") {
 		mode = MODE_FREE_CAMERA;
 
-		world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
+		world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
 		addTextToBox("Mode: Free Camera", &eventTextBox);
 	}
 
 	if (commandVector[0] == "edit") {
-		world.camera.initializeOverhead(world.gridSizeX, world.gridSizeY);
+		world.camera.initOverhead(world.gridSizeX, world.gridSizeY);
 
 		mode = MODE_LEVEL_EDIT;
 		addTextToBox("Mode: Level Edit", &eventTextBox);
@@ -576,7 +613,8 @@ void drawBullets() {
 
 void drawEnemies() {
     for(int i = 0; i < MAX_ENEMIES; i++) {
-        if(world.enemies[i].current) world.enemies[i].draw();
+		float outlineFactor = 1.0f;
+		if(world.enemies[i].current) world.enemies[i].draw(outlineFactor, &materials.yellow);
     }
 }
 
@@ -666,53 +704,10 @@ void drawParticleEmitters() {
 	}
 }
 
-void initializeWorld(unsigned int level[]) {
-	world.init(level[0], level[1]);
-
-	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
-
-	world.player.init(gridCoordsToWorldOffset(glm::ivec3(level[2], level[3], 1)), &models.player);
-
-	unsigned int numOfEnemies = level[4];
-	for (unsigned int i = 5, j = 0; i < 5 + numOfEnemies * 3; i += 3, j++) {
-
-		unsigned int enemyType = level[i];
-		unsigned int gridX = level[i+1];
-		unsigned int gridY = level[i+2];
-
-		EnemyStrat *strat = &enemyStrats.shoot;
-		if (enemyType == 1) {
-			strat = &enemyStrats.shoot;
-		} else if (enemyType == 2) {
-			strat = &enemyStrats.follow;
-		}
-
-		world.enemies[j].init(gridCoordsToWorldOffset(glm::ivec3(gridX, gridY, 1)), &models.enemy, strat);
-		world.numEnemies++;
-	}
-
-	// reset camera
-	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
-	
-	// clear particles
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		world.particleEmitters[i].current = false;
-	}
-
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		world.playerBullets[i].current = false;
-		world.enemyBullets[i].current = false;
-	}
-
-	models.floorModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
-	models.wallLeftModel.rescale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
-	models.wallTopModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
-}
-
 void loadLevel(Level *level) {
 	world.init(level->sizeX, level->sizeY);
 
-	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
+	world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
 
 	world.player.init(gridCoordsToWorldOffset(glm::ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
 
@@ -723,20 +718,11 @@ void loadLevel(Level *level) {
 		unsigned int gridX = level->enemies[i].gridX;
 		unsigned int gridY = level->enemies[i].gridY;
 
-		EnemyStrat *strat = &enemyStrats.shoot;
-		if (enemyType == 1) {
-			strat = &enemyStrats.shoot;
-		}
-		else if (enemyType == 2) {
-			strat = &enemyStrats.follow;
-		}
-
-		world.enemies[i].init(gridCoordsToWorldOffset(glm::ivec3(gridX, gridY, 1)), &models.enemy, strat);
-		world.numEnemies++;
+		addEnemy(enemyType, glm::vec2(gridX, gridY));
 	}
 
 	// reset camera
-	world.camera.initializeForGrid(world.gridSizeX, world.gridSizeY);
+	world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
 
 	// clear particles
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
@@ -814,7 +800,6 @@ int main() {
 	fpsBox.x = (float)(currentScreenWidth - 150);
 	fpsBox.y = (float)(currentScreenHeight - 50);
 
-	//initializeWorld(level_1);
 	loadLevels();
 	loadLevel(&levels[0]);
 	
@@ -855,7 +840,8 @@ int main() {
         drawBullets();
 		drawParticleEmitters();
 
-		/*if (world.numEnemies <= 0) {
+		/*
+			if (world.numEnemies <= 0) {
 			pause = true;
 			if (currentLevel == 1) {
 				initializeWorld(level_2);
@@ -871,9 +857,6 @@ int main() {
 			}			
 		}*/
 	
-		// test cube
-		//models.floorModel.draw(glm::vec3(15.0f, -10.0f, -2.0f));
-
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		console.draw(deltaTime, &arial);

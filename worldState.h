@@ -38,7 +38,7 @@ struct WorldState {
         wallBounds.BY = -(float)(gridSizeY - 1);
 
 		light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
-    }
+    }	
 };
 
 glm::vec3 gridCoordsToWorldOffset(glm::ivec3 gridCoords) {
