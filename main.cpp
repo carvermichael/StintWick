@@ -22,6 +22,7 @@
 
 void createParticleEmitter(glm::vec3 newPos);
 void processConsoleCommand(std::string command);
+void loadCurrentLevel();
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
 void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3);
 void setUniform4f(unsigned int shaderProgramID, const char *uniformName, glm::vec4 vec4);
@@ -44,7 +45,6 @@ Materials materials;
 #include "textBox.h"
 #include "console.h"
 #include "shapeData.h"
-#include "levels.h"
 
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
@@ -60,7 +60,7 @@ float lastFrameTime = 0.0f;
 float lastCursorX = 400;
 float lastCursorY = 300;
 
-int currentLevel = 1;
+unsigned int currentLevel = 0;
 
 bool firstMouse = true;
 int timeStepDenom = 1;
@@ -68,6 +68,8 @@ bool pause = true;
 
 Textbox eventTextBox = {};
 Textbox fpsBox = {};
+
+#include "levels.h"
 
 glm::mat4 projection;
 
@@ -262,7 +264,11 @@ void processJoystickInput(float deltaTime) {
     }
 }
 
-void addEnemy(int type, glm::vec2 gridCoords) {
+void addEnemyToLevel(int type, glm::ivec2 gridCoords) {
+	levels[currentLevel].addEnemy(type, gridCoords);
+}
+
+void addEnemyToWorld(int type, glm::ivec2 gridCoords) {
 	if (world.numEnemies >= MAX_ENEMIES) {
 		printf("ERROR: Max enemies reached.\n");
 		addTextToBox("ERROR: Max enemies reached.", &eventTextBox);
@@ -310,10 +316,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			}
 
 			addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
-			glm::vec2 gridCoords = worldOffsetToGridCoords(current);
+			glm::ivec2 gridCoords = worldOffsetToGridCoords(current);
 			addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
 
-			addEnemy(1, gridCoords);
+			addEnemyToWorld(1, gridCoords);
+			addEnemyToLevel(1, gridCoords);
 		}
 	}
 }
@@ -386,8 +393,31 @@ void processConsoleCommand(std::string command) {
 		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
 	}
 
+	if (commandVector[0] == "level count") {
+		addTextToBox("levelCount: " + std::to_string(levelCount), &eventTextBox);
+	}
+
+	if (commandVector[0] == "newLevel") {
+
+
+		if (commandVector.size() < 3) {
+			addTextToBox("error: missing args gridSizeX and gridSizeY", &eventTextBox);
+			return;
+		}
+
+		unsigned int gridSizeX = std::stoi(commandVector[1], nullptr, 10);
+		unsigned int gridSizeY = std::stoi(commandVector[2], nullptr, 10);
+
+		addLevel(gridSizeX, gridSizeY);
+		currentLevel = levelCount - 1;
+		loadCurrentLevel();
+	}
+
 	if (commandVector[0] == "mat") {
-		if (commandVector.size() < 3) return;
+		if (commandVector.size() < 3) {
+			addTextToBox("error: missing args for material and model", &eventTextBox);
+			return;
+		}
 
 		setMaterial(commandVector[1], commandVector[2], &materials, &models, &console);
 	}
@@ -704,12 +734,20 @@ void drawParticleEmitters() {
 	}
 }
 
-void loadLevel(Level *level) {
+void loadCurrentLevel() {
+	Level *level = &levels[currentLevel];
+
 	world.init(level->sizeX, level->sizeY);
 
 	world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
 
 	world.player.init(gridCoordsToWorldOffset(glm::ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
+
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		world.enemies[i].current = false;
+	}
+
+	world.numEnemies = 0;
 
 	unsigned int numOfEnemies = level->numEnemies;
 	for (unsigned int i = 0; i < numOfEnemies; i++) {
@@ -718,7 +756,7 @@ void loadLevel(Level *level) {
 		unsigned int gridX = level->enemies[i].gridX;
 		unsigned int gridY = level->enemies[i].gridY;
 
-		addEnemy(enemyType, glm::vec2(gridX, gridY));
+		addEnemyToWorld(enemyType, glm::vec2(gridX, gridY));		
 	}
 
 	// reset camera
@@ -801,7 +839,9 @@ int main() {
 	fpsBox.y = (float)(currentScreenHeight - 50);
 
 	loadLevels();
-	loadLevel(&levels[0]);
+	currentLevel = 0;
+
+	loadCurrentLevel();
 	
 	lastFrameTime = (float)glfwGetTime();
 

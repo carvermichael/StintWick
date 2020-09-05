@@ -85,7 +85,23 @@ void control_freeCam(int action, int key, float deltaTime) {
 void control_edit(int action, int key, float deltaTime) {
 	if (action != GLFW_PRESS) return;
 	
-	
+	if (key == GLFW_KEY_F5) {
+		saveAllLevels();
+	}
+
+	if (key == GLFW_KEY_RIGHT) {
+		currentLevel++;
+		if (currentLevel >= levelCount) currentLevel = 0;
+
+		loadCurrentLevel();
+	}
+
+	if (key == GLFW_KEY_LEFT) {
+		if(currentLevel == 0) currentLevel = levelCount - 1;
+		else currentLevel--;
+
+		loadCurrentLevel();
+	}
 }
 
 control getControlFunc() {
