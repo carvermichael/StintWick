@@ -25,17 +25,17 @@ struct Bullet {
 
     bool current = false;
 
-    glm::vec2 direction;
+    my_vec2 direction;
 
     float speed;
 
     Model *model;
 	float outlineFactor = 1.0f;
 
-	glm::vec3 worldOffset;
+	my_vec3 worldOffset;
     AABB bounds;
 
-    void init(glm::vec3 offset, glm::vec2 dirVec, Model *newModel, float newSpeed) {
+    void init(my_vec3 offset, my_vec2 dirVec, Model *newModel, float newSpeed) {
         current = true;
 
         worldOffset = offset;
@@ -71,13 +71,13 @@ struct ParticleEmitter {
 	float height = 3.5f;
 
 	float speed = 15.0f;
-	glm::vec3 pos;
+	my_vec3 pos;
 
 	Model *model;
-	glm::vec2 directions[8];
-	glm::vec3 positions[8];
+	my_vec2 directions[8];
+	my_vec3 positions[8];
 
-	void init(glm::vec3 newPos, Model *newModel) {
+	void init(my_vec3 newPos, Model *newModel) {
 		pos = newPos;
 		t = 0.0f;
 		current = true;
@@ -88,7 +88,7 @@ struct ParticleEmitter {
 
 		float angle = 0.0f;
 		for (int i = 0; i < 8; i++) {
-			directions[i] = glm::normalize(glm::vec2(rand() - (RAND_MAX / 2), rand() - (RAND_MAX / 2)));
+			directions[i] = normalize(my_vec2((float) (rand() - (RAND_MAX / 2)), (float) (rand() - (RAND_MAX / 2))));
 		}
 
 		model = newModel;
@@ -119,11 +119,11 @@ struct ParticleEmitter {
 
 struct Light {
 
-	glm::vec3 pos = glm::vec3(0.0f);;
+	my_vec3 pos = my_vec3(0.0f);;
 
-	glm::vec3 ambient = glm::vec3(1.0f);
-	glm::vec3 diffuse = glm::vec3(1.0f);
-	glm::vec3 specular = glm::vec3(1.0f);
+	my_vec3 ambient = my_vec3(1.0f);
+	my_vec3 diffuse = my_vec3(1.0f);
+	my_vec3 specular = my_vec3(1.0f);
 
 	float currentDegrees = 0;
 };
@@ -131,7 +131,7 @@ struct Light {
 struct Entity {
 	Model *model;
 
-	glm::vec3 worldOffset;
+	my_vec3 worldOffset;
     AABB bounds;
 
 	float timeSinceLastShot = 0.0f; // seconds
@@ -162,7 +162,7 @@ struct Entity {
 
 struct Player : Entity {
 
-	void init(glm::vec3 offset, Model *newModel) {
+	void init(my_vec3 offset, Model *newModel) {
 		model = newModel;
 
 		// bump up to see outline better
@@ -185,7 +185,7 @@ struct Enemy : Entity {
     bool current = false;
 	EnemyStrat *strat;
 
-	void init(glm::vec3 offset, Model *newModel, EnemyStrat *newStrat) {
+	void init(my_vec3 offset, Model *newModel, EnemyStrat *newStrat) {
 		model = newModel;
 
 		// bump up to see outline better

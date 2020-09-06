@@ -13,7 +13,7 @@ struct UI_Rect {
 
 	float leftX, rightX, topY, bottomY;
 
-	glm::vec3 color;
+	my_vec3 color;
 	float alpha;
 
 	// should only need to call this once
@@ -32,7 +32,7 @@ struct UI_Rect {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 
-		color = glm::vec3(0.2f, 0.2f, 0.2f);
+		color = my_vec3(0.2f, 0.2f, 0.2f);
 		alpha = 0.7f;
 
 		this->shaderProgramID = shaderProgramId;
@@ -41,7 +41,7 @@ struct UI_Rect {
 	}
 
 	// format (leftX, rightX, topY, bottomY)
-	void setCoords(glm::vec4 coords) {
+	void setCoords(my_vec4 coords) {
 		leftX	= coords.x;
 		rightX	= coords.y;
 		topY	= coords.z;
@@ -50,7 +50,7 @@ struct UI_Rect {
 
 	void draw() {
 		glUseProgram(this->shaderProgramID);
-		setUniform4f(this->shaderProgramID, "color", glm::vec4(color.x, color.y, color.z, alpha));
+		setUniform4f(this->shaderProgramID, "color", my_vec4(color.x, color.y, color.z, alpha));
 
 		glBindVertexArray(VAO_ID);
 
@@ -126,11 +126,11 @@ struct Console {
 		boundingRect.setup(shaderProgramId);
 
 		inputRect.setup(shaderProgramId);
-		inputRect.color = glm::vec3(0.1f, 0.1f, 0.1f);
+		inputRect.color = my_vec3(0.1f, 0.1f, 0.1f);
 		inputRect.alpha = 0.7f;
 		
 		editMarkerRect.setup(shaderProgramId);
-		editMarkerRect.color = glm::vec3(0.1f, 0.1f, 0.1f);
+		editMarkerRect.color = my_vec3(0.1f, 0.1f, 0.1f);
 		editMarkerRect.alpha = 1.0f;
 
 		historyTextbox.maxLinesToShow = 10;
@@ -167,10 +167,10 @@ struct Console {
 		
 		historyTextbox.y = location + 27.0f;
 
-		boundingRect.setCoords(glm::vec4(0.0f, currentScreenWidth, location, currentScreenHeight));
+		boundingRect.setCoords(my_vec4(0.0f, (float) currentScreenWidth, location, (float) currentScreenHeight));
 		boundingRect.draw();
 
-		inputRect.setCoords(glm::vec4(0.0f, currentScreenWidth, location + 25.0f, location));
+		inputRect.setCoords(my_vec4(0.0f, (float) currentScreenWidth, location + 25.0f, location));
 		inputRect.draw();
 
 		//timeSinceEditMarkerFlip += deltaTime;
@@ -180,11 +180,11 @@ struct Console {
 		//}
 
 		//if (editMarkerOn) {
-		//	editMarkerRect.setCoords(glm::vec4(markerLocation, markerLocation + markerSize, historyTextbox.y + 20.0f, historyTextbox.y));
+		//	editMarkerRect.setCoords(my_vec4(markerLocation, markerLocation + markerSize, historyTextbox.y + 20.0f, historyTextbox.y));
 		//	editMarkerRect.draw();
 		//}
 
-		drawText(font, inputString, 0.0f, location + 5.0f, 0.4f, glm::vec3(1.0f, 1.0f, 1.0f));
+		drawText(font, inputString, 0.0f, location + 5.0f, 0.4f, my_vec3(1.0f, 1.0f, 1.0f));
 
 		drawTextBox(&historyTextbox, font);
 	}

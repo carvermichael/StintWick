@@ -55,7 +55,7 @@ struct Level {
 
 	enemy enemies[MAX_ENEMIES];
 
-	void addEnemy(int type, glm::ivec2 gridCoords) {
+	void addEnemy(int type, my_ivec2 gridCoords) {
 
 		if (numEnemies >= MAX_ENEMIES) {
 			addTextToBox("ERROR: Cannot add enemy to level, too many enemies.", &eventTextBox);

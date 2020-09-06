@@ -3,18 +3,19 @@
 #include "shapeData.h"
 #include "constants.h"
 #include "console.h"
+#include "math.h"
 
 struct Material {
 	std::string name;
 
-	glm::vec3 ambient;
-	glm::vec3 diffuse;
-	glm::vec3 specular;
+	my_vec3 ambient;
+	my_vec3 diffuse;
+	my_vec3 specular;
 	float shininess;
 
 	Material() {};
 
-	Material(std::string name, glm::vec3 ambient, glm::vec3 diffuse, glm::vec3 specular, float shininess) {
+	Material(std::string name, my_vec3 ambient, my_vec3 diffuse, my_vec3 specular, float shininess) {
 		this->name = name;
 		
 		this->ambient = ambient;
@@ -44,50 +45,50 @@ struct Materials {
 
     Materials() {
         // pulled from http://devernay.free.fr/cours/opengl/materials.html
-        emerald = Material("emerald", glm::vec3(0.0215f, 0.1745f, 0.0215f),
-            glm::vec3(0.07568f, 0.61424f, 0.07568f),
-            glm::vec3(0.633f, 0.727811f, 0.633f),
-            0.6f);
+        emerald = Material("emerald", my_vec3(0.0215f, 0.1745f, 0.0215f),
+								      my_vec3(0.07568f, 0.61424f, 0.07568f),
+									  my_vec3(0.633f, 0.727811f, 0.633f),
+									  0.6f);
 
-        chrome = Material("chrome", glm::vec3(0.25f, 0.25f, 0.25f),
-            glm::vec3(0.4f, 0.4f, 0.4f),
-            glm::vec3(0.774597f, 0.774597f, 0.774597f),
-            0.6f);
+        chrome = Material("chrome", my_vec3(0.25f, 0.25f, 0.25f),
+									my_vec3(0.4f, 0.4f, 0.4f),
+									my_vec3(0.774597f, 0.774597f, 0.774597f),
+									0.6f);
 
-        silver = Material("silver", glm::vec3(0.19225, 0.19225, 0.19225),
-            glm::vec3(0.50754, 0.50754, 0.50754),
-            glm::vec3(0.508273, 0.508273, 0.508273),
-            0.4f);
+        silver = Material("silver", my_vec3(0.19225f, 0.19225f, 0.19225f),
+									my_vec3(0.50754f, 0.50754f, 0.50754f),
+									my_vec3(0.508273f, 0.508273f, 0.508273f),
+									0.4f);
 
-        gold = Material("gold", glm::vec3(0.24725, 0.1995, 0.0745),
-            glm::vec3(0.75164, 0.60648, 0.22648),
-            glm::vec3(0.628281, 0.555802, 0.366065),
-            0.4f);
+        gold = Material("gold", my_vec3(0.24725f, 0.1995f, 0.0745f),
+								my_vec3(0.75164f, 0.60648f, 0.22648f),
+								my_vec3(0.628281f, 0.555802f, 0.366065f),
+								0.4f);
 
-        blackRubber = Material("blackRubber", glm::vec3(0.02, 0.02, 0.02),
-            glm::vec3(0.01, 0.01, 0.01),
-            glm::vec3(0.4, 0.4, 0.4),
-            .078125f);
+        blackRubber = Material("blackRubber", my_vec3(0.02f, 0.02f, 0.02f),
+											  my_vec3(0.01f, 0.01f, 0.01f),
+											  my_vec3(0.4f, 0.4f, 0.4f),
+											  0.078125f);
 
-        ruby = Material("ruby", glm::vec3(0.1745, 0.01175, 0.01175),
-            glm::vec3(0.61424, 0.04136, 0.04136),
-            glm::vec3(0.727811, 0.626959, 0.626959),
-            0.6f);
+        ruby = Material("ruby", my_vec3(0.1745f, 0.01175f, 0.01175f),
+								my_vec3(0.61424f, 0.04136f, 0.04136f),
+								my_vec3(0.727811f, 0.626959f, 0.626959f),
+								0.6f);
 
-        light = Material("light", glm::vec3(1.0f),
-            glm::vec3(1.0f),
-            glm::vec3(1.0f),
-            1.0f);
+        light = Material("light", my_vec3(1.0f),
+								  my_vec3(1.0f),
+								  my_vec3(1.0f),
+								  1.0f);
 
-		grey = Material("grey", glm::vec3(0.23f),
-			glm::vec3(0.23f),
-			glm::vec3(0.23f),
-			1.0f);
+		grey = Material("grey", my_vec3(0.23f),
+								my_vec3(0.23f),
+								my_vec3(0.23f),
+								1.0f);
 
-		yellow = Material("yellow", glm::vec3(0.05, 0.05, 0.0),
-			glm::vec3(0.5, 0.5, 0.4),
-			glm::vec3(0.7, 0.7, 0.04),
-			0.078125f);
+		yellow = Material("yellow", my_vec3(0.05f, 0.05f, 0.0f),
+									my_vec3(0.5f, 0.5f, 0.4f),
+									my_vec3(0.7f, 0.7f, 0.04f),
+									0.078125f);
     }
 
 	~Materials() {};
@@ -146,17 +147,17 @@ struct Mesh {
 		setupVAO();
 	};
 
-	void draw(glm::vec3 worldOffset, float outlineFactor) {
+	void draw(my_vec3 worldOffset, float outlineFactor) {
 		draw(worldOffset, outlineFactor, this->material);
 	}
 
-	void draw(glm::vec3 worldOffset, float outlineFactor, Material *mat) {
+	void draw(my_vec3 worldOffset, float outlineFactor, Material *mat) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
 		glDepthFunc(GL_LESS);
 
-		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), worldOffset);
+		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), toGLM(worldOffset));
 		
 		setUniformMat4(shaderProgramID, "model", current_model);
 		
@@ -179,7 +180,7 @@ struct Mesh {
 		}
 	}
 
-	void rescale(glm::vec3 scale) {
+	void rescale(my_vec3 scale) {
 		vertices.clear();
 		
 		for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
@@ -189,7 +190,7 @@ struct Mesh {
 		this->scale(scale);
 	}
 
-	void scale(glm::vec3 scale) {
+	void scale(my_vec3 scale) {
 		// NOTE: stride of 6 accounts for normals
 		for (int i = 0; i < vertices.size(); i += 6) {
 			vertices[i]	  *= scale.x;
@@ -244,42 +245,41 @@ struct Model {
 
 	std::vector<Mesh> meshes;
 
-	// TODO: Visual Studio likes to think this line isn't here.
-	glm::vec3 scaleFactor = glm::vec3(1.0f);
+	my_vec3 scaleFactor = my_vec3(1.0f);
 
 	Model() {
-		scaleFactor = glm::vec3(1.0f);		
+		scaleFactor = my_vec3(1.0f);		
 	}
 	Model(std::string name) {
 		this->name = name;
-		scaleFactor = glm::vec3(1.0f);
+		scaleFactor = my_vec3(1.0f);
 	}
 
-	void draw(glm::vec3 worldOffset, float outlineFactor) {
+	void draw(my_vec3 worldOffset, float outlineFactor) {
 		for (int i = 0; i < meshes.size(); i++) {
 			meshes[i].draw(worldOffset, outlineFactor);
 		}
 	}
 
-	void draw(glm::vec3 worldOffset, float outlineFactor, Material *mat) {
+	void draw(my_vec3 worldOffset, float outlineFactor, Material *mat) {
 		for (int i = 0; i < meshes.size(); i++) {
 			meshes[i].draw(worldOffset, outlineFactor, mat);
 		}
 	}
 
-	void draw(glm::vec3 worldOffset) {
+	void draw(my_vec3 worldOffset) {
 		draw(worldOffset, 1.0f);
 	}
 
 	// puts vertices back to original, then scales
-	void rescale(glm::vec3 scale) {
+	void rescale(my_vec3 scale) {
 		for (int i = 0; i < meshes.size(); i++) {
 			meshes[i].rescale(scale);
 		}
 	}
 
 	// scales from current vertices
-	void scale(glm::vec3 scale) {	
+	void scale(my_vec3 scale) {	
 		if(scaleFactor.x != 0.0f) scaleFactor.x *= scale.x;
 		else					  scaleFactor.x  = scale.x;
 

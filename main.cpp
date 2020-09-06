@@ -20,12 +20,14 @@
 #include <stdlib.h>
 #include <map>
 
-void createParticleEmitter(glm::vec3 newPos);
+#include "math.h"
+
+void createParticleEmitter(my_vec3 newPos);
 void processConsoleCommand(std::string command);
 void loadCurrentLevel();
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
-void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3);
-void setUniform4f(unsigned int shaderProgramID, const char *uniformName, glm::vec4 vec4);
+void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3);
+void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4);
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4);
 
 #include "constants.h"
@@ -84,8 +86,8 @@ WorldState world;
 struct Follow : EnemyStrat {
 
 	void update(Entity *entity, Player *player, float deltaTime) {
-		glm::vec3 dirVec = glm::normalize(player->worldOffset - entity->worldOffset);
-		glm::vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
+		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
+		my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
 
 		entity->updateWorldOffset(newWorldOffset.x, newWorldOffset.y);
 	}
@@ -94,7 +96,7 @@ struct Follow : EnemyStrat {
 struct Shoot : EnemyStrat {
 
 	void update(Entity *entity, Player *player, float deltaTime) {
-		glm::vec3 dirVec = glm::normalize(player->worldOffset - entity->worldOffset);
+		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
 
 		entity->timeSinceLastShot += deltaTime;
 		if (entity->timeSinceLastShot < entity->timeBetweenShots) return;
@@ -103,7 +105,7 @@ struct Shoot : EnemyStrat {
 		for (int i = 0; i < MAX_BULLETS; i++) {
 			if (!world.enemyBullets[i].current) {
 				world.enemyBullets[i].init(entity->worldOffset,
-					glm::vec2(dirVec.x, dirVec.y),
+					my_vec2(dirVec.x, dirVec.y),
 					&models.enemyBullet, entity->shotSpeed);
 				foundBullet = true;
 				break;
@@ -264,11 +266,11 @@ void processJoystickInput(float deltaTime) {
     }
 }
 
-void addEnemyToLevel(int type, glm::ivec2 gridCoords) {
+void addEnemyToLevel(int type, my_ivec2 gridCoords) {
 	levels[currentLevel].addEnemy(type, gridCoords);
 }
 
-void addEnemyToWorld(int type, glm::ivec2 gridCoords) {
+void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	if (world.numEnemies >= MAX_ENEMIES) {
 		printf("ERROR: Max enemies reached.\n");
 		addTextToBox("ERROR: Max enemies reached.", &eventTextBox);
@@ -283,7 +285,7 @@ void addEnemyToWorld(int type, glm::ivec2 gridCoords) {
 		strat = &enemyStrats.follow;
 	}
 
-	world.enemies[world.numEnemies].init(gridCoordsToWorldOffset(glm::ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, strat);
+	world.enemies[world.numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, strat);
 	world.numEnemies++;
 }
 
@@ -298,13 +300,13 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 		}
 		else {
 			// TODO: create dirVec normalized difference between starting vec and vec based on clickCoords
-			glm::vec3 startingPos = world.camera.position;
-			glm::vec3 dirVec = world.camera.front;
+			my_vec3 startingPos = world.camera.position;
+			my_vec3 dirVec = world.camera.front;
 
 			addTextToBox("startingPos: (" + std::to_string(startingPos.x) + ", " + std::to_string(startingPos.y) + ", " + std::to_string(startingPos.z) + ")", &eventTextBox);
 			addTextToBox("dirVec: (" + std::to_string(dirVec.x) + ", " + std::to_string(dirVec.y) + ", " + std::to_string(dirVec.z) + ")", &eventTextBox);
 
-			glm::vec3 current = startingPos;
+			my_vec3 current = startingPos;
 			
 			float rayStep = 0.1f;
 
@@ -316,11 +318,11 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			}
 
 			addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
-			glm::ivec2 gridCoords = worldOffsetToGridCoords(current);
+			my_ivec3 gridCoords = worldOffsetToGridCoords(current);
 			addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
 
-			addEnemyToWorld(1, gridCoords);
-			addEnemyToLevel(1, gridCoords);
+			addEnemyToWorld(1, my_ivec2(gridCoords.x, gridCoords.y));
+			addEnemyToLevel(1, my_ivec2(gridCoords.x, gridCoords.y));
 		}
 	}
 }
@@ -429,16 +431,16 @@ void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float v
 	glUniform1f(location, value);
 }
 
-void setUniform3f(unsigned int shaderProgramID, const char *uniformName, glm::vec3 vec3) {
+void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3) {
 	glUseProgram(shaderProgramID);
 	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform3f(location, vec3.x, vec3.y, vec3.z);
+	glUniform3f(location, my_vec3.x, my_vec3.y, my_vec3.z);
 }
 
-void setUniform4f(unsigned int shaderProgramID, const char *uniformName, glm::vec4 vec4) {
+void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4) {
 	glUseProgram(shaderProgramID);
 	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform4f(location, vec4.x, vec4.y, vec4.z, vec4.w);
+	glUniform4f(location, my_vec4.x, my_vec4.y, my_vec4.z, my_vec4.w);
 }
 
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
@@ -460,15 +462,15 @@ void createBulletModel() {
 
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
-	models.bullet.scale(glm::vec3(0.5f));
+	models.bullet.scale(my_vec3(0.5f));
 
 	models.enemyBullet.name = std::string("enemyBullet");
 	models.enemyBullet.meshes.push_back(enemyBulletMesh);
-	models.enemyBullet.scale(glm::vec3(0.5f));
+	models.enemyBullet.scale(my_vec3(0.5f));
 
 	models.bulletPart.name = std::string("bulletPart");
 	models.bulletPart.meshes.push_back(bulletPartMesh);
-	models.bulletPart.scale(glm::vec3(0.15f));
+	models.bulletPart.scale(my_vec3(0.15f));
 }
 
 void createGridFloorAndWallModels() {
@@ -498,22 +500,22 @@ void createPlayerAndEnemyModels() {
 	
 	models.enemy.name = std::string("enemy");
 	models.enemy.meshes.push_back(enemyMesh);
-	models.enemy.scale(glm::vec3(1.0f, 1.0f, 0.5f));
+	models.enemy.scale(my_vec3(1.0f, 1.0f, 0.5f));
 }
 
 void drawGrid() {
-	glm::vec3 floorWorldOffset = glm::vec3(1.0f, -1.0f, 0.0f);
+	my_vec3 floorWorldOffset = my_vec3(1.0f, -1.0f, 0.0f);
 	models.floorModel.draw(floorWorldOffset);
 
 	// left
-	models.wallLeftModel.draw(glm::vec3(0.0f, 0.0f, 0.0f));
+	models.wallLeftModel.draw(my_vec3(0.0f, 0.0f, 0.0f));
 	// top
-	models.wallTopModel.draw(glm::vec3(1.0f, 0.0f, 0.0f));
+	models.wallTopModel.draw(my_vec3(1.0f, 0.0f, 0.0f));
 	
 	// right
-	models.wallLeftModel.draw(glm::vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
+	models.wallLeftModel.draw(my_vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
 	// bottom
-	models.wallTopModel.draw(glm::vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
+	models.wallTopModel.draw(my_vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
 }
 
 void moveLightAroundOrbit(float deltaTime) {
@@ -609,8 +611,8 @@ void drawGuidingGrid() {
 	glm::mat4 currentModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
 	setUniformMat4(regularShaderProgramID, "model", currentModel);
 
-	setUniform3f(regularShaderProgramID, "objectDiffuse", glm::vec3(1.0f, 1.0f, 1.0f));
-	setUniform3f(regularShaderProgramID, "objectAmbient", glm::vec3(1.0f, 1.0f, 1.0f));
+	setUniform3f(regularShaderProgramID, "objectDiffuse", my_vec3(1.0f, 1.0f, 1.0f));
+	setUniform3f(regularShaderProgramID, "objectAmbient", my_vec3(1.0f, 1.0f, 1.0f));
 
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
@@ -644,7 +646,7 @@ void drawBullets() {
 void drawEnemies() {
     for(int i = 0; i < MAX_ENEMIES; i++) {
 		float outlineFactor = 1.0f;
-		if(world.enemies[i].current) world.enemies[i].draw(outlineFactor, &materials.yellow);
+		if(world.enemies[i].current) world.enemies[i].draw(outlineFactor, &materials.ruby);
     }
 }
 
@@ -665,7 +667,7 @@ void checkBulletsForWallCollisions() {
            world.playerBullets[i].worldOffset.y > world.wallBounds.AY ||
            world.playerBullets[i].worldOffset.y < world.wallBounds.BY) {
             world.playerBullets[i].current = false;
-			createParticleEmitter(glm::vec3(world.playerBullets[i].worldOffset.x,
+			createParticleEmitter(my_vec3(world.playerBullets[i].worldOffset.x,
 											world.playerBullets[i].worldOffset.y,
 											1.5f));
         }
@@ -705,7 +707,7 @@ void checkBulletsForEnemyCollisions() {
     }
 }
 
-void createParticleEmitter(glm::vec3 newPos) {
+void createParticleEmitter(my_vec3 newPos) {
 	bool foundEmitter = false;
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
 		if (!world.particleEmitters[i].current) {
@@ -741,7 +743,7 @@ void loadCurrentLevel() {
 
 	world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
 
-	world.player.init(gridCoordsToWorldOffset(glm::ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
+	world.player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
 
 	for (int i = 0; i < MAX_ENEMIES; i++) {
 		world.enemies[i].current = false;
@@ -756,7 +758,7 @@ void loadCurrentLevel() {
 		unsigned int gridX = level->enemies[i].gridX;
 		unsigned int gridY = level->enemies[i].gridY;
 
-		addEnemyToWorld(enemyType, glm::vec2(gridX, gridY));		
+		addEnemyToWorld(enemyType, my_ivec2(gridX, gridY));
 	}
 
 	// reset camera
@@ -772,9 +774,9 @@ void loadCurrentLevel() {
 		world.enemyBullets[i].current = false;
 	}
 
-	models.floorModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
-	models.wallLeftModel.rescale(glm::vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
-	models.wallTopModel.rescale(glm::vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
+	models.floorModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
+	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
+	models.wallTopModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
 }
 
 int main() {
@@ -849,6 +851,8 @@ int main() {
 	float timeStep	= deltaTime;
 
     float targetFrameTime = 1.0f / 60.0f;
+
+	//translate(mat4(), my_vec3()); // should fail
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {

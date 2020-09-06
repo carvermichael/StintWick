@@ -37,14 +37,14 @@ struct WorldState {
         wallBounds.BX =  (float)(gridSizeX - 1);
         wallBounds.BY = -(float)(gridSizeY - 1);
 
-		light.pos = glm::vec3(-2.0f, -5.0f, 4.0f);
+		light.pos = my_vec3(-2.0f, -5.0f, 4.0f);
 
 		numEnemies = 0;
     }	
 };
 
-glm::vec3 gridCoordsToWorldOffset(glm::ivec3 gridCoords) {
-    glm::vec3 worldOffset;
+my_vec3 gridCoordsToWorldOffset(my_ivec3 gridCoords) {
+    my_vec3 worldOffset;
 
     worldOffset.x = (float) gridCoords.x;
     worldOffset.y = (float)-gridCoords.y;
@@ -53,9 +53,9 @@ glm::vec3 gridCoordsToWorldOffset(glm::ivec3 gridCoords) {
     return worldOffset;
 }
 
-glm::ivec3 worldOffsetToGridCoords(glm::vec3 worldOffset) {
+my_ivec3 worldOffsetToGridCoords(my_vec3 worldOffset) {
     
-    glm::ivec3 gridCoords;
+    my_ivec3 gridCoords;
 
     gridCoords.x = (int)( worldOffset.x); 
     gridCoords.y = (int)(-worldOffset.y); 

@@ -2,8 +2,8 @@
 
 struct TextCharacter {
 	unsigned int textureID;
-	glm::ivec2	 size;
-	glm::ivec2	 bearing;
+	my_ivec2	 size;
+	my_ivec2	 bearing;
 	unsigned int advance;
 };
 
@@ -58,8 +58,8 @@ struct Font {
 
 			TextCharacter textCharacter = {
 				texture,
-				glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-				glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+				my_ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
+				my_ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
 				(unsigned int) face->glyph->advance.x
 			};
 
@@ -94,7 +94,7 @@ struct Font {
 	}
 };
 
-void drawText(Font *font, std::string text, float x, float y, float scale, glm::vec3 color) {
+void drawText(Font *font, std::string text, float x, float y, float scale, my_vec3 color) {
 
 	setUniform3f(font->shaderProgramID, "textColor", color);
 
@@ -167,14 +167,14 @@ void drawTextBox(Textbox *textbox, Font *font) {
 
 	if (!textbox->flip) {
 		for (int i = startingLineIndex; i < numLinesToShow + startingLineIndex; i++) {
-			drawText(font, textbox->lines[i], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+			drawText(font, textbox->lines[i], x, y, 0.4f, my_vec3(1.0f, 0.5f, 0.89f));
 
 			y += 20.0f;
 		}
 	}
 	else {
 		for (int i = numLinesToShow + startingLineIndex - 1; i >= startingLineIndex; i--) {
-			drawText(font, textbox->lines[i], x, y, 0.4f, glm::vec3(1.0f, 0.5f, 0.89f));
+			drawText(font, textbox->lines[i], x, y, 0.4f, my_vec3(1.0f, 0.5f, 0.89f));
 
 			y += 20.0f;
 		}

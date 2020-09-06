@@ -72,7 +72,7 @@ void playerShoot(float x, float y, float deltaTime) {
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(!world.playerBullets[i].current) {
             world.playerBullets[i].init(world.player.worldOffset, 
-                                  glm::normalize(glm::vec2(x, y)),
+                                  normalize(my_vec2(x, y)),
                                   &models.bullet, world.player.shotSpeed);
             foundBullet = true;
             break;

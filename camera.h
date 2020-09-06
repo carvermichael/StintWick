@@ -1,16 +1,17 @@
 #if !defined(CAMERA)
 
 #include "constants.h"
+#include "math.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 struct Camera {
-	glm::vec3 position;
-	glm::vec3 front;
-	glm::vec3 up;
+	my_vec3 position;
+	my_vec3 front;
+	my_vec3 up;
 
-	glm::vec3 direction;
+	my_vec3 direction;
 
 	float speed = 45.0f;
 
@@ -25,17 +26,17 @@ struct Camera {
 		float midGridX = (float) gridSizeX / 2;
 		float midGridY = -(float) gridSizeY / 2;
 
-		position = glm::vec3(midGridX, midGridY, 45.0f);
+		position = my_vec3(midGridX, midGridY, 45.0f);
 
-		up = glm::vec3(0.0f, 1.0f, 0.0f);
+		up = my_vec3(0.0f, 1.0f, 0.0f);
 
 		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 		direction.y = sin(glm::radians(pitch));
 		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
 
-		glm::vec3 cameraRight = glm::normalize(glm::cross(up, direction));
+		my_vec3 cameraRight = normalize(crossproduct(up, direction));
 
-		up = glm::normalize(glm::cross(direction, cameraRight));
+		up = normalize(crossproduct(direction, cameraRight));
 	}
 
 	void initForGrid(unsigned int gridSizeX, unsigned int gridSizeY) {
@@ -45,26 +46,26 @@ struct Camera {
 		float midGridX = (float) gridSizeX / 2;
 		float bottomGridY = -(float)gridSizeY * 1.65f;
 
-		position = glm::vec3(midGridX, bottomGridY, (float) gridSizeY);
+		position = my_vec3(midGridX, bottomGridY, (float) gridSizeY);
 
-		up = glm::vec3(0.0f, 1.0f, 0.0f);
+		up = my_vec3(0.0f, 1.0f, 0.0f);
 
 		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 		direction.y = sin(glm::radians(pitch));
 		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
 
-		glm::vec3 cameraRight = glm::normalize(glm::cross(up, direction));
+		my_vec3 cameraRight = normalize(crossproduct(up, direction));
 
-		up = glm::normalize(glm::cross(direction, cameraRight));
+		up = normalize(crossproduct(direction, cameraRight));
 	}
 
 	glm::mat4 generateView() {
 		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 		direction.y = sin(glm::radians(pitch));
 		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-		front = glm::normalize(direction);
+		front = normalize(direction);
 
-		glm::mat4 view = glm::lookAt(position, position + front, up);
+		glm::mat4 view = glm::lookAt(toGLM(position), toGLM(position + front), toGLM(up));
 		return view;
 	}
 
@@ -82,7 +83,7 @@ struct Camera {
 	}
 
 	void moveForward(float deltaTime) {
-		position += speed * deltaTime * front;
+		position += front * speed * deltaTime;
 	}
 
 	void moveBack(float deltaTime) {
@@ -98,11 +99,11 @@ struct Camera {
 	}
 
 	void moveLeft(float deltaTime) {
-		position -= glm::normalize(glm::cross(front, up)) * (speed * deltaTime);
+		position -= normalize(crossproduct(front, up)) * (speed * deltaTime);
 	}
 
 	void moveRight(float deltaTime) {
-		position += glm::normalize(glm::cross(front, up)) * (speed * deltaTime);
+		position += normalize(crossproduct(front, up)) * (speed * deltaTime);
 	}
 };
 
