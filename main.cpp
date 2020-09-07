@@ -300,14 +300,17 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	}
 	
 	EnemyStrat *strat = &enemyStrats.shoot;
+	Material *mat = &materials.ruby;
 	if (type == 1) {
 		strat = &enemyStrats.shoot;
+		mat = &materials.ruby;
 	}
 	else if (type == 2) {
 		strat = &enemyStrats.follow;
+		mat = &materials.gold;
 	}
 
-	world.enemies[world.numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, strat);
+	world.enemies[world.numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
 	world.numEnemies++;
 }
 
@@ -681,7 +684,7 @@ void drawBullets() {
 void drawEnemies() {
     for(int i = 0; i < MAX_ENEMIES; i++) {
 		float outlineFactor = 1.0f;
-		if(world.enemies[i].current) world.enemies[i].draw(outlineFactor, &materials.ruby);
+		if(world.enemies[i].current) world.enemies[i].draw();
     }
 }
 

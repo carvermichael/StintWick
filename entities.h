@@ -125,6 +125,10 @@ struct Entity {
 		model->draw(worldOffset);
 	}
 
+	void draw(Material *mat) {
+		
+	}
+
 	void draw(float outlineFactor, Material *mat) {
 		model->draw(worldOffset, outlineFactor, mat);
 	}
@@ -165,9 +169,11 @@ struct Enemy : Entity {
 
     bool current = false;
 	EnemyStrat *strat;
+	Material *mat;
 
-	void init(my_vec3 offset, Model *newModel, EnemyStrat *newStrat) {
+	void init(my_vec3 offset, Model *newModel, Material *newMat, EnemyStrat *newStrat) {
 		model = newModel;
+		mat = newMat;
 
 		// bump up to see outline better
 		worldOffset.z = offset.z + 0.05f;
@@ -186,6 +192,10 @@ struct Enemy : Entity {
 	// simple following
 	void update(Player *player, float deltaTime) {
 		strat->update(this, player, deltaTime);
+	}
+
+	void draw() {
+		model->draw(worldOffset, 1.0f, mat);
 	}
 };
 
