@@ -90,17 +90,11 @@ void control_edit(int action, int key, float deltaTime) {
 	}
 
 	if (key == GLFW_KEY_RIGHT) {
-		currentLevel++;
-		if (currentLevel >= levelCount) currentLevel = 0;
-
-		loadCurrentLevel();
+		goForwardOneLevel();
 	}
 
 	if (key == GLFW_KEY_LEFT) {
-		if(currentLevel == 0) currentLevel = levelCount - 1;
-		else currentLevel--;
-
-		loadCurrentLevel();
+		goBackOneLevel();
 	}
 }
 

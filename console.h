@@ -1,76 +1,7 @@
 #if !defined(CONSOLE)
 
 #include "textBox.h"
-
-struct UI_Rect {
-
-	// TODO: figure out why the linker threw errors when you tried to make some of these static
-	bool initialized;
-
-	unsigned int VAO_ID;
-	unsigned int VBO_ID;
-	unsigned int shaderProgramID;
-
-	float leftX, rightX, topY, bottomY;
-
-	my_vec3 color;
-	float alpha;
-
-	// should only need to call this once
-	void setup(unsigned int shaderProgramId) {
-		if (initialized) return;
-
-		glGenVertexArrays(1, &VAO_ID);
-		glGenBuffers(1, &VBO_ID);
-		glBindVertexArray(VAO_ID);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
-
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 2, NULL, GL_DYNAMIC_DRAW);
-
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-
-		color = my_vec3(0.2f, 0.2f, 0.2f);
-		alpha = 0.7f;
-
-		this->shaderProgramID = shaderProgramId;
-
-		initialized = true;
-	}
-
-	// format (leftX, rightX, topY, bottomY)
-	void setCoords(my_vec4 coords) {
-		leftX	= coords.x;
-		rightX	= coords.y;
-		topY	= coords.z;
-		bottomY = coords.w;
-	}
-
-	void draw() {
-		glUseProgram(this->shaderProgramID);
-		setUniform4f(this->shaderProgramID, "color", my_vec4(color.x, color.y, color.z, alpha));
-
-		glBindVertexArray(VAO_ID);
-
-		float vertices[] = {
-			leftX,	topY,
-			rightX, topY,
-			leftX,	bottomY,
-
-			rightX, topY,
-			leftX,	bottomY,
-			rightX, bottomY
-		};
-
-		glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-	}
-};
+#include "UIRect.h"
 
 struct Console {
 	Textbox historyTextbox;
@@ -126,13 +57,11 @@ struct Console {
 		boundingRect.setup(shaderProgramId);
 
 		inputRect.setup(shaderProgramId);
-		inputRect.color = my_vec3(0.1f, 0.1f, 0.1f);
-		inputRect.alpha = 0.7f;
+		inputRect.color = my_vec4(0.1f, 0.1f, 0.1f, 0.7f);		
 		
 		editMarkerRect.setup(shaderProgramId);
-		editMarkerRect.color = my_vec3(0.1f, 0.1f, 0.1f);
-		editMarkerRect.alpha = 1.0f;
-
+		editMarkerRect.color = my_vec4(0.1f, 0.1f, 0.1f, 1.0f);
+		
 		historyTextbox.maxLinesToShow = 10;
 		historyTextbox.flip = true;
 	}
@@ -157,6 +86,7 @@ struct Console {
 		inputString.clear();
 	}
 
+	// might want to split update from draw here...idk
 	void draw(float deltaTime, Font *font) {
 		float dist = destination - location;
 		if (glm::abs(dist) < 1) location = destination;
@@ -167,10 +97,10 @@ struct Console {
 		
 		historyTextbox.y = location + 27.0f;
 
-		boundingRect.setCoords(my_vec4(0.0f, (float) currentScreenWidth, location, (float) currentScreenHeight));
+		boundingRect.setBounds(my_vec4(0.0f, (float) currentScreenWidth, location, (float) currentScreenHeight));
 		boundingRect.draw();
 
-		inputRect.setCoords(my_vec4(0.0f, (float) currentScreenWidth, location + 25.0f, location));
+		inputRect.setBounds(my_vec4(0.0f, (float) currentScreenWidth, location + 25.0f, location));
 		inputRect.draw();
 
 		//timeSinceEditMarkerFlip += deltaTime;
@@ -180,7 +110,7 @@ struct Console {
 		//}
 
 		//if (editMarkerOn) {
-		//	editMarkerRect.setCoords(my_vec4(markerLocation, markerLocation + markerSize, historyTextbox.y + 20.0f, historyTextbox.y));
+		//	editMarkerRect.setBounds(my_vec4(markerLocation, markerLocation + markerSize, historyTextbox.y + 20.0f, historyTextbox.y));
 		//	editMarkerRect.draw();
 		//}
 

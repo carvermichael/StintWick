@@ -2,25 +2,6 @@
 
 #include "math.h"
 
-struct AABB {
-
-    union {
-        struct {
-            float AX;
-            float AY;
-            float BX;
-            float BY;
-        };
-
-        struct {
-            float left;
-            float top;
-            float right;
-            float bottom;
-        };
-    };
-};
-
 struct Bullet {
 
     bool current = false;

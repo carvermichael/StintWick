@@ -26,7 +26,7 @@ struct Camera {
 		float midGridX = (float) gridSizeX / 2;
 		float midGridY = -(float) gridSizeY / 2;
 
-		position = my_vec3(midGridX, midGridY, 45.0f);
+		position = my_vec3(midGridX, midGridY, 80.0f);
 
 		up = my_vec3(0.0f, 1.0f, 0.0f);
 

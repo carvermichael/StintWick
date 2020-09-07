@@ -192,5 +192,8 @@ void addTextToBoxAtLine(std::string newText, int lineNum, Textbox *textbox) {
     textbox->numLinesUsed = 1;
 }
 
+Textbox eventTextBox = {};
+Textbox fpsBox = {};
+
 #define TEXTBOX
 #endif

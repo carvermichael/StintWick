@@ -8,6 +8,26 @@
 
 #define PI 3.14159f
 
+// not sure this belongs here...
+struct AABB {
+
+	union {
+		struct {
+			float AX;
+			float AY;
+			float BX;
+			float BY;
+		};
+
+		struct {
+			float left;
+			float top;
+			float right;
+			float bottom;
+		};
+	};
+};
+
 struct my_vec2 {
 	float x;
 	float y;
@@ -160,7 +180,6 @@ float mapToNewRange(float x, float minBefore, float maxBefore, float minAfter, f
 	float beforeRange = maxBefore - minBefore;
 	float afterRange = maxAfter - minAfter;
 	return x / (beforeRange / afterRange) + minAfter;
-
 }
 
 // TODO

@@ -25,6 +25,9 @@
 void createParticleEmitter(my_vec3 newPos);
 void processConsoleCommand(std::string command);
 void loadCurrentLevel();
+void goBackOneLevel();
+void goForwardOneLevel();
+unsigned int getCurrentLevel();
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
 void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3);
 void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4);
@@ -46,6 +49,9 @@ Materials materials;
 #include "shader.h"
 #include "textBox.h"
 #include "console.h"
+#include "editorUI.h"
+EditorUI editorUI;
+
 #include "shapeData.h"
 
 unsigned int regularShaderProgramID;
@@ -67,9 +73,6 @@ unsigned int currentLevel = 0;
 bool firstMouse = true;
 int timeStepDenom = 1;
 bool pause = true;
-
-Textbox eventTextBox = {};
-Textbox fpsBox = {};
 
 #include "levels.h"
 
@@ -166,6 +169,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport((width - currentScreenWidth) / 2, 0, currentScreenWidth, currentScreenHeight);
 
 	console.refresh();
+	editorUI.refresh();
 
     refreshProjection();
 }
@@ -266,6 +270,24 @@ void processJoystickInput(float deltaTime) {
     }
 }
 
+unsigned int getCurrentLevel() {
+	return currentLevel;
+}
+
+void goBackOneLevel() {
+	if (currentLevel == 0) currentLevel = levelCount - 1;
+	else currentLevel--;
+
+	loadCurrentLevel();
+}
+
+void goForwardOneLevel() {
+	currentLevel++;
+	if (currentLevel >= levelCount) currentLevel = 0;
+
+	loadCurrentLevel();
+}
+
 void addEnemyToLevel(int type, my_ivec2 gridCoords) {
 	levels[currentLevel].addEnemy(type, gridCoords);
 }
@@ -294,36 +316,49 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 	if (mode != MODE_LEVEL_EDIT) return;
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		// check in window
 		if (lastCursorX < 0 || lastCursorX > currentScreenWidth ||
 			lastCursorY < 0 || lastCursorY > currentScreenHeight) {
 			addTextToBox("Cursor is off screen, &eventTextBox", &eventTextBox);
+			return;
 		}
-		else {
-			// TODO: create dirVec normalized difference between starting vec and vec based on clickCoords
-			my_vec3 startingPos = world.camera.position;
-			my_vec3 dirVec = world.camera.front;
 
-			addTextToBox("startingPos: (" + std::to_string(startingPos.x) + ", " + std::to_string(startingPos.y) + ", " + std::to_string(startingPos.z) + ")", &eventTextBox);
-			addTextToBox("dirVec: (" + std::to_string(dirVec.x) + ", " + std::to_string(dirVec.y) + ", " + std::to_string(dirVec.z) + ")", &eventTextBox);
+		// Origin for click coordinates are top-left, y increases downward.
+		// Thus, need to get the screen height complement to accurately judge clicks
+		// w.r.t. UI elements (which have their origin in bottom left, and y increases upward).
 
-			my_vec3 current = startingPos;
+		// check in editor box
+		if (mode == MODE_LEVEL_EDIT) {
+			if (editorUI.click(my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight)))) return;
+		}		
+				
+		// place enemy
+
+		// TODO: create dirVec normalized difference between starting vec and vec based on clickCoords
+		my_vec3 startingPos = world.camera.position;
+		my_vec3 dirVec = world.camera.front;
+
+		addTextToBox("startingPos: (" + std::to_string(startingPos.x) + ", " + std::to_string(startingPos.y) + ", " + std::to_string(startingPos.z) + ")", &eventTextBox);
+		addTextToBox("dirVec: (" + std::to_string(dirVec.x) + ", " + std::to_string(dirVec.y) + ", " + std::to_string(dirVec.z) + ")", &eventTextBox);
+
+		my_vec3 current = startingPos;
 			
-			float rayStep = 0.1f;
+		float rayStep = 0.1f;
 
-			// just checking against z = 0 plane for now, may need more robust solution later
-			while (current.z > 0) {
-				current.x += dirVec.x * rayStep;
-				current.y += dirVec.y * rayStep;
-				current.z += dirVec.z * rayStep;
-			}
-
-			addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
-			my_ivec3 gridCoords = worldOffsetToGridCoords(current);
-			addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
-
-			addEnemyToWorld(1, my_ivec2(gridCoords.x, gridCoords.y));
-			addEnemyToLevel(1, my_ivec2(gridCoords.x, gridCoords.y));
+		// just checking against z = 0 plane for now, may need more robust solution later
+		while (current.z > 0) {
+			current.x += dirVec.x * rayStep;
+			current.y += dirVec.y * rayStep;
+			current.z += dirVec.z * rayStep;
 		}
+
+		addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
+		my_ivec3 gridCoords = worldOffsetToGridCoords(current);
+		addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
+
+		addEnemyToWorld(1, my_ivec2(gridCoords.x, gridCoords.y));
+		addEnemyToLevel(1, my_ivec2(gridCoords.x, gridCoords.y));
+		
 	}
 }
 
@@ -762,7 +797,12 @@ void loadCurrentLevel() {
 	}
 
 	// reset camera
-	world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
+	if (mode == MODE_LEVEL_EDIT) {
+		world.camera.initOverhead(world.gridSizeX, world.gridSizeY);
+	}
+	else {
+		world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
+	}	
 
 	// clear particles
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
@@ -854,6 +894,8 @@ int main() {
 
 	//translate(mat4(), my_vec3()); // should fail
 
+	editorUI.setup(UIShaderProgramID, &arial);
+
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window, deltaTime);
@@ -906,6 +948,7 @@ int main() {
 		console.draw(deltaTime, &arial);
 		drawTextBox(&eventTextBox, &arial);
 		drawTextBox(&fpsBox, &arial);
+		if(mode == MODE_LEVEL_EDIT) editorUI.draw();
 		
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	
