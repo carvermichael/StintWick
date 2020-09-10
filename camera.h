@@ -105,6 +105,21 @@ struct Camera {
 	void moveRight(float deltaTime) {
 		position += normalize(crossproduct(front, up)) * (speed * deltaTime);
 	}
+
+	// For editing, moving along grid alignments for unit placement.
+	// Grid size is one, so moving the amount of a normalized vector works here.
+	void moveUpOne() {
+		position += up;
+	}
+	void moveDownOne() {
+		position -= up;
+	}
+	void moveLeftOne() {
+		position -= normalize(crossproduct(front, up));
+	}
+	void moveRightOne() {
+		position += normalize(crossproduct(front, up));
+	}
 };
 
 #define CAMERA

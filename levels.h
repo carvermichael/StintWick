@@ -50,7 +50,7 @@ struct Level {
 	struct enemy {
 		int enemyType;
 		int gridX;
-		int gridY;		
+		int gridY;	
 	};
 
 	enemy enemies[MAX_ENEMIES];
@@ -69,6 +69,16 @@ struct Level {
 		e->gridY = gridCoords.y;
 
 		numEnemies++;
+	}
+
+	void removeEnemy(int index) {
+		for (int i = index; i < numEnemies - 1; i++) {
+			enemies[i].enemyType	= enemies[i + 1].enemyType;
+			enemies[i].gridX		= enemies[i + 1].gridX;
+			enemies[i].gridY		= enemies[i + 1].gridY;
+		}
+
+		numEnemies--;
 	}
 };
 

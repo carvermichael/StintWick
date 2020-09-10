@@ -80,6 +80,8 @@ void control_freeCam(int action, int key, float deltaTime) {
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
 	}
+
+
 }
 
 void control_edit(int action, int key, float deltaTime) {
@@ -88,14 +90,34 @@ void control_edit(int action, int key, float deltaTime) {
 	if (key == GLFW_KEY_F5) {
 		saveAllLevels();
 	}
-
+	/*
 	if (key == GLFW_KEY_RIGHT) {
 		goForwardOneLevel();
 	}
-
 	if (key == GLFW_KEY_LEFT) {
 		goBackOneLevel();
 	}
+	*/
+	if (key == GLFW_KEY_UP) {
+		world.camera.moveUpOne();
+	}
+	if (key == GLFW_KEY_DOWN) {
+		world.camera.moveDownOne();
+	}
+	if (key == GLFW_KEY_LEFT) {
+		world.camera.moveLeftOne();
+	}
+	if (key == GLFW_KEY_RIGHT) {
+		world.camera.moveRightOne();
+	}
+	/*
+	if (key == GLFW_KEY_EQUAL) {
+		world.camera.moveForward(deltaTime);
+	}
+	if (key == GLFW_KEY_MINUS) {
+		world.camera.moveBack(deltaTime);
+	}
+	*/
 }
 
 control getControlFunc() {

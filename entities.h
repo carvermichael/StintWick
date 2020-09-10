@@ -27,7 +27,7 @@ struct Bullet {
     }
 
 	void draw() {
-		model->draw(worldOffset, outlineFactor);
+		model->draw(worldOffset, 1.0f, outlineFactor);
 	}
 
     void updateWorldOffset(float x, float y) {
@@ -126,11 +126,11 @@ struct Entity {
 	}
 
 	void draw(Material *mat) {
-		
+		model->draw(worldOffset, 1.0f, 0.0f, mat);
 	}
 
 	void draw(float outlineFactor, Material *mat) {
-		model->draw(worldOffset, outlineFactor, mat);
+		model->draw(worldOffset, 1.0f, outlineFactor, mat);
 	}
 
     void updateWorldOffset(float x, float y) {
@@ -195,7 +195,7 @@ struct Enemy : Entity {
 	}
 
 	void draw() {
-		model->draw(worldOffset, 1.0f, mat);
+		model->draw(worldOffset, 1.0f, 0.0f, mat);
 	}
 };
 

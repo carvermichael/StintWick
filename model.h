@@ -31,15 +31,21 @@ struct Materials {
 		Material mats[NUM_MATS];
 
 		struct {
+			// Order matters here!! The order of enemy strats syncs with material order
+			// such that a single index can signify an enemy's appearance and strategy.
+			//				-- carver (9-10-20)
+			// enemy mats
+			Material ruby;
+			Material yellow;
+			
+			// other mats
 			Material light;
 			Material emerald;
 			Material chrome;
 			Material silver;
 			Material gold;
-			Material blackRubber;
-			Material ruby;
-			Material grey;
-			Material yellow;
+			Material blackRubber;			
+			Material grey;			
 		};
 	};
 
@@ -112,8 +118,6 @@ struct Mesh {
 	std::vector<unsigned int> indices;
 	std::vector<unsigned int> outlineIndices;
 
-	bool drawOutline = false;
-
 	float scaleFactor;
 
 	Material *material;
@@ -147,28 +151,29 @@ struct Mesh {
 		setupVAO();
 	};
 
-	void draw(my_vec3 worldOffset, float outlineFactor) {
-		draw(worldOffset, outlineFactor, this->material);
+	void draw(my_vec3 worldOffset, float bodyFactor, float outlineFactor) {
+		draw(worldOffset, bodyFactor, outlineFactor, this->material);
 	}
 
-	void draw(my_vec3 worldOffset, float outlineFactor, Material *mat) {
+	void draw(my_vec3 worldOffset, float bodyFactor, float outlineFactor, Material *mat) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
-		glDepthFunc(GL_LESS);
-
 		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), toGLM(worldOffset));
-		
 		setUniformMat4(shaderProgramID, "model", current_model);
 		
-		setUniform3f(shaderProgramID, "materialAmbient", mat->ambient);
-		setUniform3f(shaderProgramID, "materialDiffuse", mat->diffuse);
-		setUniform3f(shaderProgramID, "materialSpecular", mat->specular);
-		setUniform1f(shaderProgramID, "materialShininess", mat->shininess);
+		if (bodyFactor > 0.0f) {
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
+			glDepthFunc(GL_LESS);
 
-		glDrawElements(GL_TRIANGLES, (GLsizei) indices.size(), GL_UNSIGNED_INT, 0);
+			setUniform3f(shaderProgramID, "materialAmbient", mat->ambient * bodyFactor);
+			setUniform3f(shaderProgramID, "materialDiffuse", mat->diffuse * bodyFactor);
+			setUniform3f(shaderProgramID, "materialSpecular", mat->specular * bodyFactor);
+			setUniform1f(shaderProgramID, "materialShininess", mat->shininess);
 
-		if (drawOutline) {
+			glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
+		}		
+
+		if (outlineFactor > 0.0f) { // could I just let this fly, do the draw with the zero mult?
 			setUniform3f(shaderProgramID, "materialAmbient", mat->ambient * outlineFactor);
 			setUniform3f(shaderProgramID, "materialDiffuse", mat->diffuse * outlineFactor);
 			setUniform3f(shaderProgramID, "materialSpecular", mat->specular * outlineFactor);
@@ -255,20 +260,24 @@ struct Model {
 		scaleFactor = my_vec3(1.0f);
 	}
 
-	void draw(my_vec3 worldOffset, float outlineFactor) {
+	void draw(my_vec3 worldOffset, float bodyFactor, float outlineFactor) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(worldOffset, outlineFactor);
+			meshes[i].draw(worldOffset, bodyFactor, outlineFactor);
 		}
 	}
 
-	void draw(my_vec3 worldOffset, float outlineFactor, Material *mat) {
+	void draw(my_vec3 worldOffset, float bodyFactor, float outlineFactor, Material *mat) {
 		for (int i = 0; i < meshes.size(); i++) {
-			meshes[i].draw(worldOffset, outlineFactor, mat);
+			meshes[i].draw(worldOffset, bodyFactor, outlineFactor, mat);
 		}
 	}
 
 	void draw(my_vec3 worldOffset) {
-		draw(worldOffset, 1.0f);
+		draw(worldOffset, 1.0f, 0.0f);
+	}
+
+	void drawOnlyOutline(my_vec3 worldOffset) {
+		draw(worldOffset, 0.0f, 1.0f);
 	}
 
 	// puts vertices back to original, then scales

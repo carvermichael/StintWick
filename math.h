@@ -91,6 +91,12 @@ struct my_vec3 {
 		this->y = this->y - v.y;
 		this->z = this->z - v.z;
 	}
+
+	bool operator==(my_vec3 v) {
+		return this->x == v.x &&
+			   this->y == v.y &&
+			   this->z == v.z;
+	}
 };
 
 struct my_ivec3 {

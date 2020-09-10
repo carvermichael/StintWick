@@ -27,7 +27,10 @@ void processConsoleCommand(std::string command);
 void loadCurrentLevel();
 void goBackOneLevel();
 void goForwardOneLevel();
+void goBackOneEnemyType();
+void goForwardOneEnemyType();
 unsigned int getCurrentLevel();
+unsigned int getEnemySelection();
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
 void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3);
 void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4);
@@ -69,6 +72,7 @@ float lastCursorX = 400;
 float lastCursorY = 300;
 
 unsigned int currentLevel = 0;
+unsigned int currentEnemyTypeSelection = 0;
 
 bool firstMouse = true;
 int timeStepDenom = 1;
@@ -94,6 +98,7 @@ struct Follow : EnemyStrat {
 
 		entity->updateWorldOffset(newWorldOffset.x, newWorldOffset.y);
 	}
+
 };
 
 struct Shoot : EnemyStrat {
@@ -118,6 +123,7 @@ struct Shoot : EnemyStrat {
 		if (!foundBullet) printf("Bullet array full! Ah!\n");
 		else entity->timeSinceLastShot = 0.0f;
 	}
+
 };
 
 struct EnemyStrats {
@@ -244,18 +250,25 @@ void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 			world.camera.moveRight(deltaTime);
 		}
-	} else if (mode == MODE_LEVEL_EDIT) {
+	}
+	else if (mode == MODE_LEVEL_EDIT) {
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			world.camera.moveUp(deltaTime);
+			world.camera.moveUpOne();
 		}
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			world.camera.moveDown(deltaTime);
+			world.camera.moveDownOne();
 		}
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			world.camera.moveLeft(deltaTime);
+			world.camera.moveLeftOne();
 		}
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			world.camera.moveRight(deltaTime);
+			world.camera.moveRightOne();
+		}
+		if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS) {
+			world.camera.moveForward(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS) {
+			world.camera.moveBack(deltaTime);
 		}
 	}
 }
@@ -274,6 +287,10 @@ unsigned int getCurrentLevel() {
 	return currentLevel;
 }
 
+unsigned int getEnemySelection() {
+	return currentEnemyTypeSelection;
+}
+
 void goBackOneLevel() {
 	if (currentLevel == 0) currentLevel = levelCount - 1;
 	else currentLevel--;
@@ -286,6 +303,20 @@ void goForwardOneLevel() {
 	if (currentLevel >= levelCount) currentLevel = 0;
 
 	loadCurrentLevel();
+}
+
+void goBackOneEnemyType() {
+	int numEnemyTypes = sizeof(enemyStrats) / sizeof(enemyStrats.follow);
+	
+	if (currentEnemyTypeSelection == 0) currentEnemyTypeSelection = numEnemyTypes - 1;
+	else currentEnemyTypeSelection--;
+}
+
+void goForwardOneEnemyType() {
+	unsigned int numEnemyTypes = sizeof(enemyStrats) / sizeof(enemyStrats.follow);
+
+	currentEnemyTypeSelection++;
+	if (currentEnemyTypeSelection >= numEnemyTypes) currentEnemyTypeSelection = 0;
 }
 
 void addEnemyToLevel(int type, my_ivec2 gridCoords) {
@@ -314,6 +345,32 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	world.numEnemies++;
 }
 
+my_ivec3 cameraCenterToGridCoords() {
+	my_vec3 startingPos = world.camera.position;
+	my_vec3 dirVec = world.camera.front;
+
+	//addTextToBox("startingPos: (" + std::to_string(startingPos.x) + ", " + std::to_string(startingPos.y) + ", " + std::to_string(startingPos.z) + ")", &eventTextBox);
+	//addTextToBox("dirVec: (" + std::to_string(dirVec.x) + ", " + std::to_string(dirVec.y) + ", " + std::to_string(dirVec.z) + ")", &eventTextBox);
+
+	my_vec3 current = startingPos;
+
+	float rayStep = 0.1f;
+
+	// just checking against z = 0 plane for now, may need more robust solution later
+	while (current.z > 0) {
+		current.x += dirVec.x * rayStep;
+		current.y += dirVec.y * rayStep;
+		current.z += dirVec.z * rayStep;
+	}
+
+	//addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
+	my_ivec3 gridCoords = worldOffsetToGridCoords(current);
+	
+	//addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
+
+	return gridCoords;
+}
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (mode != MODE_LEVEL_EDIT) return;
@@ -333,35 +390,41 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 		// check in editor box
 		if (mode == MODE_LEVEL_EDIT) {
 			if (editorUI.click(my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight)))) return;
-		}		
+		}
 				
 		// place enemy
+		// TODO: Raycast from click coords instead of camera center.
+		// Slight hack to get a working way to place enemies before groking a raycast from click coords. (carver - 9-09-2020)
+		my_ivec3 gridCoords = cameraCenterToGridCoords();
 
-		// TODO: create dirVec normalized difference between starting vec and vec based on clickCoords
-		my_vec3 startingPos = world.camera.position;
-		my_vec3 dirVec = world.camera.front;
-
-		addTextToBox("startingPos: (" + std::to_string(startingPos.x) + ", " + std::to_string(startingPos.y) + ", " + std::to_string(startingPos.z) + ")", &eventTextBox);
-		addTextToBox("dirVec: (" + std::to_string(dirVec.x) + ", " + std::to_string(dirVec.y) + ", " + std::to_string(dirVec.z) + ")", &eventTextBox);
-
-		my_vec3 current = startingPos;
-			
-		float rayStep = 0.1f;
-
-		// just checking against z = 0 plane for now, may need more robust solution later
-		while (current.z > 0) {
-			current.x += dirVec.x * rayStep;
-			current.y += dirVec.y * rayStep;
-			current.z += dirVec.z * rayStep;
-		}
-
-		addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
-		my_ivec3 gridCoords = worldOffsetToGridCoords(current);
-		addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
-
+		// TODO: maybe find a better way to keep world and level in sync
+		//			- may end up with a staging level struct at some point
 		addEnemyToWorld(1, my_ivec2(gridCoords.x, gridCoords.y));
 		addEnemyToLevel(1, my_ivec2(gridCoords.x, gridCoords.y));
-		
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+		// get grid coords
+		my_ivec3 gridCoords = cameraCenterToGridCoords();
+		my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
+
+		// remove target enemy from world
+		for (int i = 0; i < MAX_ENEMIES; i++) {
+			if (world.enemies[i].current) {
+				if (worldOffset.x == world.enemies[i].worldOffset.x &&
+					worldOffset.y == world.enemies[i].worldOffset.y) {
+					world.enemies[i].current = false;
+				}
+			}
+		}
+
+		// remove target enemy from level
+		for (int i = 0; i < MAX_ENEMIES; i++) {
+			if (levels[currentLevel].enemies[i].gridX == gridCoords.x &&
+				levels[currentLevel].enemies[i].gridY == gridCoords.y) {
+				levels[currentLevel].removeEnemy(i);
+			}
+		}
 	}
 }
 
@@ -490,14 +553,11 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::
 // TODO: clean up model creation
 void createBulletModel() {
 	Mesh bulletMesh = Mesh(regularShaderProgramID, &materials.grey);
-	bulletMesh.drawOutline = true;
 	
 	Mesh enemyBulletMesh = Mesh(regularShaderProgramID, &materials.gold);
-	enemyBulletMesh.drawOutline = true;
 	
 	Mesh bulletPartMesh = Mesh(regularShaderProgramID, &materials.grey);
-	bulletPartMesh.drawOutline = true;	
-
+	
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
 	models.bullet.scale(my_vec3(0.5f));
@@ -528,11 +588,9 @@ void createGridFloorAndWallModels() {
 
 void createPlayerAndEnemyModels() {
 	Mesh playerMesh = Mesh(regularShaderProgramID, &materials.chrome);
-	playerMesh.drawOutline = true;
 	
 	Mesh enemyMesh = Mesh(regularShaderProgramID, &materials.ruby);
-	playerMesh.drawOutline = true;
-
+	
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
 	
@@ -696,8 +754,6 @@ void updateEnemies(float deltaTime) {
 
 void checkBulletsForWallCollisions() {
 
-    // TODO: bug: collision with north wall is off (I would guess by 0.5f) --> bullet detects hit too early
-    //            Is BY off by 0.5f?
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(!world.playerBullets[i].current) continue;
         if(world.playerBullets[i].worldOffset.x < world.wallBounds.AX ||
@@ -822,6 +878,17 @@ void loadCurrentLevel() {
 	models.wallTopModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
 }
 
+void drawProspectiveOutline() {
+	// turn current center of screen into grid coordinates
+	my_ivec3 gridCoords = cameraCenterToGridCoords();
+	
+	my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
+	worldOffset.z = 1.05f; // extra for outline visibility
+
+	// draw just an outline in that space
+	models.enemy.drawOnlyOutline(worldOffset);
+}
+
 int main() {
 	// ------------ INIT STUFF -------------
 
@@ -928,23 +995,12 @@ int main() {
         drawEnemies();
         drawBullets();
 		drawParticleEmitters();
-
-		/*
-			if (world.numEnemies <= 0) {
+		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
+				
+		if (world.numEnemies <= 0) {
 			pause = true;
-			if (currentLevel == 1) {
-				initializeWorld(level_2);
-				currentLevel = 2;
-			}
-			else if (currentLevel == 2) {
-				initializeWorld(level_3);
-				currentLevel = 3;
-			}
-			else if (currentLevel == 3) {
-				initializeWorld(level_1);
-				currentLevel = 1;
-			}			
-		}*/
+			goForwardOneLevel();
+		}
 	
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls

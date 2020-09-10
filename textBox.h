@@ -181,6 +181,7 @@ void drawTextBox(Textbox *textbox, Font *font) {
 	}
 }
 
+// TODO: This needs wraparound.
 void addTextToBox(std::string newText, Textbox *textbox) {
 	textbox->lines[textbox->numLinesUsed] = newText;
 
