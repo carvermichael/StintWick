@@ -45,7 +45,7 @@ struct Materials {
 			Material silver;
 			Material gold;
 			Material blackRubber;			
-			Material grey;			
+			Material grey;	
 		};
 	};
 

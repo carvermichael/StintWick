@@ -8,26 +8,6 @@
 
 #define PI 3.14159f
 
-// not sure this belongs here...
-struct AABB {
-
-	union {
-		struct {
-			float AX;
-			float AY;
-			float BX;
-			float BY;
-		};
-
-		struct {
-			float left;
-			float top;
-			float right;
-			float bottom;
-		};
-	};
-};
-
 struct my_vec2 {
 	float x;
 	float y;
@@ -154,6 +134,32 @@ struct mat4 {
 
 	
 
+};
+
+struct AABB {
+
+	union {
+		struct {
+			float AX;
+			float AY;
+			float BX;
+			float BY;
+		};
+
+		struct {
+			float left;
+			float top;
+			float right;
+			float bottom;
+		};
+	};
+
+	void set(my_vec2 topLeft, float height, float width) {
+		AX = topLeft.x;
+		AY = topLeft.y;
+		BX = topLeft.x + width;
+		BY = topLeft.y - height;
+	}
 };
 
 // ----- operators -----

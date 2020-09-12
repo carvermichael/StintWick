@@ -179,7 +179,7 @@ struct Enemy : Entity {
 		worldOffset.z = offset.z + 0.05f;
         updateWorldOffset(offset.x, offset.y);
 		timeBetweenShots = 1.8f;
-		speed = 16.0f;
+		speed = 10.0f;
 		shotSpeed = 35.0f;
 
 		strat = newStrat;

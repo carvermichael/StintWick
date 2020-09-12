@@ -103,6 +103,8 @@ struct Follow : EnemyStrat {
 
 struct Shoot : EnemyStrat {
 
+	Shoot() : EnemyStrat() {};
+
 	void update(Entity *entity, Player *player, float deltaTime) {
 		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
 
@@ -126,11 +128,10 @@ struct Shoot : EnemyStrat {
 
 };
 
+#define NUM_ENEMY_STRATS 2
 struct EnemyStrats {
-
-	Follow follow;
 	Shoot shoot;
-
+	Follow follow;	
 };
 
 EnemyStrats enemyStrats;
@@ -329,17 +330,16 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 		addTextToBox("ERROR: Max enemies reached.", &eventTextBox);
 		return;
 	}
-	
-	EnemyStrat *strat = &enemyStrats.shoot;
-	Material *mat = &materials.ruby;
-	if (type == 1) {
+
+	EnemyStrat	*strat	= &enemyStrats.follow;
+	if (type == 0) {
 		strat = &enemyStrats.shoot;
-		mat = &materials.ruby;
 	}
-	else if (type == 2) {
+	else if (type == 1) {		
 		strat = &enemyStrats.follow;
-		mat = &materials.gold;
 	}
+	
+	Material	*mat	= &materials.mats[type];
 
 	world.enemies[world.numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
 	world.numEnemies++;
@@ -349,24 +349,17 @@ my_ivec3 cameraCenterToGridCoords() {
 	my_vec3 startingPos = world.camera.position;
 	my_vec3 dirVec = world.camera.front;
 
-	//addTextToBox("startingPos: (" + std::to_string(startingPos.x) + ", " + std::to_string(startingPos.y) + ", " + std::to_string(startingPos.z) + ")", &eventTextBox);
-	//addTextToBox("dirVec: (" + std::to_string(dirVec.x) + ", " + std::to_string(dirVec.y) + ", " + std::to_string(dirVec.z) + ")", &eventTextBox);
-
-	my_vec3 current = startingPos;
+	my_vec3 currentPos = startingPos;
 
 	float rayStep = 0.1f;
 
-	// just checking against z = 0 plane for now, may need more robust solution later
-	while (current.z > 0) {
-		current.x += dirVec.x * rayStep;
-		current.y += dirVec.y * rayStep;
-		current.z += dirVec.z * rayStep;
+	while (currentPos.z > 0) {
+		currentPos.x += dirVec.x * rayStep;
+		currentPos.y += dirVec.y * rayStep;
+		currentPos.z += dirVec.z * rayStep;
 	}
 
-	//addTextToBox("result: (" + std::to_string(current.x) + ", " + std::to_string(current.y) + ", " + std::to_string(current.z) + ")", &eventTextBox);
-	my_ivec3 gridCoords = worldOffsetToGridCoords(current);
-	
-	//addTextToBox("gridCoords: (" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")", &eventTextBox);
+	my_ivec3 gridCoords = worldOffsetToGridCoords(currentPos);
 
 	return gridCoords;
 }
@@ -399,8 +392,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 
 		// TODO: maybe find a better way to keep world and level in sync
 		//			- may end up with a staging level struct at some point
-		addEnemyToWorld(1, my_ivec2(gridCoords.x, gridCoords.y));
-		addEnemyToLevel(1, my_ivec2(gridCoords.x, gridCoords.y));
+		addEnemyToWorld(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
+		addEnemyToLevel(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {

@@ -8,54 +8,45 @@ struct Selector {
 	unsigned int shaderProgramID;
 	Font *font;
 	
-	my_ivec2 location;
+	my_vec2 location;
+	float height;
+	float width;
 
-	// level selector
-	// TODO:
-	//	pull out of editorUI - X
-	//	duplicate for selection of enemy type to place - X
-	//  add bar above to indicate subject of selector
-	//  new level button???
 	UI_Rect leftArrow;
 	UI_Rect rightArrow;
-	UI_Rect stateIndicator; // TODO: name change
+	UI_Rect stateIndicator;
 
-	float setup(unsigned int shaderProgramID, Font *font, AABB bounds) {
+	void setup(unsigned int shaderProgramID, Font *font, my_vec2 *topLeft, float *height, float *width) {
 		this->font = font;
+
+		location.x = topLeft->x;
+		location.y = topLeft->y;
+
+		this->width = *width;
+		this->height = *height / 20.0f;
+
+		float arrowWidth		= *width * 0.25f;
+		float indicatorWidth	= *width * 0.50f;
+
+		float currentX = topLeft->x;
 		
 		leftArrow.setup(shaderProgramID);
 		leftArrow.color = my_vec4(0.25f, 0.05f, 0.05f, 0.6f);
-
-		float boundsWidth = bounds.BX - bounds.AX;
-		float boundsHeight = bounds.AY - bounds.BY;
-
-		// TODO: just set position and width/height --> UIRect should work out bounds from there
-		leftArrow.height = (boundsHeight) / 20.0f;
-		leftArrow.width = (boundsWidth) / 4.0f;
-		leftArrow.bounds.AX = bounds.AX;
-		leftArrow.bounds.AY = (float) currentScreenHeight;
-		leftArrow.bounds.BX = leftArrow.bounds.AX + leftArrow.width;
-		leftArrow.bounds.BY = leftArrow.bounds.AY - leftArrow.height;
-
-		rightArrow.setup(shaderProgramID);
-		rightArrow.color = my_vec4(0.25f, 0.05f, 0.05f, 0.6f);
-		rightArrow.height = leftArrow.height;
-		rightArrow.width = leftArrow.width;
-		rightArrow.bounds.AX = bounds.BX - rightArrow.width;
-		rightArrow.bounds.AY = (float) currentScreenHeight;
-		rightArrow.bounds.BX = rightArrow.bounds.AX + rightArrow.width;
-		rightArrow.bounds.BY = rightArrow.bounds.AY - rightArrow.height;
+		leftArrow.setBounds(my_vec2(currentX, location.y), this->height, arrowWidth);
+		currentX += arrowWidth;
 
 		stateIndicator.setup(shaderProgramID);
 		stateIndicator.color = my_vec4(0.25f, 0.25f, 0.05f, 0.6f);
-		stateIndicator.height = leftArrow.height;
-		stateIndicator.width = boundsWidth - leftArrow.width - rightArrow.width;
-		stateIndicator.bounds.AX = leftArrow.bounds.BX;
-		stateIndicator.bounds.AY = (float) currentScreenHeight;
-		stateIndicator.bounds.BX = stateIndicator.bounds.AX + stateIndicator.width;
-		stateIndicator.bounds.BY = stateIndicator.bounds.AY - stateIndicator.height;
+		stateIndicator.setBounds(my_vec2(currentX, location.y), this->height, arrowWidth);
+		currentX += indicatorWidth;
 
-		return stateIndicator.bounds.BY;
+		rightArrow.setup(shaderProgramID);
+		rightArrow.color = my_vec4(0.25f, 0.05f, 0.05f, 0.6f);
+		rightArrow.setBounds(my_vec2(currentX, location.y), this->height, arrowWidth);
+		currentX += indicatorWidth;
+
+		topLeft->y	-= this->height;
+		*height		-= this->height;
 	}
 
 	void draw() {
@@ -127,7 +118,7 @@ struct EnemySelector : Selector {
 		rightArrow.draw();
 		stateIndicator.draw();
 
-		std::string enemyIndicatorString = "EnemyType: " + std::to_string(getEnemySelection());
+		std::string enemyIndicatorString = "E: " + std::to_string(getEnemySelection());
 		drawText(font, enemyIndicatorString, stateIndicator.bounds.AX + 8.0f, stateIndicator.bounds.BY + 4.0f, 0.5f, my_vec3(1.0f, 1.0f, 1.0f));
 	}
 };
@@ -162,18 +153,18 @@ struct EditorUI {
 		background.color = my_vec4(0.75f, 0.1f, 0.1f, 0.3f);
 		background.setBounds(bounds);
 
-		// TODO: Rethink the bounds stuff here. This probably should just pass an initial (x,y) and (h,w).
-		float newTop = levelSelector.setup(shaderProgramID, font, bounds);
-		AABB remainingBounds = bounds;
-		remainingBounds.AY = newTop;
-
-		enemySelector.setup(shaderProgramID, font, remainingBounds);
+		my_vec2 currentTopLeft = my_vec2(bounds.AX, bounds.AY);
+		float remainingHeight = this->height;
+		float remainingWidth  = this->width;
+		
+		levelSelector.setup(shaderProgramID, font, &currentTopLeft, &remainingHeight, &remainingWidth);
+		enemySelector.setup(shaderProgramID, font, &currentTopLeft, &remainingHeight, &remainingWidth);
 	}
 
 	void draw() {
 		background.draw();
 		levelSelector.draw();
-		//enemySelector.draw();
+		enemySelector.draw();
 	}
 
 	boolean click(my_vec2 clickCoords) {
@@ -182,7 +173,7 @@ struct EditorUI {
 
 		// then, go through elements, return after first one gets dibs
 		if (levelSelector.click(clickCoords)) return true;
-		//if (enemySelector.click(clickCoords)) return true;
+		if (enemySelector.click(clickCoords)) return true;
 		
 		return true;
 	}

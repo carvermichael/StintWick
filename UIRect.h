@@ -42,10 +42,13 @@ struct UI_Rect {
 	// TODO: remove, use bounds param instead
 	// format (leftX, rightX, topY, bottomY)
 	void setBounds(my_vec4 coords) {
-		bounds.left = coords.x;
-		bounds.right = coords.y;
-		bounds.top = coords.z;
-		bounds.bottom = coords.w;
+		bounds.left		= coords.x;
+		bounds.right	= coords.y;
+		bounds.top		= coords.z;
+		bounds.bottom	= coords.w;
+
+		this->height = bounds.right - bounds.left;
+		this->height = bounds.bottom - bounds.top;
 	}
 
 	void setBounds(AABB bounds) {
@@ -53,6 +56,15 @@ struct UI_Rect {
 		this->bounds.right	= bounds.right;
 		this->bounds.top	= bounds.top;
 		this->bounds.bottom = bounds.bottom;
+
+		this->height = bounds.right - bounds.left;
+		this->height = bounds.bottom - bounds.top;
+	}
+
+	void setBounds(my_vec2 topLeft, float height, float width) {
+		bounds.set(topLeft, height, width);
+		this->height;
+		this->width;
 	}
 
 	void draw() {
