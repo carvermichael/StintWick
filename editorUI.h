@@ -37,7 +37,7 @@ struct Selector {
 
 		stateIndicator.setup(shaderProgramID);
 		stateIndicator.color = my_vec4(0.25f, 0.25f, 0.05f, 0.6f);
-		stateIndicator.setBounds(my_vec2(currentX, location.y), this->height, arrowWidth);
+		stateIndicator.setBounds(my_vec2(currentX, location.y), this->height, indicatorWidth);
 		currentX += indicatorWidth;
 
 		rightArrow.setup(shaderProgramID);

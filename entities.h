@@ -189,7 +189,6 @@ struct Enemy : Entity {
 		timeSinceLastShot = (float)(rand() % 50) / 100.0f;
     }
 
-	// simple following
 	void update(Player *player, float deltaTime) {
 		strat->update(this, player, deltaTime);
 	}
@@ -197,6 +196,39 @@ struct Enemy : Entity {
 	void draw() {
 		model->draw(worldOffset, 1.0f, 0.0f, mat);
 	}
+};
+
+struct Follow : EnemyStrat {
+	void update(Entity *entity, Player *player, float deltaTime) {
+		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
+		my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
+
+		entity->updateWorldOffset(newWorldOffset.x, newWorldOffset.y);
+	}
+};
+
+struct Shoot : EnemyStrat {
+
+	Shoot() : EnemyStrat() {};
+
+	void update(Entity *entity, Player *player, float deltaTime) {
+		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
+
+		entity->timeSinceLastShot += deltaTime;
+
+		if (entity->timeSinceLastShot >= entity->timeBetweenShots) {
+
+			createBullet(entity->worldOffset, dirVec, entity->shotSpeed);
+
+			entity->timeSinceLastShot = 0.0f;
+		}
+	}
+};
+
+#define NUM_ENEMY_STRATS 2
+struct EnemyStrats {
+	Shoot shoot;
+	Follow follow;
 };
 
 #define ENTITIES

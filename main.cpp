@@ -16,12 +16,15 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
 #include <vector>
 #include <stdlib.h>
 #include <map>
 
 #include "math.h"
+#include "constants.h"
 
+// Dumb forward declarations...
 void createParticleEmitter(my_vec3 newPos);
 void processConsoleCommand(std::string command);
 void loadCurrentLevel();
@@ -31,110 +34,70 @@ void goBackOneEnemyType();
 void goForwardOneEnemyType();
 unsigned int getCurrentLevel();
 unsigned int getEnemySelection();
+void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed);
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
 void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3);
 void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4);
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4);
 
-#include "constants.h"
-
-unsigned int currentScreenHeight	= INITIAL_SCREEN_HEIGHT;
-unsigned int currentScreenWidth		= INITIAL_SCREEN_WIDTH;
+// Random Global State
+unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
+unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
+unsigned int mode = MODE_PLAY;
+float globalDeltaTime = 0.0f;
+float lastFrameTime = 0.0f;
+float lastCursorX = 400;
+float lastCursorY = 300;
+unsigned int currentLevel = 0;
+unsigned int currentEnemyTypeSelection = 0;
+bool firstMouse = true;
+int timeStepDenom = 1;
+bool pause = true;
+bool lightOrbit = false;
+bool guidingGrid = false;
 
 #include "model.h"
-Models models;
-Materials materials;
-
 #include "camera.h"
-
 #include "worldState.h"
-
 #include "shader.h"
 #include "textBox.h"
 #include "console.h"
 #include "editorUI.h"
-EditorUI editorUI;
-
 #include "shapeData.h"
+#include "levels.h"
 
+// OpenGL Stuff
 unsigned int regularShaderProgramID;
 unsigned int lightShaderProgramID;
 unsigned int UIShaderProgramID;
 unsigned int textShaderProgramID;
-
-unsigned int mode = MODE_PLAY;
-
-// Note: Can't add an extra param to key callback. Could use the window's user pointer, but I'm lazy. (carver - 8-20-20)
-float globalDeltaTime = 0.0f;
-float lastFrameTime = 0.0f;
-
-float lastCursorX = 400;
-float lastCursorY = 300;
-
-unsigned int currentLevel = 0;
-unsigned int currentEnemyTypeSelection = 0;
-
-bool firstMouse = true;
-int timeStepDenom = 1;
-bool pause = true;
-
-#include "levels.h"
-
 glm::mat4 projection;
 
-bool lightOrbit = false;
-bool guidingGrid = false;
+// Larger Game Pieces
+Models models;
+Materials materials;
+EnemyStrats enemyStrats;
 
+EditorUI editorUI;
 Console console;
 WorldState world;
 
 #include "controls.h"
 
-struct Follow : EnemyStrat {
-
-	void update(Entity *entity, Player *player, float deltaTime) {
-		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
-		my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
-
-		entity->updateWorldOffset(newWorldOffset.x, newWorldOffset.y);
-	}
-
-};
-
-struct Shoot : EnemyStrat {
-
-	Shoot() : EnemyStrat() {};
-
-	void update(Entity *entity, Player *player, float deltaTime) {
-		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
-
-		entity->timeSinceLastShot += deltaTime;
-		if (entity->timeSinceLastShot < entity->timeBetweenShots) return;
-
-		bool foundBullet = false;
-		for (int i = 0; i < MAX_BULLETS; i++) {
-			if (!world.enemyBullets[i].current) {
-				world.enemyBullets[i].init(entity->worldOffset,
-					my_vec2(dirVec.x, dirVec.y),
-					&models.enemyBullet, entity->shotSpeed);
-				foundBullet = true;
-				break;
-			}
+void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
+	bool foundBullet = false;
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (!world.enemyBullets[i].current) {
+			world.enemyBullets[i].init(worldOffset,
+				my_vec2(dirVec.x, dirVec.y),
+				&models.enemyBullet, speed);
+			foundBullet = true;
+			break;
 		}
-
-		if (!foundBullet) printf("Bullet array full! Ah!\n");
-		else entity->timeSinceLastShot = 0.0f;
 	}
 
-};
-
-#define NUM_ENEMY_STRATS 2
-struct EnemyStrats {
-	Shoot shoot;
-	Follow follow;	
-};
-
-EnemyStrats enemyStrats;
+	if (!foundBullet) printf("Bullet array full! Ah!\n");
+}
 
 void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
@@ -543,22 +506,18 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::
 	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat4));
 }
 
-// TODO: clean up model creation
 void createBulletModel() {
 	Mesh bulletMesh = Mesh(regularShaderProgramID, &materials.grey);
-	
-	Mesh enemyBulletMesh = Mesh(regularShaderProgramID, &materials.gold);
-	
-	Mesh bulletPartMesh = Mesh(regularShaderProgramID, &materials.grey);
-	
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
 	models.bullet.scale(my_vec3(0.5f));
 
+	Mesh enemyBulletMesh = Mesh(regularShaderProgramID, &materials.gold);
 	models.enemyBullet.name = std::string("enemyBullet");
 	models.enemyBullet.meshes.push_back(enemyBulletMesh);
 	models.enemyBullet.scale(my_vec3(0.5f));
 
+	Mesh bulletPartMesh = Mesh(regularShaderProgramID, &materials.grey);
 	models.bulletPart.name = std::string("bulletPart");
 	models.bulletPart.meshes.push_back(bulletPartMesh);
 	models.bulletPart.scale(my_vec3(0.15f));
@@ -566,27 +525,24 @@ void createBulletModel() {
 
 void createGridFloorAndWallModels() {
 	Mesh floorMesh = Mesh(regularShaderProgramID, &materials.emerald);
-	Mesh wallTopMesh = Mesh(regularShaderProgramID, &materials.gold);
-	Mesh wallLeftMesh = Mesh(regularShaderProgramID, &materials.gold);
-
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
 	
+	Mesh wallLeftMesh = Mesh(regularShaderProgramID, &materials.gold);
 	models.wallLeftModel.name = std::string("wall");
 	models.wallLeftModel.meshes.push_back(wallLeftMesh);
 	
+	Mesh wallTopMesh = Mesh(regularShaderProgramID, &materials.gold);
 	models.wallTopModel.name = std::string("wall");
 	models.wallTopModel.meshes.push_back(wallTopMesh);	
 }
 
 void createPlayerAndEnemyModels() {
 	Mesh playerMesh = Mesh(regularShaderProgramID, &materials.chrome);
-	
-	Mesh enemyMesh = Mesh(regularShaderProgramID, &materials.ruby);
-	
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
 	
+	Mesh enemyMesh = Mesh(regularShaderProgramID, &materials.ruby);
 	models.enemy.name = std::string("enemy");
 	models.enemy.meshes.push_back(enemyMesh);
 	models.enemy.scale(my_vec3(1.0f, 1.0f, 0.5f));
@@ -690,7 +646,6 @@ void guidingGridSetup() {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 }
-
 void drawGuidingGrid() {
 	glUseProgram(regularShaderProgramID);
 
@@ -955,8 +910,6 @@ int main() {
 
     float targetFrameTime = 1.0f / 60.0f;
 
-	//translate(mat4(), my_vec3()); // should fail
-
 	editorUI.setup(UIShaderProgramID, &arial);
 
 	// game loop
@@ -1004,7 +957,6 @@ int main() {
 		
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	
-		//printf("DeltaTime: %f ", deltaTime);
 		
         if(deltaTime < targetFrameTime) {
 			int timeToSleepMS = (int) (1000.0f * (targetFrameTime - deltaTime));
@@ -1023,11 +975,10 @@ int main() {
 
 		float frameTime = deltaTime * 1000.0f;
 
-		// TODO: fix this hack --> should be a simple ACTUAL textbox that you can put this into. The "textBox" then is a group of those.
-		//addTextToBoxAtLine("FPS: " + std::to_string(fps), 0, &fpsBox); 
-		//printf("FrameTime(ms): %f ", frameTime); // put these in a textbox
-		//printf("FPS: %f \n", 1.0f / deltaTime);
-
+		std::stringstream stream;
+		stream << "FrameTime(ms): " << std::setprecision(4) << frameTime;
+		drawText(&arial, stream.str(), 0, (float) currentScreenHeight - 30.0f, 0.5f, my_vec3(1.0f));
+		
         timeStep = deltaTime / timeStepDenom;
 		if (pause) timeStep = 0.0f;
 		globalDeltaTime = deltaTime;

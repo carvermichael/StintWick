@@ -97,10 +97,10 @@ struct Console {
 		
 		historyTextbox.y = location + 27.0f;
 
-		boundingRect.setBounds(my_vec4(0.0f, (float) currentScreenWidth, location, (float) currentScreenHeight));
+		boundingRect.setBounds(AABB(0.0f, (float) currentScreenWidth, location, (float) currentScreenHeight));
 		boundingRect.draw();
 
-		inputRect.setBounds(my_vec4(0.0f, (float) currentScreenWidth, location + 25.0f, location));
+		inputRect.setBounds(AABB(0.0f, (float) currentScreenWidth, location + 25.0f, location));
 		inputRect.draw();
 
 		//timeSinceEditMarkerFlip += deltaTime;

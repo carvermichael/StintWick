@@ -1,6 +1,5 @@
 #if !defined(PLAYER_ACTION)
 
-// lotta @HARDCODE
 void movePlayer(float x, float y) {
     x *= world.player.speed;
     y *= world.player.speed;

@@ -1,22 +1,14 @@
 #pragma once
 
 #include <fstream>
+#include <sstream>
+#include "constants.h"
+#include "math.h"
 
 // TODO: set four different entrances/exits &
 //		 also 4 different player spawn points
 
 // TODO: names for levels??
-
-/*
-	9-5-20 TODO - Level Editor:
-
-	- when click, add enemies to Level struct - X
-	- have button for saving - X - F5
-		- which then persists to levels.lev - X
-	- UI interaction for selecting levels - maybe later, doing console commands for now
-		- on mouse click, first check for UI interactions
-		- create textBox with current level number
-*/
 
 /*
 	Example .lev format:
@@ -50,7 +42,7 @@ struct Level {
 	struct enemy {
 		int enemyType;
 		int gridX;
-		int gridY;	
+		int gridY;
 	};
 
 	enemy enemies[MAX_ENEMIES];

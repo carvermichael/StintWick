@@ -160,6 +160,15 @@ struct AABB {
 		BX = topLeft.x + width;
 		BY = topLeft.y - height;
 	}
+
+	AABB() {};
+	
+	AABB(float left, float right, float top, float bottom) {
+		this->top		= top;
+		this->bottom	= bottom; 
+		this->left		= left;
+		this->right		= right;
+	}
 };
 
 // ----- operators -----
