@@ -120,20 +120,62 @@ struct my_vec4 {
 		this->z = all;
 		this->w = all;
 	}
+
+	float operator[](int i) {
+		assert(i >= 0 && i < 4);
+
+		if (i == 0) return x;
+		if (i == 1) return y;
+		if (i == 2) return z;
+		if (i == 3) return w;
+
+		return x;
+	}
 };
 
-// TODO:
-// not sure how to refer to this
-// probably want to overload the [] operators
-// need to find more usage code...
+struct my_mat4 {
 
-// This has to be aligned in a very specific way, cause
-// openGL, when setting mat4 uniforms, takes a pointer
-// to the first entry, and thus assumes the entire structure.
-struct mat4 {
+	my_vec4 col0;
+	my_vec4 col1;
+	my_vec4 col2;
+	my_vec4 col3;	
 
-	
+	my_mat4() {
 
+	}
+
+	my_mat4(glm::mat4 glmMat4) {
+		this->col0.x = glmMat4[0][0];
+		this->col0.y = glmMat4[0][1];
+		this->col0.z = glmMat4[0][2];
+		this->col0.w = glmMat4[0][3];
+
+		this->col1.x = glmMat4[1][0];
+		this->col1.y = glmMat4[1][1];
+		this->col1.z = glmMat4[1][2];
+		this->col1.w = glmMat4[1][3];
+
+		this->col2.x = glmMat4[2][0];
+		this->col2.y = glmMat4[2][1];
+		this->col2.z = glmMat4[2][2];
+		this->col2.w = glmMat4[2][3];
+
+		this->col3.x = glmMat4[3][0];
+		this->col3.y = glmMat4[3][1];
+		this->col3.z = glmMat4[3][2];
+		this->col3.w = glmMat4[3][3];
+	}
+
+	my_vec4 operator[](int i) {
+		assert(i >= 0 && i < 4);
+
+		if (i == 0) return col0;
+		if (i == 1) return col1;
+		if (i == 2) return col2;
+		if (i == 3) return col3;
+
+		return col1;
+	}
 };
 
 struct AABB {
@@ -222,48 +264,91 @@ my_vec3 normalize(my_vec3 v) {
 
 my_vec3 crossproduct(my_vec3 a, my_vec3 b) {
 	return my_vec3(a.y*b.z - a.z*b.y,
-				a.z*b.x - a.x*b.z,
-				a.x*b.y - a.y*b.x);
+				   a.z*b.x - a.x*b.z,
+				   a.x*b.y - a.y*b.x);
 }
 
 glm::vec3 toGLM(my_vec3 v) {
 	return glm::vec3(v.x, v.y, v.z);
 }
 
-// TODO
-mat4 perspective(float fovy, float aspect, float zNear, float zFar) {
+// Used to create the cut-off pyramid frustum in going from view space
+// to clip space. Current use: for standard 3D camera perspective (depth
+// testing needs to be on, of course).
+my_mat4 perspective(float fovy, float aspect, float zNear, float zFar) {
+	// TODO
+
 	assert(0);
 
-	return mat4();
+	return my_mat4();
 }
 
-// TODO
-mat4 ortho(float left, float right, float bottom, float top) {
+// Used to create a rectangular frustrum in going from view space
+// to clip space. Current use: for UI elements (note: depth testing is 
+// off here, too).
+my_mat4 ortho(float left, float right, float bottom, float top) {
+	// TODO
+
 	assert(0);
 
-	return mat4();
+	return my_mat4();
 }
 
-// TODO
-mat4 translate(mat4 inMat4, my_vec3 inVec3) {
+
+// Puts the vec3 into the last column of the given matrix.
+// The matrix then adds the effect of moving a vec4 by the amount given in the
+// last column, assuming that the w of that vec4 is 1.
+
+// Typical use: adding a worldOffset (the vec3) to the identity matrix, then 
+//				using the result as the model matrix when going from
+//				local space to world space.
+my_mat4 translate(my_mat4 inMat4, my_vec3 inVec3) {
+	// TODO
+
 	assert(0);
 
-	return mat4();
+	return my_mat4();
 }
 
-// TODO
-mat4 lookAt(my_vec3 pos, my_vec3 posFront, my_vec3 up) {
+// Used for generating the view matrix, which then is used
+// to translate from world space to view space.
+my_mat4 lookAt(my_vec3 pos, my_vec3 posFront, my_vec3 up) {
+	// TODO
+
 	assert(0);
 
-	return mat4();
+	return my_mat4();
 }
+
+void printGLMMat4(glm::mat4 mat4) {
+	printf("---------------------------------\n");
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][0], mat4[1][0], mat4[2][0], mat4[3][0]);
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][1], mat4[1][1], mat4[2][1], mat4[3][1]);
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][2], mat4[1][2], mat4[2][2], mat4[3][2]);
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][3], mat4[1][3], mat4[2][3], mat4[3][3]);
+	printf("---------------------------------\n");
+}
+
+void printMat4(my_mat4 mat4) {
+	printf("---------------------------------\n");
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][0], mat4[1][0], mat4[2][0], mat4[3][0]);
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][1], mat4[1][1], mat4[2][1], mat4[3][1]);
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][2], mat4[1][2], mat4[2][2], mat4[3][2]);
+	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][3], mat4[1][3], mat4[2][3], mat4[3][3]);
+	printf("---------------------------------\n");
+}
+
+
+
+
+
 
 // ----- trig -----
 float radians(float degrees) {
 	return degrees * PI / 180;
 }
 
-//// punting on these two, using cmath for now
+//// punting on these two, using glm functions for now
 //// might implement this later: http://www.mathonweb.com/help_ebook/html/algorithms.htm
 //float sin(float radians) {
 //	return sinf(radians);

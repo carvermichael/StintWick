@@ -50,6 +50,7 @@ struct Console {
 		destination = (float)currentScreenHeight;
 		speed = 10.0f;
 
+
 		isOut = false;
 	}
 
@@ -64,6 +65,7 @@ struct Console {
 		
 		historyTextbox.maxLinesToShow = 10;
 		historyTextbox.flip = true;
+
 	}
 
 	void addInput(char input) {

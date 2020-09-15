@@ -102,6 +102,8 @@ void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
 void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
+	//printGLMMat4(projection);
+
 	setUniformMat4(regularShaderProgramID, "projection", projection);
 	setUniformMat4(lightShaderProgramID, "projection", projection);
 
@@ -503,7 +505,14 @@ void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
 	glUseProgram(shaderProgramID);
 	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat4));
+	my_mat4 myMat4 = my_mat4(mat4);
+	glUniformMatrix4fv(location, 1, GL_FALSE, (GLfloat *)&myMat4);
+}
+
+void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_mat4 mat4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniformMatrix4fv(location, 1, GL_FALSE, (GLfloat *)&mat4);
 }
 
 void createBulletModel() {
