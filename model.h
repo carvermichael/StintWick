@@ -34,6 +34,7 @@ struct Materials {
 			// Order matters here!! The order of enemy strats syncs with material order
 			// such that a single index can signify an enemy's appearance and strategy.
 			//				-- carver (9-10-20)
+
 			// enemy mats
 			Material ruby;
 			Material yellow;
@@ -174,10 +175,10 @@ struct Mesh {
 		}		
 
 		if (outlineFactor > 0.0f) { // could I just let this fly, do the draw with the zero mult?
-			setUniform3f(shaderProgramID, "materialAmbient", mat->ambient * outlineFactor);
-			setUniform3f(shaderProgramID, "materialDiffuse", mat->diffuse * outlineFactor);
-			setUniform3f(shaderProgramID, "materialSpecular", mat->specular * outlineFactor);
-			setUniform1f(shaderProgramID, "materialShininess", 1.0f);
+			setUniform3f(shaderProgramID, "materialAmbient", my_vec3(1.0f) * outlineFactor);
+			setUniform3f(shaderProgramID, "materialDiffuse", my_vec3(1.0f) * outlineFactor);
+			setUniform3f(shaderProgramID, "materialSpecular", my_vec3(1.0f) * outlineFactor);
+			setUniform1f(shaderProgramID, "materialShininess", 100.0f);
 
 			glDepthFunc(GL_LEQUAL);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_EBO_ID);

@@ -118,11 +118,29 @@ struct Entity {
 	float timeSinceLastShot = 0.0f; // seconds
 	float timeBetweenShots = 0.25f; // seconds
 
+	bool blinking = false;
+	bool blinkOn = false;
+	float blinkTime = 0.35f;
+	float lastBlinkTime = 0.0f;
+
 	float speed = 10.0f;
 	float shotSpeed = 45.0f;
 
-	void draw() {
-		model->draw(worldOffset);
+	void draw(float deltaTime) {
+		float outlineFactor = 0.0f;
+		
+		if (blinking) {
+			lastBlinkTime += deltaTime;
+			if (lastBlinkTime >= blinkTime) {
+				blinkOn = !blinkOn;
+				lastBlinkTime = 0.0f;
+			}
+			if (blinkOn) {
+				outlineFactor = 1.0f;
+			}
+		}
+
+		model->draw(worldOffset, 1.0f, outlineFactor);
 	}
 
 	void draw(Material *mat) {

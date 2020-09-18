@@ -756,6 +756,7 @@ void checkBulletsForEnemyCollisions() {
             if(bullet->bounds.bottom > enemy->bounds.top)    continue;
 
             enemy->current = false;
+			bullet->current = false;
 			world.numEnemies--;
         }
     }
@@ -849,6 +850,10 @@ void drawProspectiveOutline() {
 	models.enemy.drawOnlyOutline(worldOffset);
 }
 
+void drawPlayerBlinking(float deltaTime) {
+
+}
+
 int main() {
 	// ------------ INIT STUFF -------------
 
@@ -862,6 +867,7 @@ int main() {
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif // __APPLE__	
 
+	glfwWindowHint(GLFW_SAMPLES, 4); // for MSAA, takes 4 samples per pixel, bufferSize *= 4
 	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "GridGame1", NULL, NULL);
 	if (window == NULL) {
 		printf("Failed to create GLFW window");
@@ -898,6 +904,7 @@ int main() {
 	// need alpha blending for text transparency
 	glEnable(GL_DEPTH_TEST);
 
+	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
@@ -924,6 +931,8 @@ int main() {
 
 	editorUI.setup(UIShaderProgramID, &arial);
 
+	world.player.blinking = true;
+
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
 		processKeyboardInput(window, deltaTime);
@@ -949,7 +958,7 @@ int main() {
 		updateParticleEmitters(timeStep);
 		
 		drawGrid();
-	    world.player.draw();
+	    world.player.draw(deltaTime);
         drawEnemies();
         drawBullets();
 		drawParticleEmitters();
