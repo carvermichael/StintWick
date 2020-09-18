@@ -40,7 +40,7 @@ struct WorldState {
 		light.pos = my_vec3(-2.0f, -5.0f, 4.0f);
 
 		numEnemies = 0;
-    }	
+    }
 };
 
 my_vec3 gridCoordsToWorldOffset(my_ivec3 gridCoords) {
@@ -66,21 +66,6 @@ my_ivec3 worldOffsetToGridCoords(my_vec3 worldOffset) {
 
 #define MAX_ENTITIES 100
 #define NUM_TURN_ENTITIES 2
-
-/*
-
-models
-worldState
-inputReplay
-sounds
-
-shaderProgramIDs
-
-// probably don't need in this grouping
-fonts
-console
-
-*/
 
 #define WORLDSTATE
 #endif

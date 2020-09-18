@@ -136,7 +136,7 @@ struct Mesh {
 	Mesh(unsigned int newShaderProgramID, Material *newMaterial) {
 		shaderProgramID = newShaderProgramID;
 		material = newMaterial;
-		
+
 		for (int i = 0; i < sizeof(cubeVertices) / sizeof(float); i++) {
 			vertices.push_back(cubeVertices[i]);
 		}

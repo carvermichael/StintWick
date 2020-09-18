@@ -41,22 +41,6 @@ void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4);
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_mat4 mat4);
 
-// Random Global State
-unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
-unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
-unsigned int mode = MODE_PLAY;
-float globalDeltaTime = 0.0f;
-float lastFrameTime = 0.0f;
-float lastCursorX = 400;
-float lastCursorY = 300;
-unsigned int currentLevel = 0;
-unsigned int currentEnemyTypeSelection = 0;
-bool firstMouse = true;
-int timeStepDenom = 1;
-bool pause = true;
-bool lightOrbit = false;
-bool guidingGrid = false;
-
 #include "model.h"
 #include "camera.h"
 #include "worldState.h"
@@ -64,24 +48,46 @@ bool guidingGrid = false;
 #include "textBox.h"
 #include "console.h"
 #include "editorUI.h"
-#include "shapeData.h"
 #include "levels.h"
 
-// OpenGL Stuff
-unsigned int regularShaderProgramID;
-unsigned int lightShaderProgramID;
-unsigned int UIShaderProgramID;
-unsigned int textShaderProgramID;
-glm::mat4 projection;
+// TODO: Get all of this on the heap
+	// Random Global State
+	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
+	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
+	unsigned int mode = MODE_PLAY;
+	float globalDeltaTime = 0.0f;
+	float lastFrameTime = 0.0f;
+	float lastCursorX = 400;
+	float lastCursorY = 300;
+	unsigned int levelCount;
+	unsigned int currentLevel = 0;
+	unsigned int currentEnemyTypeSelection = 0;
+	bool firstMouse = true;
+	int timeStepDenom = 1;
+	bool pause = true;
+	bool lightOrbit = false;
+	bool guidingGrid = false;
 
-// Larger Game Pieces
-Models models;
-Materials materials;
-EnemyStrats enemyStrats;
+	// OpenGL Stuff
+	unsigned int regularShaderProgramID;
+	unsigned int lightShaderProgramID;
+	unsigned int UIShaderProgramID;
+	unsigned int textShaderProgramID;
+	glm::mat4 projection;
 
-EditorUI editorUI;
-Console console;
-WorldState world;
+	// Larger Game Pieces
+	Models models;
+	Materials materials;
+	EnemyStrats enemyStrats;
+
+	EditorUI editorUI;
+	Console console;
+	WorldState world;
+	Level levels[MAX_LEVELS];
+	#include "shapeData.h"
+
+	Textbox eventTextBox = {};
+	Textbox fpsBox = {};
 
 #include "controls.h"
 
@@ -143,8 +149,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	
 	glViewport((width - currentScreenWidth) / 2, 0, currentScreenWidth, currentScreenHeight);
 
-	console.refresh();
-	editorUI.refresh();
+	console.refresh((float)currentScreenWidth, (float)currentScreenHeight);
+	editorUI.refresh((float)currentScreenWidth, (float)currentScreenHeight);
 
     refreshProjection();
 }
@@ -289,7 +295,7 @@ void goForwardOneEnemyType() {
 }
 
 void addEnemyToLevel(int type, my_ivec2 gridCoords) {
-	levels[currentLevel].addEnemy(type, gridCoords);
+	levels[currentLevel].addEnemy(type, gridCoords, &eventTextBox);
 }
 
 void addEnemyToWorld(int type, my_ivec2 gridCoords) {
@@ -463,7 +469,6 @@ void processConsoleCommand(std::string command) {
 
 	if (commandVector[0] == "newLevel") {
 
-
 		if (commandVector.size() < 3) {
 			addTextToBox("error: missing args gridSizeX and gridSizeY", &eventTextBox);
 			return;
@@ -472,7 +477,7 @@ void processConsoleCommand(std::string command) {
 		unsigned int gridSizeX = std::stoi(commandVector[1], nullptr, 10);
 		unsigned int gridSizeY = std::stoi(commandVector[2], nullptr, 10);
 
-		addLevel(gridSizeX, gridSizeY);
+		levelCount = addLevel(levels, levelCount, gridSizeX, gridSizeY);
 		currentLevel = levelCount - 1;
 		loadCurrentLevel();
 	}
@@ -913,11 +918,11 @@ int main() {
 	createPlayerAndEnemyModels();
     createBulletModel();
 
-	console.setup(UIShaderProgramID);
+	console.setup(UIShaderProgramID, (float)currentScreenWidth, (float)currentScreenHeight);
 	fpsBox.x = (float)(currentScreenWidth - 150);
 	fpsBox.y = (float)(currentScreenHeight - 50);
 
-	loadLevels();
+	levelCount = loadLevels(levels);
 	currentLevel = 0;
 
 	loadCurrentLevel();
@@ -929,7 +934,7 @@ int main() {
 
     float targetFrameTime = 1.0f / 60.0f;
 
-	editorUI.setup(UIShaderProgramID, &arial);
+	editorUI.setup(UIShaderProgramID, &arial, (float)currentScreenWidth, (float)currentScreenHeight);
 
 	world.player.blinking = true;
 

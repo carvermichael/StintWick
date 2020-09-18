@@ -88,7 +88,7 @@ void control_edit(int action, int key, float deltaTime) {
 	if (action != GLFW_PRESS) return;
 	
 	if (key == GLFW_KEY_F5) {
-		saveAllLevels();
+		saveAllLevels(levels, levelCount, &eventTextBox);
 	}
 	/*
 	if (key == GLFW_KEY_RIGHT) {

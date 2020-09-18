@@ -127,6 +127,8 @@ struct EditorUI {
 	Font *font;
 
 	unsigned int shaderProgramID;
+	float currentScreenWidth;
+	float currentScreenHeight;
 
 	AABB bounds;
 	float width;
@@ -137,11 +139,14 @@ struct EditorUI {
 	LevelSelector levelSelector;
 	EnemySelector enemySelector;
 
-	void setup(unsigned int shaderProgramID, Font *font) {
+	void setup(unsigned int shaderProgramID, Font *font, float screenWidth, float screenHeight) {
 		this->font = font;
 
+		this->currentScreenWidth = screenWidth;
+		this->currentScreenHeight = screenHeight;
+
 		width = currentScreenWidth / 4.0f;
-		height = (float)currentScreenHeight;
+		height = currentScreenHeight;
 
 		bounds.AX = (float)currentScreenWidth - width;
 		bounds.AY = (float)currentScreenHeight;
@@ -178,8 +183,8 @@ struct EditorUI {
 		return true;
 	}
 
-	void refresh() {
-		setup(shaderProgramID, font);
+	void refresh(float screenWidth, float screenHeight) {
+		setup(shaderProgramID, font, screenWidth, screenHeight);
 	}
 };
 

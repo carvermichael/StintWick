@@ -24,8 +24,9 @@
 #define MODE_LEVEL_EDIT			2
 #define MODE_PLAY_FIRST_PERSON  3
 
-#define MAX_BULLETS 25
-#define MAX_ENEMIES 20
+#define MAX_LEVELS			  50
+#define MAX_BULLETS			  25
+#define MAX_ENEMIES			  20
 #define MAX_PARTICLE_EMITTERS 30
 
 #define CONSTANTS

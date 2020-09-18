@@ -20,41 +20,46 @@ struct Console {
 	float markerStartLocation = 4.0f;
 	float markerLocation = markerStartLocation;
 
-	float height = 100.0f;
-	float width = (float)currentScreenWidth;
+	float currentScreenWidth;
+	float currentScreenHeight;
 
-	float location = (float)currentScreenHeight;
-	float destination = (float)currentScreenHeight;
+	float height = 100.0f;
+	float width;
+
+	float location;
+	float destination;
 	float speed = 10.0f;
 
 	void flipOut() {
 		if (isOut) {
-			destination = (float)currentScreenHeight;
+			destination = currentScreenHeight;
 		} else {
-			destination = (float)(currentScreenHeight - height);
+			destination = currentScreenHeight - height;
 		}
 
 		isOut = !isOut;
 	}
 
-	void refresh() {
+	void refresh(float screenWidth, float screenHeight) {
 		timeToFlip = 0.5f;
 		markerSize = 1.5f;
 		markerStartLocation = 4.0f;
 		markerLocation = markerStartLocation;
 
+		currentScreenWidth = screenWidth;
+		currentScreenHeight = screenHeight;
+
 		height = 100.0f;
-		width = (float)currentScreenWidth;
+		width = currentScreenWidth;
 
-		location = (float)currentScreenHeight;
-		destination = (float)currentScreenHeight;
+		location = currentScreenHeight;
+		destination = currentScreenHeight;
 		speed = 10.0f;
-
 
 		isOut = false;
 	}
 
-	void setup(unsigned int shaderProgramId) {
+	void setup(unsigned int shaderProgramId, float screenWidth, float screenHeight) {
 		boundingRect.setup(shaderProgramId);
 
 		inputRect.setup(shaderProgramId);
@@ -66,6 +71,7 @@ struct Console {
 		historyTextbox.maxLinesToShow = 10;
 		historyTextbox.flip = true;
 
+		refresh(screenWidth, screenHeight);
 	}
 
 	void addInput(char input) {

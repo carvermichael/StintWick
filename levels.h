@@ -47,10 +47,10 @@ struct Level {
 
 	enemy enemies[MAX_ENEMIES];
 
-	void addEnemy(int type, my_ivec2 gridCoords) {
+	void addEnemy(int type, my_ivec2 gridCoords, Textbox *eventTextbox) {
 
 		if (numEnemies >= MAX_ENEMIES) {
-			addTextToBox("ERROR: Cannot add enemy to level, too many enemies.", &eventTextBox);
+			addTextToBox("ERROR: Cannot add enemy to level, too many enemies.", eventTextbox);
 			return;
 		}
 
@@ -74,12 +74,7 @@ struct Level {
 	}
 };
 
-#define MAX_LEVELS 50
-
-Level levels[MAX_LEVELS];
-unsigned int levelCount;
-
-void addLevel(unsigned int gridSizeX, unsigned int gridSizeY) {
+unsigned int addLevel(Level levels[], unsigned int levelCount, unsigned int gridSizeX, unsigned int gridSizeY) {
 
 	// TODO: maybe have max gridSize???
 
@@ -90,10 +85,11 @@ void addLevel(unsigned int gridSizeX, unsigned int gridSizeY) {
 	levels[levelCount].playerStartY = gridSizeY - 2;
 
 	levels[levelCount].initialized = true;
-	levelCount++;
+	
+	return levelCount + 1;
 }
 
-void loadLevels() {
+unsigned int loadLevels(Level levels[]) {
 
 	const char* fileName = "levels.lev";
 
@@ -105,7 +101,7 @@ void loadLevels() {
 	levelStream << levelFile.rdbuf();
 	levelFile.close();
 
-	levelCount = 0;
+	unsigned int levelCount = 0;
 	unsigned int numLevels;
 
 	levelStream >> numLevels;
@@ -130,14 +126,16 @@ void loadLevels() {
 		
 		levelCount++;
 	}
+
+	return levelCount;
 }
 
-void saveAllLevels() {
+void saveAllLevels(Level levels[], unsigned int levelCount, Textbox *eventTextBox) {
 
 	// TODO: logging and error handling
 	// TODO: more robust solution --> write to temp file with timestamp, then switch names
 
-	addTextToBox("Saving...", &eventTextBox);
+	addTextToBox("Saving...", eventTextBox);
 
 	std::stringstream stringStream;
 
@@ -168,5 +166,5 @@ void saveAllLevels() {
 	levelFile << stringStream.str();
 	levelFile.close();
 
-	addTextToBox("Saving complete.", &eventTextBox);
+	addTextToBox("Saving complete.", eventTextBox);
 }
