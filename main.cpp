@@ -39,6 +39,7 @@ void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float v
 void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3);
 void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4);
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4);
+void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_mat4 mat4);
 
 // Random Global State
 unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
@@ -114,8 +115,10 @@ void refreshProjection() {
 }
 
 void refreshView() {
-	glm::mat4 view;
-	view = world.camera.generateView();
+	
+	//glm::mat4 view = world.camera.generateView();
+
+	my_mat4 view = world.camera.generateMyView();
 
 	setUniformMat4(regularShaderProgramID, "view", view);
 	setUniformMat4(lightShaderProgramID, "view", view);
@@ -602,16 +605,16 @@ void guidingGridSetup() {
 	// TODO: create grid mesh
 	//		 note: can't do this is with current mesh setup, as those meshes are made for triangle drawing (these are just lines)
 
-	float lowerZ = 0.0f;
-	float upperZ = 5.0f;
-	float zStep	 = 1.0f;
+	float lowerZ = 0.05f;
+	float upperZ = 4.05f;
+	float zStep	 = 2.0f;
 
-	float lowerY =  0.0f;
-	float upperY =  -100.f;
-	float yStep  =  -1.0f;
+	float lowerY =  -30.05f;
+	float upperY =  0.05f;
+	float yStep  =  1.0f;
 
-	float lowerX =  0.0f;
-	float upperX =	100.f;
+	float lowerX =  0.05f;
+	float upperX =	30.05f;
 	float xStep	 =  1.0f;
 
 	std::vector<float> vertices;
@@ -661,7 +664,7 @@ void drawGuidingGrid() {
 	glBindVertexArray(gridVAO_ID);
 	glBindBuffer(GL_ARRAY_BUFFER, gridVBO_ID);
 
-	glm::mat4 currentModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+	glm::mat4 currentModel = glm::mat4(1.0f);
 	setUniformMat4(regularShaderProgramID, "model", currentModel);
 
 	setUniform3f(regularShaderProgramID, "objectDiffuse", my_vec3(1.0f, 1.0f, 1.0f));

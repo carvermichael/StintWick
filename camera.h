@@ -30,9 +30,9 @@ struct Camera {
 
 		up = my_vec3(0.0f, 1.0f, 0.0f);
 
-		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		direction.y = sin(glm::radians(pitch));
-		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		direction.x = cos(radians(yaw)) * cos(radians(pitch));
+		direction.y = sin(radians(pitch));
+		direction.z = sin(radians(yaw)) * cos(radians(pitch));
 
 		my_vec3 cameraRight = normalize(crossproduct(up, direction));
 
@@ -43,16 +43,16 @@ struct Camera {
 		yaw = -90.0f;
 		pitch = 45.0f;
 
-		float midGridX = (float) gridSizeX / 2;
+		float midGridX = (float)gridSizeX / 2;
 		float bottomGridY = -(float)gridSizeY * 1.65f;
 
 		position = my_vec3(midGridX, bottomGridY, (float) gridSizeY);
 
 		up = my_vec3(0.0f, 1.0f, 0.0f);
 
-		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		direction.y = sin(glm::radians(pitch));
-		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		direction.x = cos(radians(yaw)) * cos(radians(pitch));
+		direction.y = sin(radians(pitch));
+		direction.z = sin(radians(yaw)) * cos(radians(pitch));
 
 		my_vec3 cameraRight = normalize(crossproduct(up, direction));
 
@@ -60,12 +60,22 @@ struct Camera {
 	}
 
 	glm::mat4 generateView() {
-		direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-		direction.y = sin(glm::radians(pitch));
-		direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		direction.x = cos(radians(yaw)) * cos(radians(pitch));
+		direction.y = sin(radians(pitch));
+		direction.z = sin(radians(yaw)) * cos(radians(pitch));
 		front = normalize(direction);
 
 		glm::mat4 view = glm::lookAt(toGLM(position), toGLM(position + front), toGLM(up));
+		return view;
+	}
+
+	my_mat4 generateMyView() {
+		direction.x = cos(radians(yaw)) * cos(radians(pitch));
+		direction.y = sin(radians(pitch));
+		direction.z = sin(radians(yaw)) * cos(radians(pitch));
+		front = normalize(direction);
+
+		my_mat4 view = lookAt(position, position + front, up);
 		return view;
 	}
 

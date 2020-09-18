@@ -105,7 +105,12 @@ struct my_vec4 {
 	float z;
 	float w;
 
-	my_vec4() {}
+	my_vec4() {
+		x = 0.0f;
+		y = 0.0f;
+		z = 0.0f;
+		w = 0.0f;
+	}
 
 	my_vec4(float x, float y, float z, float w) {
 		this->x = x;
@@ -142,6 +147,13 @@ struct my_mat4 {
 
 	my_mat4() {
 
+	}
+
+	my_mat4(float diag) {
+		col0.x = diag;
+		col1.y = diag;
+		col2.z = diag;
+		col3.w = diag;
 	}
 
 	my_mat4(glm::mat4 glmMat4) {
@@ -268,6 +280,12 @@ my_vec3 crossproduct(my_vec3 a, my_vec3 b) {
 				   a.x*b.y - a.y*b.x);
 }
 
+float dot(my_vec3 a, my_vec3 b) {
+	return a.x * b.x +
+		   a.y * b.y +
+		   a.z * b.z;
+}
+
 glm::vec3 toGLM(my_vec3 v) {
 	return glm::vec3(v.x, v.y, v.z);
 }
@@ -303,11 +321,11 @@ my_mat4 ortho(float left, float right, float bottom, float top) {
 //				using the result as the model matrix when going from
 //				local space to world space.
 my_mat4 translate(my_mat4 inMat4, my_vec3 inVec3) {
-	// TODO
+	inMat4.col3.x = inVec3.x;
+	inMat4.col3.y = inVec3.y;
+	inMat4.col3.z = inVec3.z;
 
-	assert(0);
-
-	return my_mat4();
+	return inMat4;
 }
 
 // Used for generating the view matrix, which then is used
@@ -315,9 +333,48 @@ my_mat4 translate(my_mat4 inMat4, my_vec3 inVec3) {
 my_mat4 lookAt(my_vec3 pos, my_vec3 posFront, my_vec3 up) {
 	// TODO
 
-	assert(0);
+	my_mat4 mat4 = my_mat4(1.0f);
 
-	return my_mat4();
+	/*
+	 Need:
+		position --> pos
+		right --> 
+		up --> up
+		front --> posFront - pos
+		    -- still not sure why common implementations of lookAt take (pos + front) 
+			   as a single param, then pull out front immediately (diff invocation
+			   circumstances?)
+
+	*/
+
+	// Still do not fully grok how this works, specifically the negations.
+	// More work is needed to build intuitions here.
+
+	my_vec3 front = normalize(posFront - pos);
+	my_vec3 right = crossproduct(front, up);
+	up = crossproduct(right, front);
+
+	mat4.col0.x = right.x;
+	mat4.col0.y = up.x;
+	mat4.col0.z = -front.x;
+	mat4.col0.w = 0.0f;
+
+	mat4.col1.x = right.y;
+	mat4.col1.y = up.y;
+	mat4.col1.z = -front.y;
+	mat4.col1.w = 0.0f;
+
+	mat4.col2.x = right.z;
+	mat4.col2.y = up.z;
+	mat4.col2.z = -front.z;
+	mat4.col2.w = 0.0f;
+
+	mat4.col3.x = -dot(pos, right); // also might be reversed
+	mat4.col3.y = -dot(pos, up);
+	mat4.col3.z = dot(pos, front);
+	mat4.col3.w = 1.0f;
+
+	return mat4;
 }
 
 void printGLMMat4(glm::mat4 mat4) {

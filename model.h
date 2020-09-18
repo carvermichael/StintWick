@@ -158,11 +158,9 @@ struct Mesh {
 	void draw(my_vec3 worldOffset, float bodyFactor, float outlineFactor, Material *mat) {
 		glUseProgram(shaderProgramID);
 		glBindVertexArray(VAO_ID);
-		glm::mat4 current_model = glm::translate(glm::mat4(1.0f), toGLM(worldOffset));
+		my_mat4 current_model = translate(my_mat4(1.0f), worldOffset);
 		setUniformMat4(shaderProgramID, "model", current_model);
 
-		//printGLMMat4(current_model);
-		
 		if (bodyFactor > 0.0f) {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
 			glDepthFunc(GL_LESS);
