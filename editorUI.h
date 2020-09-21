@@ -138,6 +138,7 @@ struct EditorUI {
 
 	LevelSelector levelSelector;
 	EnemySelector enemySelector;
+	UI_Rect deleteButton;
 
 	void setup(unsigned int shaderProgramID, Font *font, float screenWidth, float screenHeight) {
 		this->font = font;
@@ -164,12 +165,17 @@ struct EditorUI {
 		
 		levelSelector.setup(shaderProgramID, font, &currentTopLeft, &remainingHeight, &remainingWidth);
 		enemySelector.setup(shaderProgramID, font, &currentTopLeft, &remainingHeight, &remainingWidth);
+
+		deleteButton.setup(shaderProgramID);
+		deleteButton.color = my_vec4(0.25f, 0.05f, 0.05f, 0.6f);
+		deleteButton.setBounds(currentTopLeft, this->height / 20.0f, this->width);
 	}
 
 	void draw() {
 		background.draw();
 		levelSelector.draw();
 		enemySelector.draw();
+		deleteButton.draw();
 	}
 
 	boolean click(my_vec2 clickCoords) {
@@ -179,7 +185,12 @@ struct EditorUI {
 		// then, go through elements, return after first one gets dibs
 		if (levelSelector.click(clickCoords)) return true;
 		if (enemySelector.click(clickCoords)) return true;
-		
+		if (deleteButton.click(clickCoords)) {
+			deleteCurrentLevel();
+			
+			return true;
+		}
+
 		return true;
 	}
 

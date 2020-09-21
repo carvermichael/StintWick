@@ -42,63 +42,8 @@ struct Bullet {
     }
 };
 
-// TODO: actually create indpendent particles
-struct ParticleEmitter {
-
-	bool current = false;
-
-	float t;
-	float maxT = 0.85f;
-	float height = 3.5f;
-
-	float speed = 15.0f;
-	my_vec3 pos;
-
-	Model *model;
-	my_vec2 directions[8];
-	my_vec3 positions[8];
-
-	void init(my_vec3 newPos, Model *newModel) {
-		pos = newPos;
-		t = 0.0f;
-		current = true;
-
-		for (int i = 0; i < 8; i++) {
-			positions[i] = newPos;
-		}
-
-		float angle = 0.0f;
-		for (int i = 0; i < 8; i++) {
-			directions[i] = normalize(my_vec2((float) (rand() - (RAND_MAX / 2)), (float) (rand() - (RAND_MAX / 2))));
-		}
-
-		model = newModel;
-	}
-
-	void draw() {
-		for (int i = 0; i < 8; i++) {
-			model->draw(positions[i]);
-		}
-	}
-
-	void update(float deltaTime) {
-		t += deltaTime;
-		if (t > maxT) current = false;
-
-		float preZ = mapToNewRange(t, 0.0f, maxT, 0.0f, PI);
-		float sinPreZ = sin(preZ);
-		float newZ = sinPreZ * height;
-		//printf("t: %.2f, preZ: %.2f, newZ: %.2f\n", t, preZ, newZ);
-		
-		for (int i = 0; i < 8; i++) {
-			positions[i].x += directions[i].x * speed * deltaTime;
-			positions[i].y += directions[i].y * speed * deltaTime;
-			positions[i].z = newZ;
-		}
-	}
-};
-
 struct Light {
+	bool current = false;
 
 	my_vec3 pos = my_vec3(0.0f);;
 
@@ -106,8 +51,19 @@ struct Light {
 	my_vec3 diffuse = my_vec3(1.0f);
 	my_vec3 specular = my_vec3(1.0f);
 
-	float currentDegrees = 0;
+	float currentDegrees = 0; // TODO: this shouldn't be here
 };
+
+Light* getAvailableLight(Light lights[]) {
+	for (int i = 0; i < MAX_LIGHTS; i++) {
+		if (!lights[i].current) {
+			return &lights[i];
+		}
+	}
+
+	printf("Lights array full! Ah!\n");
+	return 0;
+}
 
 struct Entity {
 	Model *model;
@@ -247,6 +203,89 @@ struct Shoot : EnemyStrat {
 struct EnemyStrats {
 	Shoot shoot;
 	Follow follow;
+};
+
+// TODO: actually create indpendent particles
+struct ParticleEmitter {
+
+	bool current = false;
+
+	float t;
+	float maxT = 0.85f;
+	float height = 3.5f;
+
+	float speed = 15.0f;
+	my_vec3 pos;
+
+	Model *model;
+	my_vec2 directions[8];
+	my_vec3 positions[8];
+
+	Light* lights[8];
+
+	void init(my_vec3 newPos, Model *newModel, Light inLights[]) {
+		pos = newPos;
+		t = 0.0f;
+		current = true;
+
+		for (int i = 0; i < 8; i++) {
+			positions[i] = newPos;
+		}
+
+		float angle = 0.0f;
+		for (int i = 0; i < 8; i++) {
+			directions[i] = normalize(my_vec2((float)(rand() - (RAND_MAX / 2)), (float)(rand() - (RAND_MAX / 2))));
+		}
+
+		for (int i = 0; i < 8; i++) {
+			// get light reference
+			lights[i] = getAvailableLight(inLights);
+
+			// set light current to true
+			lights[i]->current = true;
+
+			// set light pos
+			lights[i]->pos = newPos;
+
+			// set light mat variables
+			lights[i]->ambient	= my_vec3(0.2f);
+			lights[i]->diffuse	= my_vec3(0.2f);
+			lights[i]->specular = my_vec3(0.2f);
+		}
+
+		model = newModel;
+	}
+
+	void draw() {
+		for (int i = 0; i < 8; i++) {
+			model->draw(positions[i], 1.0f, 0.75f);
+		}
+	}
+
+	void update(float deltaTime) {
+		t += deltaTime;
+		if (t > maxT) {
+			current = false;
+			// set all lights currents to false
+			for (int i = 0; i < 8; i++) {
+				lights[i]->current = false;
+			}
+			return;
+		}
+
+		float preZ = mapToNewRange(t, 0.0f, maxT, 0.0f, PI);
+		float sinPreZ = sin(preZ);
+		float newZ = sinPreZ * height;
+		//printf("t: %.2f, preZ: %.2f, newZ: %.2f\n", t, preZ, newZ);
+
+		for (int i = 0; i < 8; i++) {
+			positions[i].x += directions[i].x * speed * deltaTime;
+			positions[i].y += directions[i].y * speed * deltaTime;
+			positions[i].z = newZ;
+			// update light pos
+			lights[i]->pos = positions[i];
+		}
+	}
 };
 
 #define ENTITIES

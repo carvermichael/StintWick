@@ -61,9 +61,10 @@ struct Console {
 
 	void setup(unsigned int shaderProgramId, float screenWidth, float screenHeight) {
 		boundingRect.setup(shaderProgramId);
+		boundingRect.color = my_vec4(0.2f, 0.2f, 0.2f, 1.0f);
 
 		inputRect.setup(shaderProgramId);
-		inputRect.color = my_vec4(0.1f, 0.1f, 0.1f, 0.7f);		
+		inputRect.color = my_vec4(0.1f, 0.1f, 0.1f, 1.0f);		
 		
 		editMarkerRect.setup(shaderProgramId);
 		editMarkerRect.color = my_vec4(0.1f, 0.1f, 0.1f, 1.0f);

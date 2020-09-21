@@ -5,7 +5,7 @@
 struct UI_Rect {
 
 	// TODO: figure out why the linker threw errors when you tried to make some of these static
-	bool initialized;
+	bool initialized = false;
 
 	unsigned int VAO_ID;
 	unsigned int VBO_ID;

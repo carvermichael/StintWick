@@ -15,8 +15,8 @@ struct WorldState {
 
 	Camera camera;
 
-	Light light;
-
+	Light lights[MAX_LIGHTS];
+	
 	Player player;
 	int numEnemies = 0;
     Enemy enemies[MAX_ENEMIES];
@@ -37,7 +37,8 @@ struct WorldState {
         wallBounds.BX =  (float)(gridSizeX - 1);
         wallBounds.BY = -(float)(gridSizeY - 1);
 
-		light.pos = my_vec3(-2.0f, -5.0f, 4.0f);
+		lights[0].current = false;
+		lights[0].pos = my_vec3(-2.0f, -5.0f, 4.0f);
 
 		numEnemies = 0;
     }

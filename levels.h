@@ -71,7 +71,7 @@ struct Level {
 		}
 
 		numEnemies--;
-	}
+	}	
 };
 
 unsigned int addLevel(Level levels[], unsigned int levelCount, unsigned int gridSizeX, unsigned int gridSizeY) {

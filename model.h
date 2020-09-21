@@ -37,14 +37,14 @@ struct Materials {
 
 			// enemy mats
 			Material ruby;
-			Material yellow;
+			Material gold;
 			
 			// other mats
 			Material light;
 			Material emerald;
 			Material chrome;
 			Material silver;
-			Material gold;
+			Material yellow;
 			Material blackRubber;			
 			Material grey;	
 		};
@@ -251,11 +251,12 @@ struct Model {
 
 	std::vector<Mesh> meshes;
 
-	my_vec3 scaleFactor = my_vec3(1.0f);
+	my_vec3 scaleFactor = my_vec3(1.0f);	
 
 	Model() {
 		scaleFactor = my_vec3(1.0f);		
 	}
+
 	Model(std::string name) {
 		this->name = name;
 		scaleFactor = my_vec3(1.0f);
@@ -278,7 +279,7 @@ struct Model {
 	}
 
 	void drawOnlyOutline(my_vec3 worldOffset) {
-		draw(worldOffset, 0.0f, 1.0f);
+		draw(worldOffset, 1.0f, 1.0f);
 	}
 
 	// puts vertices back to original, then scales

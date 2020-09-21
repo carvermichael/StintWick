@@ -51,6 +51,7 @@ void moveWithController(GLFWgamepadstate state, float deltaTime) {
 		prevState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
 		pause = !pause;
 		if (pause) {
+			setPauseCoords();
 			addTextToBox("Pause", &eventTextBox);
 		} else {
 			addTextToBox("Un-Pause", &eventTextBox);

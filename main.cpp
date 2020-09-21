@@ -30,16 +30,19 @@ void processConsoleCommand(std::string command);
 void loadCurrentLevel();
 void goBackOneLevel();
 void goForwardOneLevel();
+void deleteCurrentLevel();
 void goBackOneEnemyType();
 void goForwardOneEnemyType();
 unsigned int getCurrentLevel();
 unsigned int getEnemySelection();
 void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed);
+void setUniformBool(unsigned int shaderProgramID, const char *uniformName, bool value);
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
 void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3);
 void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4);
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4);
 void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_mat4 mat4);
+void setPauseCoords();
 
 #include "model.h"
 #include "camera.h"
@@ -51,7 +54,7 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_ma
 #include "levels.h"
 
 // TODO: Get all of this on the heap
-	// Random Global State
+	// Random Global State -- some subset of this should go in the worldState
 	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
 	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
 	unsigned int mode = MODE_PLAY;
@@ -67,6 +70,8 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_ma
 	bool pause = true;
 	bool lightOrbit = false;
 	bool guidingGrid = false;
+	my_ivec3 pauseCoords[30];
+	bool outlineOnly = false;
 
 	// OpenGL Stuff
 	unsigned int regularShaderProgramID;
@@ -90,6 +95,14 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_ma
 	Textbox fpsBox = {};
 
 #include "controls.h"
+
+void setPauseCoords() {
+	for (int i = 0; i < 30; i++) {
+		pauseCoords[i].x = rand() % currentScreenWidth;
+		pauseCoords[i].y = rand() % currentScreenHeight;
+		pauseCoords[i].z = rand() % 200;
+	}
+}
 
 void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
 	bool foundBullet = false;
@@ -133,13 +146,29 @@ void refreshView() {
 	setUniform3f(lightShaderProgramID, "viewPos", world.camera.position);
 }
 
-void refreshLight() {
+void refreshLights() {
+	for (int i = 0; i < MAX_LIGHTS; i++) {
+		std::string lightsCurrent = "lights[" + std::to_string(i) + "].current";
+		setUniformBool(regularShaderProgramID, lightsCurrent.c_str(), world.lights[i].current);
+		
+		if (!world.lights[i].current) continue;
 
-	setUniform3f(regularShaderProgramID, "lightPos", world.light.pos);
-	setUniform3f(regularShaderProgramID, "lightAmbient", world.light.ambient);
-	setUniform3f(regularShaderProgramID, "lightDiffuse", world.light.diffuse);
-	setUniform3f(regularShaderProgramID, "lightSpecular", world.light.specular);
+		std::string lightsPos		= "lights[" + std::to_string(i) + "].pos";
+		std::string lightsAmbient	= "lights[" + std::to_string(i) + "].ambient";
+		std::string lightsDiffuse	= "lights[" + std::to_string(i) + "].diffuse";
+		std::string lightsSpecular	= "lights[" + std::to_string(i) + "].specular";
+		
+		setUniform3f(regularShaderProgramID,	lightsPos.c_str(),			world.lights[i].pos);
+		setUniform3f(regularShaderProgramID,	lightsAmbient.c_str(),		world.lights[i].ambient);
+		setUniform3f(regularShaderProgramID,	lightsDiffuse.c_str(),		world.lights[i].diffuse);
+		setUniform3f(regularShaderProgramID,	lightsSpecular.c_str(),		world.lights[i].specular);
+	}	
+}
 
+void hitTheLights() {
+	for (int i = 0; i < MAX_LIGHTS; i++) {
+		world.lights[i].current = false;
+	}
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -249,7 +278,7 @@ void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 }
 
 void processJoystickInput(float deltaTime) {
-    if(mode != MODE_PLAY) return; 
+    if(mode != MODE_PLAY) return;
     
     GLFWgamepadstate state;
 
@@ -277,6 +306,22 @@ void goForwardOneLevel() {
 	currentLevel++;
 	if (currentLevel >= levelCount) currentLevel = 0;
 
+	loadCurrentLevel();
+}
+
+void deleteCurrentLevel() {
+	for (unsigned int i = currentLevel; i < levelCount; i++) {
+		levels[i] = levels[i + 1];
+		levels[i + 1].initialized = false;
+	}
+	if (currentLevel == levelCount - 1) {
+		currentLevel = 0;
+	}
+	else {
+		currentLevel--;
+	}
+
+	levelCount--;
 	loadCurrentLevel();
 }
 
@@ -492,6 +537,12 @@ void processConsoleCommand(std::string command) {
 	}
 }
 
+void setUniformBool(unsigned int shaderProgramID, const char *uniformName, bool value) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform1i(location, value);
+}
+
 void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value) {
 	glUseProgram(shaderProgramID);
 	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
@@ -541,15 +592,15 @@ void createBulletModel() {
 }
 
 void createGridFloorAndWallModels() {
-	Mesh floorMesh = Mesh(regularShaderProgramID, &materials.emerald);
+	Mesh floorMesh = Mesh(regularShaderProgramID, &materials.blackRubber);
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
 	
-	Mesh wallLeftMesh = Mesh(regularShaderProgramID, &materials.gold);
-	models.wallLeftModel.name = std::string("wall");
+	Mesh wallLeftMesh = Mesh(regularShaderProgramID, &materials.grey);
+	models.wallLeftModel.name = std::string("wallLeft");
 	models.wallLeftModel.meshes.push_back(wallLeftMesh);
 	
-	Mesh wallTopMesh = Mesh(regularShaderProgramID, &materials.gold);
+	Mesh wallTopMesh = Mesh(regularShaderProgramID, &materials.grey);
 	models.wallTopModel.name = std::string("wall");
 	models.wallTopModel.meshes.push_back(wallTopMesh);	
 }
@@ -567,17 +618,34 @@ void createPlayerAndEnemyModels() {
 
 void drawGrid() {
 	my_vec3 floorWorldOffset = my_vec3(1.0f, -1.0f, 0.0f);
-	models.floorModel.draw(floorWorldOffset);
-
-	// left
-	models.wallLeftModel.draw(my_vec3(0.0f, 0.0f, 0.0f));
-	// top
-	models.wallTopModel.draw(my_vec3(1.0f, 0.0f, 0.0f));
 	
-	// right
-	models.wallLeftModel.draw(my_vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
-	// bottom
-	models.wallTopModel.draw(my_vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
+	if (outlineOnly) {
+		models.floorModel.drawOnlyOutline(floorWorldOffset);
+
+		// left
+		models.wallLeftModel.drawOnlyOutline(my_vec3(0.0f, 0.0f, 0.0f));
+		// top
+		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, 0.0f, 0.0f));
+
+		// right
+		models.wallLeftModel.drawOnlyOutline(my_vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
+		// bottom
+		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
+	}
+	else {
+		models.floorModel.draw(floorWorldOffset);
+		
+		// left
+		models.wallLeftModel.draw(my_vec3(0.0f, 0.0f, 0.0f));
+		// top
+		models.wallTopModel.draw(my_vec3(1.0f, 0.0f, 0.0f));
+
+		// right
+		models.wallLeftModel.draw(my_vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
+		// bottom
+		models.wallTopModel.draw(my_vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
+	}
+	
 }
 
 void moveLightAroundOrbit(float deltaTime) {
@@ -588,19 +656,19 @@ void moveLightAroundOrbit(float deltaTime) {
 	float midGridX = (float) world.gridSizeX / 2;
 	float midGridY = -(float) world.gridSizeY / 2;
 
-	float newDegrees = world.light.currentDegrees + degreesMoved;
+	float newDegrees = world.lights[0].currentDegrees + degreesMoved;
 	if (newDegrees > 360) newDegrees -= 360;
 
 	float newX = glm::cos(glm::radians(newDegrees)) * radius + midGridX;
 	float newY = glm::sin(glm::radians(newDegrees)) * radius + midGridY;
 
-	world.light.pos.x = newX;
-	world.light.pos.y = newY;
+	world.lights[0].pos.x = newX;
+	world.lights[0].pos.y = newY;
 
 	//world.lightEntity.worldOffset.x = newX;
 	//world.lightEntity.worldOffset.y = newY;
 
-	world.light.currentDegrees = newDegrees;
+	world.lights[0].currentDegrees = newDegrees;
 }
 
 // GRID LINES
@@ -738,7 +806,7 @@ void checkBulletsForWallCollisions() {
 			world.enemyBullets[i].worldOffset.x > world.wallBounds.BX ||
 			world.enemyBullets[i].worldOffset.y > world.wallBounds.AY ||
 			world.enemyBullets[i].worldOffset.y < world.wallBounds.BY) {
-			world.enemyBullets[i].current = false;
+			world.enemyBullets[i].current = false;			
 		}
 	}
 }
@@ -760,24 +828,29 @@ void checkBulletsForEnemyCollisions() {
             if(bullet->bounds.top    < enemy->bounds.bottom) continue;
             if(bullet->bounds.bottom > enemy->bounds.top)    continue;
 
+			createParticleEmitter(my_vec3(bullet->worldOffset.x,
+				bullet->worldOffset.y,
+				1.5f));
+
             enemy->current = false;
 			bullet->current = false;
 			world.numEnemies--;
+
+			break;
         }
     }
 }
 
 void createParticleEmitter(my_vec3 newPos) {
-	bool foundEmitter = false;
+	
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
 		if (!world.particleEmitters[i].current) {
-			world.particleEmitters[i].init(newPos, &models.bulletPart);
-			foundEmitter = true;
-			break;
+			world.particleEmitters[i].init(newPos, &models.bulletPart, world.lights);
+			return;
 		}
 	}
 
-	if (!foundEmitter) printf("ParticleEmitter array full! Ah!\n");
+	printf("ParticleEmitter array full! Ah!\n");
 }
 
 void updateParticleEmitters(float deltaTime) {
@@ -839,6 +912,8 @@ void loadCurrentLevel() {
 		world.enemyBullets[i].current = false;
 	}
 
+	hitTheLights();
+
 	models.floorModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
 	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
 	models.wallTopModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
@@ -853,10 +928,6 @@ void drawProspectiveOutline() {
 
 	// draw just an outline in that space
 	models.enemy.drawOnlyOutline(worldOffset);
-}
-
-void drawPlayerBlinking(float deltaTime) {
-
 }
 
 int main() {
@@ -913,6 +984,7 @@ int main() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
+	// MODELS
 	guidingGridSetup();
 	createGridFloorAndWallModels();
 	createPlayerAndEnemyModels();
@@ -936,7 +1008,16 @@ int main() {
 
 	editorUI.setup(UIShaderProgramID, &arial, (float)currentScreenWidth, (float)currentScreenHeight);
 
-	world.player.blinking = true;
+	//world.player.blinking = true;
+
+	UI_Rect pauseThingy;
+	pauseThingy.initialized = false;
+	pauseThingy.setup(UIShaderProgramID);
+	pauseThingy.color = my_vec4(0.1f, 0.1f, 0.1f, 0.7f);
+	pauseThingy.setBounds(AABB(0.0f, (float)currentScreenWidth, (float)currentScreenHeight, 0.0f));
+	setPauseCoords();
+
+	outlineOnly = true;
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
@@ -949,13 +1030,13 @@ int main() {
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
+		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
 		if(lightOrbit) moveLightAroundOrbit(deltaTime);
 
-        refreshLight();
+        refreshLights();
         updateBullets(timeStep);
         checkBulletsForWallCollisions();
         checkBulletsForEnemyCollisions();
@@ -968,18 +1049,27 @@ int main() {
         drawBullets();
 		drawParticleEmitters();
 		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
+		
 				
 		if (world.numEnemies <= 0) {
 			pause = true;
+			setPauseCoords();
 			goForwardOneLevel();
 		}
 	
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
-		console.draw(deltaTime, &arial);
 		drawTextBox(&eventTextBox, &arial);
 		drawTextBox(&fpsBox, &arial);
 		if(mode == MODE_LEVEL_EDIT) editorUI.draw();
+		else if (pause) {
+			pauseThingy.draw();
+			
+			for (int i = 0; i < 30; i++) {
+				drawText(&arial, "PRESS START", (float)pauseCoords[i].x, (float)pauseCoords[i].y, pauseCoords[i].z * 0.005f, my_vec3(1.0f));
+			}
+		}
+		console.draw(deltaTime, &arial);
 		
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	

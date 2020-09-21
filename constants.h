@@ -28,6 +28,7 @@
 #define MAX_BULLETS			  25
 #define MAX_ENEMIES			  20
 #define MAX_PARTICLE_EMITTERS 30
+#define MAX_LIGHTS			  500
 
 #define CONSTANTS
 #endif // !CONSTANTS

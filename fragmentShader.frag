@@ -11,31 +11,46 @@ uniform vec3 materialDiffuse;
 uniform vec3 materialSpecular;
 uniform float materialShininess;
 
-uniform vec3 lightPos;
-uniform vec3 lightAmbient;
-uniform vec3 lightDiffuse;
-uniform vec3 lightSpecular;
+struct Light {
+	bool current;
+	
+	vec3 pos;
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
+};
+
+#define NUM_LIGHTS 50
+uniform Light lights[NUM_LIGHTS];
 
 uniform vec3 viewPos;
 
 void main()
 {
-	vec3 lightDir = normalize(lightPos - fragmentPos);
-
 	// ambient lighting
 	vec3 ambientResult = 0.5f * materialAmbient;
 
-	// diffuse lighting
-	vec3 norm = normalize(normal);
-	float diff = max(dot(norm, lightDir), 0.0);
-	vec3 diffuseResult = lightDiffuse * diff * materialDiffuse;
-	
-	// specular lighting
-	vec3 viewDir = normalize(viewPos - fragmentPos);
-	vec3 reflectDir = reflect(-lightDir, norm);
-	float spec = pow(max(dot(viewDir, reflectDir), 0.0f), materialShininess); 
-	vec3 specularResult = lightSpecular * spec * materialSpecular;
+	vec3 diffuseResult = vec3(0.0f);
+	vec3 specularResult = vec3(0.0f);
 
+	for(int i = 0; i < NUM_LIGHTS; i++) {
+		if(!lights[i].current) continue;
+	
+		vec3 lightDir = normalize(lights[i].pos - fragmentPos);
+
+		// diffuse lighting
+		vec3 norm = normalize(normal);
+		float diff = max(dot(norm, lightDir), 0.0);
+		diffuseResult += lights[i].diffuse * diff * materialDiffuse;
+
+		// specular lighting
+		vec3 viewDir = normalize(viewPos - fragmentPos);
+		vec3 reflectDir = reflect(-lightDir, norm);
+		float spec = pow(max(dot(viewDir, reflectDir), 0.0f), materialShininess); 
+		vec3 specularResult = lights[i].specular * spec * materialSpecular;
+	}	
+
+	// TODO: re-add attenuation for shrapnel lighting
 	specularResult *= 0.2f; // attenuation stand-in
 
 	vec3 result = (ambientResult + diffuseResult + specularResult);
