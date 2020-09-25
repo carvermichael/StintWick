@@ -150,7 +150,6 @@ struct Textbox {
 	float y = 0.0f;
 };
 
-
 void drawTextBox(Textbox *textbox, Font *font) {
 	float x = textbox->x;
 	float y = textbox->y;
@@ -187,6 +186,11 @@ void addTextToBox(std::string newText, Textbox *textbox) {
 
 	textbox->numLinesUsed++;
 }
+
+void clearTextBox(Textbox *textbox) {
+	textbox->numLinesUsed = 0;
+}
+
 
 void addTextToBoxAtLine(std::string newText, int lineNum, Textbox *textbox) {
 	textbox->lines[lineNum] = newText;

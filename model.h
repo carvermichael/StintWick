@@ -75,7 +75,7 @@ struct Materials {
         blackRubber = Material("blackRubber", my_vec3(0.02f, 0.02f, 0.02f),
 											  my_vec3(0.01f, 0.01f, 0.01f),
 											  my_vec3(0.4f, 0.4f, 0.4f),
-											  0.078125f);
+											  0.78125f); // upped this from 0.078125
 
         ruby = Material("ruby", my_vec3(0.1745f, 0.01175f, 0.01175f),
 								my_vec3(0.61424f, 0.04136f, 0.04136f),

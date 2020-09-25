@@ -166,7 +166,8 @@ void refreshLights() {
 }
 
 void hitTheLights() {
-	for (int i = 0; i < MAX_LIGHTS; i++) {
+	// i starts at one to keep global light active
+	for (int i = 1; i < MAX_LIGHTS; i++) {
 		world.lights[i].current = false;
 	}
 }
@@ -606,7 +607,7 @@ void createGridFloorAndWallModels() {
 }
 
 void createPlayerAndEnemyModels() {
-	Mesh playerMesh = Mesh(regularShaderProgramID, &materials.chrome);
+	Mesh playerMesh = Mesh(regularShaderProgramID, &materials.emerald);
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
 	
@@ -841,6 +842,45 @@ void checkBulletsForEnemyCollisions() {
     }
 }
 
+void checkPlayerForEnemyCollisions() {
+	for (int j = 0; j < MAX_ENEMIES; j++) {
+
+		if (!world.enemies[j].current) continue;
+		Enemy *enemy = &world.enemies[j];
+		
+		if (world.player.bounds.left	> enemy->bounds.right)		continue;
+		if (world.player.bounds.right	< enemy->bounds.left)		continue;
+		if (world.player.bounds.top		< enemy->bounds.bottom)		continue;
+		if (world.player.bounds.bottom	> enemy->bounds.top)		continue;
+
+		pause = true;
+		addTextToBox("You Died. Try Again.", &eventTextBox);
+		loadCurrentLevel();		
+
+		break;
+	}
+}
+
+void checkPlayerForEnemyBulletCollisions() {
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+
+		if (!world.enemyBullets[i].current) continue;
+		Bullet *bullet = &world.enemyBullets[i];
+
+		if (world.player.bounds.left	> bullet->bounds.right)  continue;
+		if (world.player.bounds.right	< bullet->bounds.left)   continue;
+		if (world.player.bounds.top		< bullet->bounds.bottom) continue;
+		if (world.player.bounds.bottom	> bullet->bounds.top)    continue;
+
+		pause = true;
+		addTextToBox("You Died. Try Again.", &eventTextBox);
+		loadCurrentLevel();	
+
+		break;
+	}
+}
+
 void createParticleEmitter(my_vec3 newPos) {
 	
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
@@ -917,6 +957,8 @@ void loadCurrentLevel() {
 	models.floorModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
 	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
 	models.wallTopModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
+
+	clearTextBox(&eventTextBox);
 }
 
 void drawProspectiveOutline() {
@@ -1040,6 +1082,8 @@ int main() {
         updateBullets(timeStep);
         checkBulletsForWallCollisions();
         checkBulletsForEnemyCollisions();
+		checkPlayerForEnemyCollisions();
+		checkPlayerForEnemyBulletCollisions();
 		updateEnemies(timeStep);
 		updateParticleEmitters(timeStep);
 		
@@ -1048,10 +1092,9 @@ int main() {
         drawEnemies();
         drawBullets();
 		drawParticleEmitters();
-		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
-		
+		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();		
 				
-		if (world.numEnemies <= 0) {
+		if (world.numEnemies <= 0 && mode == MODE_PLAY) {
 			pause = true;
 			setPauseCoords();
 			goForwardOneLevel();

@@ -37,7 +37,7 @@ struct WorldState {
         wallBounds.BX =  (float)(gridSizeX - 1);
         wallBounds.BY = -(float)(gridSizeY - 1);
 
-		lights[0].current = false;
+		lights[0].current = true;
 		lights[0].pos = my_vec3(-2.0f, -5.0f, 4.0f);
 
 		numEnemies = 0;

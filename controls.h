@@ -52,9 +52,9 @@ void moveWithController(GLFWgamepadstate state, float deltaTime) {
 		pause = !pause;
 		if (pause) {
 			setPauseCoords();
-			addTextToBox("Pause", &eventTextBox);
+			//addTextToBox("Pause", &eventTextBox);
 		} else {
-			addTextToBox("Un-Pause", &eventTextBox);
+			//addTextToBox("Un-Pause", &eventTextBox);
 		}
 	}
 

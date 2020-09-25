@@ -28,7 +28,7 @@ uniform vec3 viewPos;
 void main()
 {
 	// ambient lighting
-	vec3 ambientResult = 0.5f * materialAmbient;
+	vec3 ambientResult = 1.0f * materialAmbient;
 
 	vec3 diffuseResult = vec3(0.0f);
 	vec3 specularResult = vec3(0.0f);
