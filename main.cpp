@@ -775,7 +775,6 @@ void drawBullets() {
 
 void drawEnemies() {
     for(int i = 0; i < MAX_ENEMIES; i++) {
-		float outlineFactor = 1.0f;
 		if(world.enemies[i].current) world.enemies[i].draw();
     }
 }

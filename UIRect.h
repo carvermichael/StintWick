@@ -51,18 +51,18 @@ struct UI_Rect {
 		this->height = bounds.bottom - bounds.top;
 	}
 
-	void setBounds(AABB bounds) {
-		this->bounds.left	= bounds.left;
-		this->bounds.right	= bounds.right;
-		this->bounds.top	= bounds.top;
-		this->bounds.bottom = bounds.bottom;
+	void setBounds(AABB inBounds) {
+		this->bounds.left	= inBounds.left;
+		this->bounds.right	= inBounds.right;
+		this->bounds.top	= inBounds.top;
+		this->bounds.bottom = inBounds.bottom;
 
 		this->height = bounds.right - bounds.left;
 		this->height = bounds.bottom - bounds.top;
 	}
 
-	void setBounds(my_vec2 topLeft, float height, float width) {
-		bounds.set(topLeft, height, width);
+	void setBounds(my_vec2 topLeft, float inHeight, float inWidth) {
+		bounds.set(topLeft, inHeight, inWidth);
 		this->height;
 		this->width;
 	}

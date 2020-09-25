@@ -16,19 +16,19 @@ struct Selector {
 	UI_Rect rightArrow;
 	UI_Rect stateIndicator;
 
-	void setup(unsigned int shaderProgramID, Font *font, my_vec2 *topLeft, float *height, float *width) {
+	void setup(unsigned int inShaderProgramID, Font *inFont, my_vec2 *inTopLeft, float *inHeight, float *inWidth) {
 		this->font = font;
 
-		location.x = topLeft->x;
-		location.y = topLeft->y;
+		location.x = inTopLeft->x;
+		location.y = inTopLeft->y;
 
-		this->width = *width;
-		this->height = *height / 20.0f;
+		this->width = *inWidth;
+		this->height = *inHeight / 20.0f;
 
-		float arrowWidth		= *width * 0.25f;
-		float indicatorWidth	= *width * 0.50f;
+		float arrowWidth		= *inWidth * 0.25f;
+		float indicatorWidth	= *inWidth * 0.50f;
 
-		float currentX = topLeft->x;
+		float currentX = inTopLeft->x;
 		
 		leftArrow.setup(shaderProgramID);
 		leftArrow.color = my_vec4(0.25f, 0.05f, 0.05f, 0.6f);
@@ -45,8 +45,8 @@ struct Selector {
 		rightArrow.setBounds(my_vec2(currentX, location.y), this->height, arrowWidth);
 		currentX += indicatorWidth;
 
-		topLeft->y	-= this->height;
-		*height		-= this->height;
+		inTopLeft->y	-= this->height;
+		*inHeight		-= this->height;
 	}
 
 	void draw() {
@@ -140,8 +140,8 @@ struct EditorUI {
 	EnemySelector enemySelector;
 	UI_Rect deleteButton;
 
-	void setup(unsigned int shaderProgramID, Font *font, float screenWidth, float screenHeight) {
-		this->font = font;
+	void setup(unsigned int inShaderProgramID, Font *inFont, float screenWidth, float screenHeight) {
+		this->font = inFont;
 
 		this->currentScreenWidth = screenWidth;
 		this->currentScreenHeight = screenHeight;
@@ -155,7 +155,7 @@ struct EditorUI {
 		bounds.BX = bounds.AX + width;
 		bounds.BY = bounds.AY - height;
 
-		background.setup(shaderProgramID);
+		background.setup(inShaderProgramID);
 		background.color = my_vec4(0.75f, 0.1f, 0.1f, 0.3f);
 		background.setBounds(bounds);
 
@@ -163,10 +163,10 @@ struct EditorUI {
 		float remainingHeight = this->height;
 		float remainingWidth  = this->width;
 		
-		levelSelector.setup(shaderProgramID, font, &currentTopLeft, &remainingHeight, &remainingWidth);
-		enemySelector.setup(shaderProgramID, font, &currentTopLeft, &remainingHeight, &remainingWidth);
+		levelSelector.setup(inShaderProgramID, inFont, &currentTopLeft, &remainingHeight, &remainingWidth);
+		enemySelector.setup(inShaderProgramID, inFont, &currentTopLeft, &remainingHeight, &remainingWidth);
 
-		deleteButton.setup(shaderProgramID);
+		deleteButton.setup(inShaderProgramID);
 		deleteButton.color = my_vec4(0.25f, 0.05f, 0.05f, 0.6f);
 		deleteButton.setBounds(currentTopLeft, this->height / 20.0f, this->width);
 	}
