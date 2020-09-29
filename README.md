@@ -1,4 +1,4 @@
-# untitledGame
+# Stint Wick
 
 ### Currently Used Libraries
 
