@@ -395,10 +395,9 @@ void printMat4(my_mat4 mat4) {
 	printf("---------------------------------\n");
 }
 
-
-
-
-
+my_vec2 randomVec2() {
+	return normalize(my_vec2((float)(rand() - (RAND_MAX / 2)), (float)(rand() - (RAND_MAX / 2))));
+}
 
 // ----- trig -----
 float radians(float degrees) {

@@ -19,6 +19,10 @@ struct Camera {
 	float yaw = -90.0f;
 	float pitch = 45.0f;
 
+	my_vec3 posWithShake;
+	float shakeAmount = 5.0f;
+	float shakeTimeRemaining = 0.0f;
+
 	void initOverhead(unsigned int gridSizeX, unsigned int gridSizeY) {
 		yaw = -90.0f;
 		pitch = 0.0f;
@@ -37,6 +41,8 @@ struct Camera {
 		my_vec3 cameraRight = normalize(crossproduct(up, direction));
 
 		up = normalize(crossproduct(direction, cameraRight));
+
+		posWithShake = position;
 	}
 
 	void initForGrid(unsigned int gridSizeX, unsigned int gridSizeY) {
@@ -57,16 +63,8 @@ struct Camera {
 		my_vec3 cameraRight = normalize(crossproduct(up, direction));
 
 		up = normalize(crossproduct(direction, cameraRight));
-	}
 
-	glm::mat4 generateView() {
-		direction.x = cos(radians(yaw)) * cos(radians(pitch));
-		direction.y = sin(radians(pitch));
-		direction.z = sin(radians(yaw)) * cos(radians(pitch));
-		front = normalize(direction);
-
-		glm::mat4 view = glm::lookAt(toGLM(position), toGLM(position + front), toGLM(up));
-		return view;
+		posWithShake = position;
 	}
 
 	my_mat4 generateMyView() {
@@ -75,8 +73,25 @@ struct Camera {
 		direction.z = sin(radians(yaw)) * cos(radians(pitch));
 		front = normalize(direction);
 
-		my_mat4 view = lookAt(position, position + front, up);
+		my_mat4 view = lookAt(posWithShake, posWithShake + front, up);
 		return view;
+	}
+
+	void update(float deltaTime) {
+		// shake logic
+		if (this->shakeTimeRemaining > 0.0f) {
+			my_vec2 vec2 = randomVec2() * deltaTime * shakeAmount;
+
+			this->posWithShake = this->position;
+			this->posWithShake += normalize(crossproduct(front, up)) * vec2.x;
+			this->posWithShake += vec2.y * up;
+
+			this->shakeTimeRemaining -= deltaTime;
+		}
+	}
+
+	void shakeScreen(float time) {
+		this->shakeTimeRemaining = time;
 	}
 
 	void adjustYawAndPitch(float xOffset, float yOffset) {

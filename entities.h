@@ -234,7 +234,7 @@ struct ParticleEmitter {
 
 		//float angle = 0.0f;
 		for (int i = 0; i < 8; i++) {
-			directions[i] = normalize(my_vec2((float)(rand() - (RAND_MAX / 2)), (float)(rand() - (RAND_MAX / 2))));
+			directions[i] = randomVec2();
 		}
 
 		for (int i = 0; i < 8; i++) {

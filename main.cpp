@@ -137,8 +137,6 @@ void refreshProjection() {
 
 void refreshView() {
 	
-	//glm::mat4 view = world.camera.generateView();
-
 	my_mat4 view = world.camera.generateMyView();
 
 	setUniformMat4(regularShaderProgramID, "view", view);
@@ -839,6 +837,7 @@ void checkBulletsForEnemyCollisions() {
             enemy->current = false;
 			bullet->current = false;
 			world.numEnemies--;
+			world.camera.shakeScreen(0.075f);
 
 			break;
         }
@@ -1088,6 +1087,7 @@ int main() {
 		checkPlayerForEnemyBulletCollisions();
 		updateEnemies(timeStep);
 		updateParticleEmitters(timeStep);
+		world.camera.update(deltaTime);
 		
 		drawGrid();
 	    world.player.draw(deltaTime);
