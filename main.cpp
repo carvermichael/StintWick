@@ -89,6 +89,8 @@ void setPauseCoords();
 	Console console;
 	WorldState world;
 	Level levels[MAX_LEVELS];
+	UI_Rect pauseThingy;
+
 	#include "shapeData.h"
 
 	Textbox eventTextBox = {};
@@ -181,6 +183,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 	console.refresh((float)currentScreenWidth, (float)currentScreenHeight);
 	editorUI.refresh((float)currentScreenWidth, (float)currentScreenHeight);
+	pauseThingy.setBounds(AABB(0.0f, (float)currentScreenWidth, (float)currentScreenHeight, 0.0f));
+	setPauseCoords();
 
     refreshProjection();
 }
@@ -985,7 +989,7 @@ int main() {
 #endif // __APPLE__	
 
 	glfwWindowHint(GLFW_SAMPLES, 4); // for MSAA, takes 4 samples per pixel, bufferSize *= 4
-	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "GridGame1", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "Stint Wick", NULL, NULL);
 	if (window == NULL) {
 		printf("Failed to create GLFW window");
 		glfwTerminate();
@@ -1051,7 +1055,6 @@ int main() {
 
 	//world.player.blinking = true;
 
-	UI_Rect pauseThingy;
 	pauseThingy.initialized = false;
 	pauseThingy.setup(UIShaderProgramID);
 	pauseThingy.color = my_vec4(0.1f, 0.1f, 0.1f, 0.7f);
