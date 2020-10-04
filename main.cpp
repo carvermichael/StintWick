@@ -53,26 +53,32 @@ void setPauseCoords();
 #include "editorUI.h"
 #include "levels.h"
 
+struct InputRecord {
+	GLFWgamepadstate gamepadState;
+	float deltaTime;
+};
+
 // TODO: Get all of this on the heap
 	// Random Global State -- some subset of this should go in the worldState
+	
 	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
 	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
-	unsigned int mode = MODE_PLAY;
+	unsigned int mode = MODE_PAUSED;
 	float globalDeltaTime = 0.0f;
 	float lastFrameTime = 0.0f;
 	float lastCursorX = 400;
 	float lastCursorY = 300;
-	unsigned int levelCount;
-	unsigned int currentLevel = 0;
-	unsigned int currentEnemyTypeSelection = 0;
 	bool firstMouse = true;
 	int timeStepDenom = 1;
-	bool pause = true;
+	//bool pause = true;
 	bool lightOrbit = false;
 	bool guidingGrid = false;
 	my_ivec3 pauseCoords[30];
 	bool outlineOnly = false;
-
+	unsigned int levelCount;
+	unsigned int currentLevel = 0;
+	unsigned int currentEnemyTypeSelection = 0;
+	
 	// OpenGL Stuff
 	unsigned int regularShaderProgramID;
 	unsigned int lightShaderProgramID;
@@ -87,7 +93,14 @@ void setPauseCoords();
 
 	EditorUI editorUI;
 	Console console;
-	WorldState world;
+	WorldState *world;
+
+#define INPUT_COUNT 10000
+
+	InputRecord recordedInput[INPUT_COUNT];
+	int currentInputIndex = 0;
+	bool recording = false;
+	bool playback = false;
 	Level levels[MAX_LEVELS];
 	UI_Rect pauseThingy;
 
@@ -109,8 +122,8 @@ void setPauseCoords() {
 void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
 	bool foundBullet = false;
 	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (!world.enemyBullets[i].current) {
-			world.enemyBullets[i].init(worldOffset,
+		if (!world->enemyBullets[i].current) {
+			world->enemyBullets[i].init(worldOffset,
 				my_vec2(dirVec.x, dirVec.y),
 				&models.enemyBullet, speed);
 			foundBullet = true;
@@ -137,38 +150,38 @@ void refreshProjection() {
 
 void refreshView() {
 	
-	my_mat4 view = world.camera.generateMyView();
+	my_mat4 view = world->camera.generateMyView();
 
 	setUniformMat4(regularShaderProgramID, "view", view);
 	setUniformMat4(lightShaderProgramID, "view", view);
 
-	setUniform3f(regularShaderProgramID, "viewPos", world.camera.position);
-	setUniform3f(lightShaderProgramID, "viewPos", world.camera.position);
+	setUniform3f(regularShaderProgramID, "viewPos", world->camera.position);
+	setUniform3f(lightShaderProgramID, "viewPos", world->camera.position);
 }
 
 void refreshLights() {
 	for (int i = 0; i < MAX_LIGHTS; i++) {
 		std::string lightsCurrent = "lights[" + std::to_string(i) + "].current";
-		setUniformBool(regularShaderProgramID, lightsCurrent.c_str(), world.lights[i].current);
+		setUniformBool(regularShaderProgramID, lightsCurrent.c_str(), world->lights[i].current);
 		
-		if (!world.lights[i].current) continue;
+		if (!world->lights[i].current) continue;
 
 		std::string lightsPos		= "lights[" + std::to_string(i) + "].pos";
 		std::string lightsAmbient	= "lights[" + std::to_string(i) + "].ambient";
 		std::string lightsDiffuse	= "lights[" + std::to_string(i) + "].diffuse";
 		std::string lightsSpecular	= "lights[" + std::to_string(i) + "].specular";
 		
-		setUniform3f(regularShaderProgramID,	lightsPos.c_str(),			world.lights[i].pos);
-		setUniform3f(regularShaderProgramID,	lightsAmbient.c_str(),		world.lights[i].ambient);
-		setUniform3f(regularShaderProgramID,	lightsDiffuse.c_str(),		world.lights[i].diffuse);
-		setUniform3f(regularShaderProgramID,	lightsSpecular.c_str(),		world.lights[i].specular);
+		setUniform3f(regularShaderProgramID,	lightsPos.c_str(),			world->lights[i].pos);
+		setUniform3f(regularShaderProgramID,	lightsAmbient.c_str(),		world->lights[i].ambient);
+		setUniform3f(regularShaderProgramID,	lightsDiffuse.c_str(),		world->lights[i].diffuse);
+		setUniform3f(regularShaderProgramID,	lightsSpecular.c_str(),		world->lights[i].specular);
 	}	
 }
 
 void hitTheLights() {
 	// i starts at one to keep global light active
 	for (int i = 1; i < MAX_LIGHTS; i++) {
-		world.lights[i].current = false;
+		world->lights[i].current = false;
 	}
 }
 
@@ -246,48 +259,44 @@ void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 	if (mode == MODE_FREE_CAMERA) {
 		const float cameraSpeed = 25.0f * deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			world.camera.moveForward(deltaTime);		
+			world->camera.moveForward(deltaTime);		
 		}
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			world.camera.moveBack(deltaTime);
+			world->camera.moveBack(deltaTime);
 		}
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			world.camera.moveLeft(deltaTime);
+			world->camera.moveLeft(deltaTime);
 		}
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			world.camera.moveRight(deltaTime);
+			world->camera.moveRight(deltaTime);
 		}
 	}
 	else if (mode == MODE_LEVEL_EDIT) {
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			world.camera.moveUpOne();
+			world->camera.moveUpOne();
 		}
 		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			world.camera.moveDownOne();
+			world->camera.moveDownOne();
 		}
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			world.camera.moveLeftOne();
+			world->camera.moveLeftOne();
 		}
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			world.camera.moveRightOne();
+			world->camera.moveRightOne();
 		}
 		if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS) {
-			world.camera.moveForward(deltaTime);
+			world->camera.moveForward(deltaTime);
 		}
 		if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS) {
-			world.camera.moveBack(deltaTime);
+			world->camera.moveBack(deltaTime);
 		}
 	}
 }
 
-void processJoystickInput(float deltaTime) {
-    if(mode != MODE_PLAY) return;
-    
-    GLFWgamepadstate state;
-
-    if(glfwGetGamepadState(GLFW_JOYSTICK_1, &state)) {
-        moveWithController(state, deltaTime);
-    }
+void processJoystickInput(GLFWgamepadstate state, float deltaTime) {
+    if(mode != MODE_PLAY && mode != MODE_REPLAY) return;
+	
+    moveWithController(state, deltaTime);
 }
 
 unsigned int getCurrentLevel() {
@@ -347,7 +356,7 @@ void addEnemyToLevel(int type, my_ivec2 gridCoords) {
 }
 
 void addEnemyToWorld(int type, my_ivec2 gridCoords) {
-	if (world.numEnemies >= MAX_ENEMIES) {
+	if (world->numEnemies >= MAX_ENEMIES) {
 		printf("ERROR: Max enemies reached.\n");
 		addTextToBox("ERROR: Max enemies reached.", &eventTextBox);
 		return;
@@ -363,13 +372,13 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	
 	Material	*mat	= &materials.mats[type];
 
-	world.enemies[world.numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
-	world.numEnemies++;
+	world->enemies[world->numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
+	world->numEnemies++;
 }
 
 my_ivec3 cameraCenterToGridCoords() {
-	my_vec3 startingPos = world.camera.position;
-	my_vec3 dirVec = world.camera.front;
+	my_vec3 startingPos = world->camera.position;
+	my_vec3 dirVec = world->camera.front;
 
 	my_vec3 currentPos = startingPos;
 
@@ -425,10 +434,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 
 		// remove target enemy from world
 		for (int i = 0; i < MAX_ENEMIES; i++) {
-			if (world.enemies[i].current) {
-				if (worldOffset.x == world.enemies[i].worldOffset.x &&
-					worldOffset.y == world.enemies[i].worldOffset.y) {
-					world.enemies[i].current = false;
+			if (world->enemies[i].current) {
+				if (worldOffset.x == world->enemies[i].worldOffset.x &&
+					worldOffset.y == world->enemies[i].worldOffset.y) {
+					world->enemies[i].current = false;
 				}
 			}
 		}
@@ -460,7 +469,7 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 		float xOffset = (float)(xPos - lastCursorX);
 		float yOffset = (float)(lastCursorY - yPos);
 
-		world.camera.adjustYawAndPitch(xOffset, yOffset);		
+		world->camera.adjustYawAndPitch(xOffset, yOffset);		
 	}
 	else if (mode == MODE_LEVEL_EDIT) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -481,7 +490,7 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 	
 	if (commandVector[0] == "play") {
-		world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
 
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
@@ -490,12 +499,12 @@ void processConsoleCommand(std::string command) {
 	if (commandVector[0] == "freecam") {
 		mode = MODE_FREE_CAMERA;
 
-		world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
 		addTextToBox("Mode: Free Camera", &eventTextBox);
 	}
 
 	if (commandVector[0] == "edit") {
-		world.camera.initOverhead(world.gridSizeX, world.gridSizeY);
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 
 		mode = MODE_LEVEL_EDIT;
 		addTextToBox("Mode: Level Edit", &eventTextBox);
@@ -631,9 +640,9 @@ void drawGrid() {
 		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, 0.0f, 0.0f));
 
 		// right
-		models.wallLeftModel.drawOnlyOutline(my_vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
+		models.wallLeftModel.drawOnlyOutline(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
 		// bottom
-		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
+		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
 	}
 	else {
 		models.floorModel.draw(floorWorldOffset);
@@ -644,9 +653,9 @@ void drawGrid() {
 		models.wallTopModel.draw(my_vec3(1.0f, 0.0f, 0.0f));
 
 		// right
-		models.wallLeftModel.draw(my_vec3((float)world.gridSizeX - 1.0f, 0.0f, 0.0f));
+		models.wallLeftModel.draw(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
 		// bottom
-		models.wallTopModel.draw(my_vec3(1.0f, -(float)world.gridSizeY + 1.0f, 0.0f));
+		models.wallTopModel.draw(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
 	}
 	
 }
@@ -656,22 +665,22 @@ void moveLightAroundOrbit(float deltaTime) {
 	float speed = 90.0f; // degrees / second
 	float degreesMoved = speed * deltaTime;
 
-	float midGridX = (float) world.gridSizeX / 2;
-	float midGridY = -(float) world.gridSizeY / 2;
+	float midGridX = (float) world->gridSizeX / 2;
+	float midGridY = -(float) world->gridSizeY / 2;
 
-	float newDegrees = world.lights[0].currentDegrees + degreesMoved;
+	float newDegrees = world->lights[0].currentDegrees + degreesMoved;
 	if (newDegrees > 360) newDegrees -= 360;
 
 	float newX = glm::cos(glm::radians(newDegrees)) * radius + midGridX;
 	float newY = glm::sin(glm::radians(newDegrees)) * radius + midGridY;
 
-	world.lights[0].pos.x = newX;
-	world.lights[0].pos.y = newY;
+	world->lights[0].pos.x = newX;
+	world->lights[0].pos.y = newY;
 
-	//world.lightEntity.worldOffset.x = newX;
-	//world.lightEntity.worldOffset.y = newY;
+	//world->lightEntity.worldOffset.x = newX;
+	//world->lightEntity.worldOffset.y = newY;
 
-	world.lights[0].currentDegrees = newDegrees;
+	world->lights[0].currentDegrees = newDegrees;
 }
 
 // GRID LINES
@@ -751,14 +760,14 @@ void drawGuidingGrid() {
 
 void updateBullets(float deltaTime) {
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(world.playerBullets[i].current) {
-            Bullet *bullet = &world.playerBullets[i];
+        if(world->playerBullets[i].current) {
+            Bullet *bullet = &world->playerBullets[i];
             bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime, 
                                       bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
         }
 
-		if (world.enemyBullets[i].current) {
-			Bullet *bullet = &world.enemyBullets[i];
+		if (world->enemyBullets[i].current) {
+			Bullet *bullet = &world->enemyBullets[i];
 			bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime,
 				bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
 		}
@@ -767,48 +776,48 @@ void updateBullets(float deltaTime) {
 
 void drawBullets() {
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(world.playerBullets[i].current) world.playerBullets[i].draw();
+        if(world->playerBullets[i].current) world->playerBullets[i].draw();
     }
 
 	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (world.enemyBullets[i].current) world.enemyBullets[i].draw();
+		if (world->enemyBullets[i].current) world->enemyBullets[i].draw();
 	}
 }
 
 void drawEnemies() {
     for(int i = 0; i < MAX_ENEMIES; i++) {
-		if(world.enemies[i].current) world.enemies[i].draw();
+		if(world->enemies[i].current) world->enemies[i].draw();
     }
 }
 
 void updateEnemies(float deltaTime) {
 	for (int i = 0; i < MAX_ENEMIES; i++) {
-		if (world.enemies[i].current) world.enemies[i].update(&world.player, deltaTime);
+		if (world->enemies[i].current) world->enemies[i].update(&world->player, deltaTime);
 	}
 }
 
 void checkBulletsForWallCollisions() {
 
     for(int i = 0; i < MAX_BULLETS; i++) {
-        if(!world.playerBullets[i].current) continue;
-        if(world.playerBullets[i].worldOffset.x < world.wallBounds.AX ||
-           world.playerBullets[i].worldOffset.x > world.wallBounds.BX ||
-           world.playerBullets[i].worldOffset.y > world.wallBounds.AY ||
-           world.playerBullets[i].worldOffset.y < world.wallBounds.BY) {
-            world.playerBullets[i].current = false;
-			createParticleEmitter(my_vec3(world.playerBullets[i].worldOffset.x,
-											world.playerBullets[i].worldOffset.y,
+        if(!world->playerBullets[i].current) continue;
+        if(world->playerBullets[i].worldOffset.x < world->wallBounds.AX ||
+           world->playerBullets[i].worldOffset.x > world->wallBounds.BX ||
+           world->playerBullets[i].worldOffset.y > world->wallBounds.AY ||
+           world->playerBullets[i].worldOffset.y < world->wallBounds.BY) {
+            world->playerBullets[i].current = false;
+			createParticleEmitter(my_vec3(world->playerBullets[i].worldOffset.x,
+											world->playerBullets[i].worldOffset.y,
 											1.5f));
         }
     }
 
 	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (!world.enemyBullets[i].current) continue;
-		if (world.enemyBullets[i].worldOffset.x < world.wallBounds.AX ||
-			world.enemyBullets[i].worldOffset.x > world.wallBounds.BX ||
-			world.enemyBullets[i].worldOffset.y > world.wallBounds.AY ||
-			world.enemyBullets[i].worldOffset.y < world.wallBounds.BY) {
-			world.enemyBullets[i].current = false;			
+		if (!world->enemyBullets[i].current) continue;
+		if (world->enemyBullets[i].worldOffset.x < world->wallBounds.AX ||
+			world->enemyBullets[i].worldOffset.x > world->wallBounds.BX ||
+			world->enemyBullets[i].worldOffset.y > world->wallBounds.AY ||
+			world->enemyBullets[i].worldOffset.y < world->wallBounds.BY) {
+			world->enemyBullets[i].current = false;			
 		}
 	}
 }
@@ -817,13 +826,13 @@ void checkBulletsForEnemyCollisions() {
 
     for(int i = 0; i < MAX_BULLETS; i++) {
 
-        if(!world.playerBullets[i].current) continue;
-        Bullet *bullet = &world.playerBullets[i];
+        if(!world->playerBullets[i].current) continue;
+        Bullet *bullet = &world->playerBullets[i];
 
         for(int j = 0; j < MAX_ENEMIES; j++) {
 
-            if(!world.enemies[j].current) continue;
-            Enemy *enemy = &world.enemies[j];
+            if(!world->enemies[j].current) continue;
+            Enemy *enemy = &world->enemies[j];
 
             if(bullet->bounds.left   > enemy->bounds.right)  continue;
             if(bullet->bounds.right  < enemy->bounds.left)   continue;
@@ -836,8 +845,8 @@ void checkBulletsForEnemyCollisions() {
 
             enemy->current = false;
 			bullet->current = false;
-			world.numEnemies--;
-			world.camera.shakeScreen(0.075f);
+			world->numEnemies--;
+			world->camera.shakeScreen(0.075f);
 
 			break;
         }
@@ -847,15 +856,15 @@ void checkBulletsForEnemyCollisions() {
 void checkPlayerForEnemyCollisions() {
 	for (int j = 0; j < MAX_ENEMIES; j++) {
 
-		if (!world.enemies[j].current) continue;
-		Enemy *enemy = &world.enemies[j];
+		if (!world->enemies[j].current) continue;
+		Enemy *enemy = &world->enemies[j];
 		
-		if (world.player.bounds.left	> enemy->bounds.right)		continue;
-		if (world.player.bounds.right	< enemy->bounds.left)		continue;
-		if (world.player.bounds.top		< enemy->bounds.bottom)		continue;
-		if (world.player.bounds.bottom	> enemy->bounds.top)		continue;
+		if (world->player.bounds.left	> enemy->bounds.right)		continue;
+		if (world->player.bounds.right	< enemy->bounds.left)		continue;
+		if (world->player.bounds.top		< enemy->bounds.bottom)		continue;
+		if (world->player.bounds.bottom	> enemy->bounds.top)		continue;
 
-		pause = true;
+		mode = MODE_PAUSED;
 		addTextToBox("You Died. Try Again.", &eventTextBox);
 		loadCurrentLevel();		
 
@@ -867,15 +876,15 @@ void checkPlayerForEnemyBulletCollisions() {
 
 	for (int i = 0; i < MAX_BULLETS; i++) {
 
-		if (!world.enemyBullets[i].current) continue;
-		Bullet *bullet = &world.enemyBullets[i];
+		if (!world->enemyBullets[i].current) continue;
+		Bullet *bullet = &world->enemyBullets[i];
 
-		if (world.player.bounds.left	> bullet->bounds.right)  continue;
-		if (world.player.bounds.right	< bullet->bounds.left)   continue;
-		if (world.player.bounds.top		< bullet->bounds.bottom) continue;
-		if (world.player.bounds.bottom	> bullet->bounds.top)    continue;
+		if (world->player.bounds.left	> bullet->bounds.right)		continue;
+		if (world->player.bounds.right	< bullet->bounds.left)		continue;
+		if (world->player.bounds.top	< bullet->bounds.bottom)	continue;
+		if (world->player.bounds.bottom	> bullet->bounds.top)		continue;
 
-		pause = true;
+		mode = MODE_PAUSED;
 		addTextToBox("You Died. Try Again.", &eventTextBox);
 		loadCurrentLevel();	
 
@@ -886,8 +895,8 @@ void checkPlayerForEnemyBulletCollisions() {
 void createParticleEmitter(my_vec3 newPos) {
 	
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (!world.particleEmitters[i].current) {
-			world.particleEmitters[i].init(newPos, &models.bulletPart, world.lights);
+		if (!world->particleEmitters[i].current) {
+			world->particleEmitters[i].init(newPos, &models.bulletPart, world->lights);
 			return;
 		}
 	}
@@ -897,34 +906,41 @@ void createParticleEmitter(my_vec3 newPos) {
 
 void updateParticleEmitters(float deltaTime) {
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (world.particleEmitters[i].current) {
-			world.particleEmitters[i].update(deltaTime);
+		if (world->particleEmitters[i].current) {
+			world->particleEmitters[i].update(deltaTime);
 		}
 	}
 }
 
 void drawParticleEmitters() {
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (world.particleEmitters[i].current) {
-			world.particleEmitters[i].draw();
+		if (world->particleEmitters[i].current) {
+			world->particleEmitters[i].draw();
 		}
 	}
 }
 
+// This is starting to become a world state reset...
 void loadCurrentLevel() {
+	SecureZeroMemory(world, sizeof(WorldState));
+
+	currentInputIndex = 0;
+
+	srand(250);
+
 	Level *level = &levels[currentLevel];
 
-	world.init(level->sizeX, level->sizeY);
+	world->init(level->sizeX, level->sizeY);
 
-	world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
+	world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
 
-	world.player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
+	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
 
 	for (int i = 0; i < MAX_ENEMIES; i++) {
-		world.enemies[i].current = false;
+		world->enemies[i].current = false;
 	}
 
-	world.numEnemies = 0;
+	world->numEnemies = 0;
 
 	unsigned int numOfEnemies = level->numEnemies;
 	for (unsigned int i = 0; i < numOfEnemies; i++) {
@@ -938,27 +954,27 @@ void loadCurrentLevel() {
 
 	// reset camera
 	if (mode == MODE_LEVEL_EDIT) {
-		world.camera.initOverhead(world.gridSizeX, world.gridSizeY);
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 	}
 	else {
-		world.camera.initForGrid(world.gridSizeX, world.gridSizeY);
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
 	}	
 
 	// clear particles
 	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		world.particleEmitters[i].current = false;
+		world->particleEmitters[i].current = false;
 	}
 
 	for (int i = 0; i < MAX_BULLETS; i++) {
-		world.playerBullets[i].current = false;
-		world.enemyBullets[i].current = false;
+		world->playerBullets[i].current = false;
+		world->enemyBullets[i].current = false;
 	}
 
 	hitTheLights();
 
-	models.floorModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, (-(float)world.gridSizeY) + 2.0f, 1.0f));
-	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world.gridSizeY, 2.0f));
-	models.wallTopModel.rescale(my_vec3((float)world.gridSizeX - 2.0f, -1.0f, 2.0f));
+	models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
+	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
+	models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
 
 	clearTextBox(&eventTextBox);
 }
@@ -975,6 +991,8 @@ void drawProspectiveOutline() {
 }
 
 int main() {
+	world = (WorldState *)VirtualAlloc(0, sizeof(WorldState), MEM_COMMIT, PAGE_READWRITE);
+		
 	// ------------ INIT STUFF -------------
 
 	// initialization of glfw and glad libraries, window creation
@@ -1034,7 +1052,7 @@ int main() {
 	createPlayerAndEnemyModels();
     createBulletModel();
 
-	console.setup(UIShaderProgramID, (float)currentScreenWidth, (float)currentScreenHeight);
+	console.setup(UIShaderProgramID, (float)currentScreenWidth, (float)currentScreenHeight, &arial);
 	fpsBox.x = (float)(currentScreenWidth - 150);
 	fpsBox.y = (float)(currentScreenHeight - 50);
 
@@ -1048,11 +1066,14 @@ int main() {
     float deltaTime = 0.0f;
 	float timeStep	= deltaTime;
 
-    float targetFrameTime = 1.0f / 60.0f;
+    float targetFrameTime60 = 1.0f / 60.0f;
+	float targetFrameTime90 = 1.0f / 90.0f;
+
+	float targetFrameTime = targetFrameTime60;
 
 	editorUI.setup(UIShaderProgramID, &arial, (float)currentScreenWidth, (float)currentScreenHeight);
 
-	//world.player.blinking = true;
+	//world->player.blinking = true;
 
 	pauseThingy.initialized = false;
 	pauseThingy.setup(UIShaderProgramID);
@@ -1062,14 +1083,73 @@ int main() {
 
 	outlineOnly = true;
 
+	//recording = true;
+
+	GLFWgamepadstate gamepadState;
+	GLFWgamepadstate prevGamepadState;
+	float deltaTimeForUpdate;
+	float timeStepForUpdate;
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
-		processKeyboardInput(window, deltaTime);
-        processJoystickInput(timeStep);
 		
-		glfwPollEvents();
+		// Getting start button state here, cause it is used to move through states outside of play, too.
+		// Rest of gamepad state is used in moveWithController function.
+		if(!glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepadState)) {	/* TODO: logging */	};
 
+		if (gamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_PRESS
+			&& prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
+			if (mode == MODE_PLAY) mode = MODE_PAUSED;
+			else if (mode == MODE_PAUSED) mode = MODE_PLAY;
+			else if (mode == MODE_REPLAY) {
+				goForwardOneLevel();
+				loadCurrentLevel();
+				mode = MODE_PAUSED;
+			}
+		}
+		
+		if (mode == MODE_REPLAY) {
+			gamepadState = recordedInput[currentInputIndex].gamepadState;
+			deltaTimeForUpdate = recordedInput[currentInputIndex].deltaTime;
+			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;			
+
+			currentInputIndex++;
+		} else if (mode == MODE_PLAY) {
+			recordedInput[currentInputIndex].gamepadState = gamepadState;
+			recordedInput[currentInputIndex].deltaTime = deltaTime;
+			currentInputIndex++;
+			deltaTimeForUpdate = deltaTime;
+			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;
+		} else if (mode == MODE_PAUSED) {
+			deltaTimeForUpdate = 0.0f;
+			timeStepForUpdate = 0.0f;
+		}
+
+		// -- INPUT --
+		processKeyboardInput(window, deltaTime);
+        processJoystickInput(gamepadState, deltaTimeForUpdate);
+		glfwPollEvents();
+		prevGamepadState = gamepadState;
+
+		// -- UPDATE -- 
+		updateBullets(timeStepForUpdate);
+		checkBulletsForWallCollisions();
+		checkBulletsForEnemyCollisions();
+		checkPlayerForEnemyCollisions();
+		checkPlayerForEnemyBulletCollisions();
+		updateEnemies(timeStepForUpdate);
+		updateParticleEmitters(timeStepForUpdate);
+		world->camera.update(deltaTimeForUpdate);
+		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
+
+		if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
+			loadCurrentLevel();
+			currentInputIndex = 0;
+			mode = MODE_REPLAY;
+		}
+
+		// -- DRAW --
 		refreshView();
+		refreshLights();
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1077,61 +1157,49 @@ int main() {
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
-		if(lightOrbit) moveLightAroundOrbit(deltaTime);
-
-        refreshLights();
-        updateBullets(timeStep);
-        checkBulletsForWallCollisions();
-        checkBulletsForEnemyCollisions();
-		checkPlayerForEnemyCollisions();
-		checkPlayerForEnemyBulletCollisions();
-		updateEnemies(timeStep);
-		updateParticleEmitters(timeStep);
-		world.camera.update(deltaTime);
 		
 		drawGrid();
-	    world.player.draw(deltaTime);
+	    world->player.draw();
         drawEnemies();
         drawBullets();
 		drawParticleEmitters();
-		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();		
-				
-		if (world.numEnemies <= 0 && mode == MODE_PLAY) {
-			pause = true;
-			setPauseCoords();
-			goForwardOneLevel();
-		}
-	
+		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
+		
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		drawTextBox(&eventTextBox, &arial);
 		drawTextBox(&fpsBox, &arial);
 		if(mode == MODE_LEVEL_EDIT) editorUI.draw();
-		else if (pause) {
+		else if (mode == MODE_PAUSED) {
 			pauseThingy.draw();
 			
 			for (int i = 0; i < 30; i++) {
 				drawText(&arial, "PRESS START", (float)pauseCoords[i].x, (float)pauseCoords[i].y, pauseCoords[i].z * 0.005f, my_vec3(1.0f));
 			}
 		}
-		console.draw(deltaTime, &arial);
-		
+		console.draw();
+
+		// -- FRAME TIMING --
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	
 		
-        if(deltaTime < targetFrameTime) {
-			int timeToSleepMS = (int) (1000.0f * (targetFrameTime - deltaTime));
-            
-			if (timeToSleepMS > 1) {
-				Sleep(timeToSleepMS);
-			}
+		if (mode != MODE_REPLAY) {
+			if (deltaTime < targetFrameTime) {
+				int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
 
-			while (deltaTime < targetFrameTime) {
-				deltaTime = (float)glfwGetTime() - lastFrameTime;
+				if (timeToSleepMS > 1) {
+					// TODO: make sure that windows is able to sleep at the 1ms level (HH code does this somewhere)
+
+					Sleep(timeToSleepMS);
+				}
+
+				while (deltaTime < targetFrameTime) {
+					deltaTime = (float)glfwGetTime() - lastFrameTime;
+				}
 			}
-		}
-		else {
-			printf("MISSED FRAME! AHH\n"); // TODO: logging
+			else {
+				printf("MISSED FRAME! AHH\n"); // TODO: logging
+			}
 		}
 
 		float frameTime = deltaTime * 1000.0f;
@@ -1141,10 +1209,11 @@ int main() {
 		drawText(&arial, stream.str(), 0, (float) currentScreenHeight - 30.0f, 0.5f, my_vec3(1.0f));
 		
         timeStep = deltaTime / timeStepDenom;
-		if (pause) timeStep = 0.0f;
+		//if (mode == MODE_PAUSED) timeStep = 0.0f;
 		globalDeltaTime = deltaTime;
 
 		lastFrameTime = (float)glfwGetTime();
+
 		glfwSwapBuffers(window);
 	}
 

@@ -4,6 +4,8 @@
 #include "UIRect.h"
 
 struct Console {
+	Font *font;
+	
 	Textbox historyTextbox;
 	UI_Rect boundingRect;
 	UI_Rect inputRect;
@@ -59,7 +61,9 @@ struct Console {
 		isOut = false;
 	}
 
-	void setup(unsigned int shaderProgramId, float screenWidth, float screenHeight) {
+	void setup(unsigned int shaderProgramId, float screenWidth, float screenHeight, Font *font) {
+		this->font = font;
+		
 		boundingRect.setup(shaderProgramId);
 		boundingRect.color = my_vec4(0.2f, 0.2f, 0.2f, 1.0f);
 
@@ -95,21 +99,10 @@ struct Console {
 		inputString.clear();
 	}
 
-	// might want to split update from draw here...idk
-	void draw(float deltaTime, Font *font) {
-		float dist = destination - location;
-		if (glm::abs(dist) < 1) location = destination;
+	void draw() {
 
-		float distToMove = dist / 4.0f * deltaTime * speed;
-		
-		location += distToMove;
-		
-		historyTextbox.y = location + 27.0f;
-
-		boundingRect.setBounds(AABB(0.0f, (float) currentScreenWidth, location, (float) currentScreenHeight));
 		boundingRect.draw();
-
-		inputRect.setBounds(AABB(0.0f, (float) currentScreenWidth, location + 25.0f, location));
+				
 		inputRect.draw();
 
 		//timeSinceEditMarkerFlip += deltaTime;
@@ -123,9 +116,23 @@ struct Console {
 		//	editMarkerRect.draw();
 		//}
 
-		drawText(font, inputString, 0.0f, location + 5.0f, 0.4f, my_vec3(1.0f, 1.0f, 1.0f));
+		drawText(this->font, inputString, 0.0f, location + 5.0f, 0.4f, my_vec3(1.0f, 1.0f, 1.0f));
 
-		drawTextBox(&historyTextbox, font);
+		drawTextBox(&historyTextbox, this->font);
+	}
+
+	void update(float deltaTime) {
+		float dist = destination - location;
+		if (glm::abs(dist) < 1) location = destination;
+
+		float distToMove = dist / 4.0f * deltaTime * speed;
+
+		location += distToMove;
+
+		historyTextbox.y = location + 27.0f;
+
+		boundingRect.setBounds(AABB(0.0f, (float)currentScreenWidth, location, (float)currentScreenHeight));
+		inputRect.setBounds(AABB(0.0f, (float)currentScreenWidth, location + 25.0f, location));
 	}
 };
 

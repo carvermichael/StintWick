@@ -82,19 +82,19 @@ struct Entity {
 	float speed = 10.0f;
 	float shotSpeed = 45.0f;
 
-	void draw(float deltaTime) {
+	void draw() {
 		float outlineFactor = 0.0f;
 		
-		if (blinking) {
-			lastBlinkTime += deltaTime;
-			if (lastBlinkTime >= blinkTime) {
-				blinkOn = !blinkOn;
-				lastBlinkTime = 0.0f;
-			}
-			if (blinkOn) {
-				outlineFactor = 1.0f;
-			}
-		}
+		//if (blinking) {
+		//	lastBlinkTime += deltaTime;
+		//	if (lastBlinkTime >= blinkTime) {
+		//		blinkOn = !blinkOn;
+		//		lastBlinkTime = 0.0f;
+		//	}
+		//	if (blinkOn) {
+		//		outlineFactor = 1.0f;
+		//	}
+		//}
 
 		model->draw(worldOffset, 1.0f, outlineFactor);
 	}
@@ -211,10 +211,10 @@ struct ParticleEmitter {
 	bool current = false;
 
 	float t;
-	float maxT = 0.85f;
-	float height = 3.5f;
+	float maxT;
+	float height;
 
-	float speed = 15.0f;
+	float speed;
 	my_vec3 pos;
 
 	Model *model;
@@ -224,6 +224,10 @@ struct ParticleEmitter {
 	Light* lights[8];
 
 	void init(my_vec3 newPos, Model *newModel, Light inLights[]) {
+		maxT = 0.85f;
+		height = 3.5f;
+		speed = 15.0f;		
+		
 		pos = newPos;
 		t = 0.0f;
 		current = true;
@@ -232,7 +236,6 @@ struct ParticleEmitter {
 			positions[i] = newPos;
 		}
 
-		//float angle = 0.0f;
 		for (int i = 0; i < 8; i++) {
 			directions[i] = randomVec2();
 		}

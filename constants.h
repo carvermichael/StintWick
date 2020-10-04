@@ -22,7 +22,8 @@
 #define MODE_PLAY				0
 #define MODE_FREE_CAMERA		1
 #define MODE_LEVEL_EDIT			2
-#define MODE_PLAY_FIRST_PERSON  3
+#define MODE_REPLAY				3
+#define MODE_PAUSED				4
 
 #define MAX_LEVELS			  50
 #define MAX_BULLETS			  25
