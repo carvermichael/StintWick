@@ -1156,6 +1156,9 @@ int main() {
 		prevGamepadState = gamepadState;
 
 		// -- UPDATE -- 
+		// TODO: this should be elsewhere
+		setUniform3f(regularShaderProgramID, "playerPos", world->player.worldOffset);
+
 		updateBullets(timeStepForUpdate);
 		checkBulletsForWallCollisions();
 		checkBulletsForEnemyCollisions();

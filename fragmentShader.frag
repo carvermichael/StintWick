@@ -25,10 +25,21 @@ uniform Light lights[NUM_LIGHTS];
 
 uniform vec3 viewPos;
 
+uniform vec3 playerPos;
+
 void main()
 {
-	// ambient lighting
+	vec3 fogColor = vec3(0.5, 0.5, 0.5);
+
+	float distFromPlayer = length(playerPos - fragmentPos);
 	
+	float fogMax = 15.0;
+	float fogMin = 0.0;
+	float fogFactor = (distFromPlayer - fogMax) / 
+						(fogMax - fogMin);
+	fogFactor = clamp(fogFactor, 0.0, 1.0);
+	
+	// ambient lighting	
 	vec3 ambientResult = 1.0f * materialAmbient;
 
 	vec3 diffuseResult = vec3(0.0f);
@@ -49,13 +60,16 @@ void main()
 		vec3 reflectDir = reflect(-lightDir, norm);
 		float spec = pow(max(dot(viewDir, reflectDir), 0.0f), materialShininess); 
 		vec3 specularResult = lights[i].specular * spec * materialSpecular;
-		//vec3 specularResult = vec3(0.5f, 0.5f, 0.5f);
-		
-	}	
+		//vec3 specularResult = vec3(0.5f, 0.5f, 0.5f);		
+	}
 
 	// TODO: re-add attenuation for shrapnel lighting
 	specularResult *= 0.2f; // attenuation stand-in
 
 	vec3 result = (ambientResult + diffuseResult + specularResult);
+
+	// uncomment next line for fog
+	// result = mix(result, fogColor, fogFactor);
+
 	fragColorOut = vec4(result, 1.0f);
 };
