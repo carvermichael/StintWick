@@ -129,11 +129,11 @@ struct Mesh {
 	unsigned int EBO_ID;
 	unsigned int outline_EBO_ID;
 
-	unsigned int shaderProgramID;
+	unsigned int *shaderProgramID;
 
 	// just cube for now
 	// later, we can pass in some struct with vertices/indices
-	Mesh(unsigned int newShaderProgramID, Material *newMaterial) {
+	Mesh(unsigned int *newShaderProgramID, Material *newMaterial) {
 		shaderProgramID = newShaderProgramID;
 		material = newMaterial;
 
@@ -157,28 +157,30 @@ struct Mesh {
 	}
 
 	void draw(my_vec3 worldOffset, float bodyFactor, float outlineFactor, Material *mat) {
-		glUseProgram(shaderProgramID);
+		//printf("Drawing with ID: %d\n", *shaderProgramID);
+		
+		glUseProgram(*shaderProgramID);
 		glBindVertexArray(VAO_ID);
 		my_mat4 current_model = translate(my_mat4(1.0f), worldOffset);
-		setUniformMat4(shaderProgramID, "model", current_model);
+		setUniformMat4(*shaderProgramID, "model", current_model);
 
 		if (bodyFactor > 0.0f) {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
 			glDepthFunc(GL_LESS);
 
-			setUniform3f(shaderProgramID, "materialAmbient", mat->ambient * bodyFactor);
-			setUniform3f(shaderProgramID, "materialDiffuse", mat->diffuse * bodyFactor);
-			setUniform3f(shaderProgramID, "materialSpecular", mat->specular * bodyFactor);
-			setUniform1f(shaderProgramID, "materialShininess", mat->shininess);
+			setUniform3f(*shaderProgramID, "materialAmbient", mat->ambient * bodyFactor);
+			setUniform3f(*shaderProgramID, "materialDiffuse", mat->diffuse * bodyFactor);
+			setUniform3f(*shaderProgramID, "materialSpecular", mat->specular * bodyFactor);
+			setUniform1f(*shaderProgramID, "materialShininess", mat->shininess);
 
 			glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
-		}		
+		}
 
 		if (outlineFactor > 0.0f) { // could I just let this fly, do the draw with the zero mult?
-			setUniform3f(shaderProgramID, "materialAmbient", my_vec3(1.0f) * outlineFactor);
-			setUniform3f(shaderProgramID, "materialDiffuse", my_vec3(1.0f) * outlineFactor);
-			setUniform3f(shaderProgramID, "materialSpecular", my_vec3(1.0f) * outlineFactor);
-			setUniform1f(shaderProgramID, "materialShininess", 100.0f);
+			setUniform3f(*shaderProgramID, "materialAmbient", my_vec3(1.0f) * outlineFactor);
+			setUniform3f(*shaderProgramID, "materialDiffuse", my_vec3(1.0f) * outlineFactor);
+			setUniform3f(*shaderProgramID, "materialSpecular", my_vec3(1.0f) * outlineFactor);
+			setUniform1f(*shaderProgramID, "materialShininess", 100.0f);
 
 			glDepthFunc(GL_LEQUAL);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_EBO_ID);

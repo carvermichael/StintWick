@@ -28,6 +28,7 @@ uniform vec3 viewPos;
 void main()
 {
 	// ambient lighting
+	
 	vec3 ambientResult = 1.0f * materialAmbient;
 
 	vec3 diffuseResult = vec3(0.0f);
@@ -48,6 +49,8 @@ void main()
 		vec3 reflectDir = reflect(-lightDir, norm);
 		float spec = pow(max(dot(viewDir, reflectDir), 0.0f), materialShininess); 
 		vec3 specularResult = lights[i].specular * spec * materialSpecular;
+		//vec3 specularResult = vec3(0.5f, 0.5f, 0.5f);
+		
 	}	
 
 	// TODO: re-add attenuation for shrapnel lighting

@@ -587,42 +587,42 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_ma
 }
 
 void createBulletModel() {
-	Mesh bulletMesh = Mesh(regularShaderProgramID, &materials.grey);
+	Mesh bulletMesh = Mesh(&regularShaderProgramID, &materials.grey);
 	models.bullet.name = std::string("bullet");
 	models.bullet.meshes.push_back(bulletMesh);
 	models.bullet.scale(my_vec3(0.5f));
 
-	Mesh enemyBulletMesh = Mesh(regularShaderProgramID, &materials.gold);
+	Mesh enemyBulletMesh = Mesh(&regularShaderProgramID, &materials.gold);
 	models.enemyBullet.name = std::string("enemyBullet");
 	models.enemyBullet.meshes.push_back(enemyBulletMesh);
 	models.enemyBullet.scale(my_vec3(0.5f));
 
-	Mesh bulletPartMesh = Mesh(regularShaderProgramID, &materials.grey);
+	Mesh bulletPartMesh = Mesh(&regularShaderProgramID, &materials.grey);
 	models.bulletPart.name = std::string("bulletPart");
 	models.bulletPart.meshes.push_back(bulletPartMesh);
 	models.bulletPart.scale(my_vec3(0.15f));
 }
 
 void createGridFloorAndWallModels() {
-	Mesh floorMesh = Mesh(regularShaderProgramID, &materials.blackRubber);
+	Mesh floorMesh = Mesh(&regularShaderProgramID, &materials.blackRubber);
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
 	
-	Mesh wallLeftMesh = Mesh(regularShaderProgramID, &materials.grey);
+	Mesh wallLeftMesh = Mesh(&regularShaderProgramID, &materials.grey);
 	models.wallLeftModel.name = std::string("wallLeft");
 	models.wallLeftModel.meshes.push_back(wallLeftMesh);
 	
-	Mesh wallTopMesh = Mesh(regularShaderProgramID, &materials.grey);
+	Mesh wallTopMesh = Mesh(&regularShaderProgramID, &materials.grey);
 	models.wallTopModel.name = std::string("wall");
 	models.wallTopModel.meshes.push_back(wallTopMesh);	
 }
 
 void createPlayerAndEnemyModels() {
-	Mesh playerMesh = Mesh(regularShaderProgramID, &materials.emerald);
+	Mesh playerMesh = Mesh(&regularShaderProgramID, &materials.emerald);
 	models.player.name = std::string("player");
 	models.player.meshes.push_back(playerMesh);
 	
-	Mesh enemyMesh = Mesh(regularShaderProgramID, &materials.ruby);
+	Mesh enemyMesh = Mesh(&regularShaderProgramID, &materials.ruby);
 	models.enemy.name = std::string("enemy");
 	models.enemy.meshes.push_back(enemyMesh);
 	models.enemy.scale(my_vec3(1.0f, 1.0f, 0.5f));
@@ -1090,8 +1090,33 @@ int main() {
 	float deltaTimeForUpdate;
 	float timeStepForUpdate;
 	// game loop
+	WIN32_FILE_ATTRIBUTE_DATA prevFragmentShaderFileData;
+	
+	WIN32_FILE_ATTRIBUTE_DATA fragmentShaderFileData;
+	GetFileAttributesExA(
+		"fragmentShader.frag",
+		GetFileExInfoStandard,
+		&prevFragmentShaderFileData
+	);	
+
 	while (!glfwWindowShouldClose(window)) {
-		
+
+		// Checking Fragment Shader for saving
+		GetFileAttributesExA(
+			"fragmentShader.frag",
+			GetFileExInfoStandard,
+			&fragmentShaderFileData
+		);
+
+		if (fragmentShaderFileData.ftLastWriteTime.dwLowDateTime != prevFragmentShaderFileData.ftLastWriteTime.dwLowDateTime) {
+			printf("File updated.\n");
+			regularShaderProgramID = createShaderProgram("vertexShader.vert", "fragmentShader.frag");
+			
+			refreshProjection();
+			refreshView();
+			prevFragmentShaderFileData = fragmentShaderFileData;
+		}
+
 		// Getting start button state here, cause it is used to move through states outside of play, too.
 		// Rest of gamepad state is used in moveWithController function.
 		if(!glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepadState)) {	/* TODO: logging */	};
@@ -1106,7 +1131,7 @@ int main() {
 				mode = MODE_PAUSED;
 			}
 		}
-		
+			
 		if (mode == MODE_REPLAY) {
 			gamepadState = recordedInput[currentInputIndex].gamepadState;
 			deltaTimeForUpdate = recordedInput[currentInputIndex].deltaTime;
@@ -1171,11 +1196,11 @@ int main() {
 		drawTextBox(&fpsBox, &arial);
 		if(mode == MODE_LEVEL_EDIT) editorUI.draw();
 		else if (mode == MODE_PAUSED) {
-			pauseThingy.draw();
+			//pauseThingy.draw();
 			
-			for (int i = 0; i < 30; i++) {
-				drawText(&arial, "PRESS START", (float)pauseCoords[i].x, (float)pauseCoords[i].y, pauseCoords[i].z * 0.005f, my_vec3(1.0f));
-			}
+			//for (int i = 0; i < 30; i++) {
+			//	drawText(&arial, "PRESS START", (float)pauseCoords[i].x, (float)pauseCoords[i].y, pauseCoords[i].z * 0.005f, my_vec3(1.0f));
+			//}
 		}
 		console.draw();
 
