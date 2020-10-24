@@ -214,6 +214,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 
 	if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+		printf("butts");
 		console.flipOut();
 		return;
 	}
@@ -490,7 +491,7 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 	
 	if (commandVector[0] == "play") {
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
 
 		mode = MODE_PLAY;
 		addTextToBox("Mode: Play", &eventTextBox);
@@ -499,7 +500,7 @@ void processConsoleCommand(std::string command) {
 	if (commandVector[0] == "freecam") {
 		mode = MODE_FREE_CAMERA;
 
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
 		addTextToBox("Mode: Free Camera", &eventTextBox);
 	}
 
@@ -932,7 +933,7 @@ void loadCurrentLevel() {
 
 	world->init(level->sizeX, level->sizeY);
 
-	world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
+	world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
 
 	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
 
@@ -957,7 +958,7 @@ void loadCurrentLevel() {
 		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 	}
 	else {
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY);
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
 	}	
 
 	// clear particles
@@ -1166,7 +1167,7 @@ int main() {
 		checkPlayerForEnemyBulletCollisions();
 		updateEnemies(timeStepForUpdate);
 		updateParticleEmitters(timeStepForUpdate);
-		world->camera.update(deltaTimeForUpdate);
+		world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
 		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
 
 		if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
@@ -1181,7 +1182,7 @@ int main() {
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+		glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();

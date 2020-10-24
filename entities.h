@@ -174,6 +174,9 @@ struct Enemy : Entity {
 
 struct Follow : EnemyStrat {
 	void update(Entity *entity, Player *player, float deltaTime) {
+		float distFromPlayer = length(player->worldOffset - entity->worldOffset);
+		if (distFromPlayer > 15.0f) return;
+		
 		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
 		my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
 
@@ -186,6 +189,9 @@ struct Shoot : EnemyStrat {
 	Shoot() : EnemyStrat() {};
 
 	void update(Entity *entity, Player *player, float deltaTime) {
+		float distFromPlayer = length(player->worldOffset - entity->worldOffset);
+		if (distFromPlayer > 25.0f) return;
+		
 		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
 
 		entity->timeSinceLastShot += deltaTime;

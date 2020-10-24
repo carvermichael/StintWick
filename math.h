@@ -280,6 +280,12 @@ my_vec3 crossproduct(my_vec3 a, my_vec3 b) {
 				   a.x*b.y - a.y*b.x);
 }
 
+float length(my_vec3 vec3) {
+
+	return sqrt(vec3.x * vec3.x + vec3.y * vec3.y + vec3.z * vec3.z);
+
+}
+
 float dot(my_vec3 a, my_vec3 b) {
 	return a.x * b.x +
 		   a.y * b.y +
