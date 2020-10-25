@@ -1169,6 +1169,7 @@ int main() {
 		updateParticleEmitters(timeStepForUpdate);
 		world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
 		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
+		console.update(deltaTime);
 
 		if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
 			loadCurrentLevel();
