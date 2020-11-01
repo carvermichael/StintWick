@@ -7,7 +7,7 @@ typedef void (*control)(int action, int key, float deltaTime);
 // NOTE: The check for GLFW_RELEASE relies on Windows repeat logic,
 //		 probably don't want to rely on that long-term.		
 //									-carver (8-10-20)
-void moveWithController(GLFWgamepadstate state, float deltaTime) {
+inline void moveWithController(GLFWgamepadstate state, float deltaTime) {
     static GLFWgamepadstate prevState;
 
     // movement
@@ -36,43 +36,43 @@ void moveWithController(GLFWgamepadstate state, float deltaTime) {
     if(state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN] == GLFW_PRESS &&  
        prevState.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN] == GLFW_RELEASE) {
         timeStepDenom++;
-		addTextToBox("TimeStep: 1/" + std::to_string(timeStepDenom), &eventTextBox);
+		eventTextBox.addTextToBox("TimeStep: 1/" + std::to_string(timeStepDenom));
     }
 
     if(state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP] == GLFW_PRESS &&  
        prevState.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP] == GLFW_RELEASE) {
         if(timeStepDenom > 1) {
             timeStepDenom--;
-            addTextToBox("TimeStep: 1/" + std::to_string(timeStepDenom), &eventTextBox);
+			eventTextBox.addTextToBox("TimeStep: 1/" + std::to_string(timeStepDenom));
         }
     }
 
     prevState = state;
 }
 
-void control_play(int action, int key, float deltaTime) {
+inline void control_play(int action, int key, float deltaTime) {
 	
 }
 
-void control_freeCam(int action, int key, float deltaTime) {
+inline void control_freeCam(int action, int key, float deltaTime) {
 	if (action == GLFW_RELEASE) return;
 
 	if (key == GLFW_KEY_G) {
 		guidingGrid = !guidingGrid;
-		addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &eventTextBox);
+		eventTextBox.addTextToBox("Guiding Grid: " + std::to_string(guidingGrid));
 	}
 	
 	if (key == GLFW_KEY_O) {
 		lightOrbit = !lightOrbit;
-		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
+		eventTextBox.addTextToBox("Light Orbit: " + std::to_string(lightOrbit));
 	}
 	if (key == GLFW_KEY_F2) {
 		mode = MODE_PLAY;
-		addTextToBox("Mode: Play", &eventTextBox);
+		eventTextBox.addTextToBox("Mode: Play");
 	}
 }
 
-void control_edit(int action, int key, float deltaTime) {
+inline void control_edit(int action, int key, float deltaTime) {
 	if (action != GLFW_PRESS) return;
 	
 	if (key == GLFW_KEY_F5) {
@@ -108,10 +108,56 @@ void control_edit(int action, int key, float deltaTime) {
 	*/
 }
 
-control getControlFunc() {
+inline control getControlFunc() {
 	if (mode == MODE_PLAY)				return &control_play;
 	if (mode == MODE_FREE_CAMERA)		return &control_freeCam;
 	if (mode == MODE_LEVEL_EDIT)		return &control_edit;
 
 	return NULL;
+}
+
+inline void processKeyboardInput(GLFWwindow *window, float deltaTime) {
+	// NOTE: Using the callback for free camera movement is super choppy,
+	//		 Cause it's the only thing that involves holding down keys?
+	if (mode == MODE_FREE_CAMERA) {
+		const float cameraSpeed = 25.0f * deltaTime;
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+			world->camera.moveForward(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+			world->camera.moveBack(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			world->camera.moveLeft(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			world->camera.moveRight(deltaTime);
+		}
+	}
+	else if (mode == MODE_LEVEL_EDIT) {
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+			world->camera.moveUpOne();
+		}
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+			world->camera.moveDownOne();
+		}
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			world->camera.moveLeftOne();
+		}
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			world->camera.moveRightOne();
+		}
+		if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS) {
+			world->camera.moveForward(deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS) {
+			world->camera.moveBack(deltaTime);
+		}
+	}
+}
+
+inline void processJoystickInput(GLFWgamepadstate state, float deltaTime) {
+	if (mode != MODE_PLAY && mode != MODE_REPLAY) return;
+
+	moveWithController(state, deltaTime);
 }

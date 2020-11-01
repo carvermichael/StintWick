@@ -351,11 +351,11 @@ void setMaterial(std::string modelName, std::string matName, Materials *material
 	bool fail = false;
 
 	if (mat == NULL) {
-		addTextToBox("Material not found: " + matName, &console->historyTextbox);
+		console->historyTextbox.addTextToBox("Material not found: " + matName);
 		fail = true;
 	}
 	if (model == NULL) {
-		addTextToBox("Model not found: " + modelName, &console->historyTextbox);
+		console->historyTextbox.addTextToBox("Model not found: " + modelName);
 		fail = true;
 	}
 	if (fail) return;

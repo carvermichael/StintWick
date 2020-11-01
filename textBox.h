@@ -1,4 +1,14 @@
 #if !defined(TEXTBOX)
+#pragma warning (push, 0)
+#include <glad/glad.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#pragma warning (pop)
+
+#include "math.h"
+#include "global_manip.h"
+#include <map>
+#include <iostream>
 
 struct TextCharacter {
 	unsigned int textureID;
@@ -94,7 +104,7 @@ struct Font {
 	}
 };
 
-void drawText(Font *font, std::string text, float x, float y, float scale, my_vec3 color) {
+inline void drawText(Font *font, std::string text, float x, float y, float scale, my_vec3 color) {
 
 	setUniform3f(font->shaderProgramID, "textColor", color);
 
@@ -148,54 +158,54 @@ struct Textbox {
 
 	float x = 0.0f;
 	float y = 0.0f;
+
+	void drawTextBox(Font *font) {
+		int startingLineIndex;
+		int numLinesToShow;
+		if (numLinesUsed < maxLinesToShow) {
+			startingLineIndex = 0;
+			numLinesToShow = numLinesUsed;
+		}
+		else {
+			startingLineIndex = numLinesUsed - maxLinesToShow;
+			numLinesToShow = maxLinesToShow;
+		}
+
+		if (!flip) {
+			for (int i = startingLineIndex; i < numLinesToShow + startingLineIndex; i++) {
+				drawText(font, lines[i], x, y, 0.4f, my_vec3(1.0f, 0.5f, 0.89f));
+
+				y += 20.0f;
+			}
+		}
+		else {
+			for (int i = numLinesToShow + startingLineIndex - 1; i >= startingLineIndex; i--) {
+				drawText(font, lines[i], x, y, 0.4f, my_vec3(1.0f, 0.5f, 0.89f));
+
+				y += 20.0f;
+			}
+		}
+	}
+
+	// TODO: This needs wraparound.
+	void addTextToBox(std::string newText) {
+		lines[numLinesUsed] = newText;
+
+		numLinesUsed++;
+	}
+
+	void clearTextBox() {
+		numLinesUsed = 0;
+	}
+
+
+	void addTextToBoxAtLine(std::string newText, int lineNum) {
+		lines[lineNum] = newText;
+		numLinesUsed = 1;
+	}
 };
 
-void drawTextBox(Textbox *textbox, Font *font) {
-	float x = textbox->x;
-	float y = textbox->y;
 
-	int startingLineIndex;
-	int numLinesToShow;
-	if (textbox->numLinesUsed < textbox->maxLinesToShow) {
-		startingLineIndex = 0;
-		numLinesToShow = textbox->numLinesUsed;
-	} else {
-		startingLineIndex = textbox->numLinesUsed - textbox->maxLinesToShow;
-		numLinesToShow = textbox->maxLinesToShow;
-	}
-
-	if (!textbox->flip) {
-		for (int i = startingLineIndex; i < numLinesToShow + startingLineIndex; i++) {
-			drawText(font, textbox->lines[i], x, y, 0.4f, my_vec3(1.0f, 0.5f, 0.89f));
-
-			y += 20.0f;
-		}
-	}
-	else {
-		for (int i = numLinesToShow + startingLineIndex - 1; i >= startingLineIndex; i--) {
-			drawText(font, textbox->lines[i], x, y, 0.4f, my_vec3(1.0f, 0.5f, 0.89f));
-
-			y += 20.0f;
-		}
-	}
-}
-
-// TODO: This needs wraparound.
-void addTextToBox(std::string newText, Textbox *textbox) {
-	textbox->lines[textbox->numLinesUsed] = newText;
-
-	textbox->numLinesUsed++;
-}
-
-void clearTextBox(Textbox *textbox) {
-	textbox->numLinesUsed = 0;
-}
-
-
-void addTextToBoxAtLine(std::string newText, int lineNum, Textbox *textbox) {
-	textbox->lines[lineNum] = newText;
-    textbox->numLinesUsed = 1;
-}
 
 #define TEXTBOX
 #endif

@@ -90,7 +90,7 @@ struct UI_Rect {
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}
 
-	boolean click(my_vec2 clickCoords) {
+	bool click(my_vec2 clickCoords) {
 		if (clickCoords.x < bounds.AX) return false;
 		if (clickCoords.x > bounds.BX) return false;
 		if (clickCoords.y > bounds.AY) return false;

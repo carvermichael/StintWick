@@ -24,25 +24,7 @@
 #include "math.h"
 #include "constants.h"
 
-// Dumb forward declarations...
-void createParticleEmitter(my_vec3 newPos);
-void processConsoleCommand(std::string command);
-void loadCurrentLevel();
-void goBackOneLevel();
-void goForwardOneLevel();
-void deleteCurrentLevel();
-void goBackOneEnemyType();
-void goForwardOneEnemyType();
-unsigned int getCurrentLevel();
-unsigned int getEnemySelection();
-void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed);
-void setUniformBool(unsigned int shaderProgramID, const char *uniformName, bool value);
-void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value);
-void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3);
-void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4);
-void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4);
-void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_mat4 mat4);
-void setPauseCoords();
+#include "global_manip.h"
 
 #include "model.h"
 #include "camera.h"
@@ -58,7 +40,7 @@ struct InputRecord {
 	float deltaTime;
 };
 
-// TODO: Get all of this on the heap
+// TODO: Should all of this go on the heap???
 	// Random Global State -- some subset of this should go in the worldState
 	
 	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
@@ -111,29 +93,8 @@ struct InputRecord {
 
 #include "controls.h"
 
-void setPauseCoords() {
-	for (int i = 0; i < 30; i++) {
-		pauseCoords[i].x = rand() % currentScreenWidth;
-		pauseCoords[i].y = rand() % currentScreenHeight;
-		pauseCoords[i].z = rand() % 200;
-	}
-}
 
-void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
-	bool foundBullet = false;
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (!world->enemyBullets[i].current) {
-			world->enemyBullets[i].init(worldOffset,
-				my_vec2(dirVec.x, dirVec.y),
-				&models.enemyBullet, speed);
-			foundBullet = true;
-			break;
-		}
-	}
-
-	if (!foundBullet) printf("Bullet array full! Ah!\n");
-}
-
+// UNIFORM SETTING
 void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
@@ -178,63 +139,45 @@ void refreshLights() {
 	}	
 }
 
-void hitTheLights() {
-	// i starts at one to keep global light active
-	for (int i = 1; i < MAX_LIGHTS; i++) {
-		world->lights[i].current = false;
-	}
+void setUniformBool(unsigned int shaderProgramID, const char *uniformName, bool value) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform1i(location, value);
 }
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-	currentScreenHeight = height;
-	
-	currentScreenWidth = (INITIAL_SCREEN_WIDTH * currentScreenHeight) / INITIAL_SCREEN_HEIGHT;
-	
-	glViewport((width - currentScreenWidth) / 2, 0, currentScreenWidth, currentScreenHeight);
-
-	console.refresh((float)currentScreenWidth, (float)currentScreenHeight);
-	editorUI.refresh((float)currentScreenWidth, (float)currentScreenHeight);
-	pauseThingy.setBounds(AABB(0.0f, (float)currentScreenWidth, (float)currentScreenHeight, 0.0f));
-	setPauseCoords();
-
-    refreshProjection();
+void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform1f(location, value);
 }
 
-void character_callback(GLFWwindow* window, unsigned int codepoint)
-{
-	if (console.isOut) {
-		console.addInput((char) codepoint);
-	}
+void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform3f(location, my_vec3.x, my_vec3.y, my_vec3.z);
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-		glfwSetWindowShouldClose(window, true);
-	}
-
-	if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
-		printf("butts");
-		console.flipOut();
-		return;
-	}
-
-	if (console.isOut) {
-		if (key == GLFW_KEY_BACKSPACE) {
-			console.removeCharacter();
-		}
-
-		if (key == GLFW_KEY_ENTER) {
-			console.submit();
-		}
-
-		return;
-	}
-	
-	control ctlFunc = getControlFunc();
-	if(ctlFunc) ctlFunc(action, key, globalDeltaTime);
+void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniform4f(location, my_vec4.x, my_vec4.y, my_vec4.z, my_vec4.w);
 }
 
+void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	my_mat4 myMat4 = my_mat4(mat4);
+	glUniformMatrix4fv(location, 1, GL_FALSE, (GLfloat *)&myMat4);
+}
+
+void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_mat4 mat4) {
+	glUseProgram(shaderProgramID);
+	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
+	glUniformMatrix4fv(location, 1, GL_FALSE, (GLfloat *)&mat4);
+}
+
+
+// RANDOM UTILS
 std::vector<std::string> splitString(std::string str, char delimiter) {
 	std::vector<std::string> returnStrings;
 
@@ -254,50 +197,36 @@ std::vector<std::string> splitString(std::string str, char delimiter) {
 	return returnStrings;
 }
 
-void processKeyboardInput(GLFWwindow *window, float deltaTime) {
-	// NOTE: Using the callback for free camera movement is super choppy,
-	//		 Cause it's the only thing that involves holding down keys?
-	if (mode == MODE_FREE_CAMERA) {
-		const float cameraSpeed = 25.0f * deltaTime;
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			world->camera.moveForward(deltaTime);		
-		}
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			world->camera.moveBack(deltaTime);
-		}
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			world->camera.moveLeft(deltaTime);
-		}
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			world->camera.moveRight(deltaTime);
-		}
-	}
-	else if (mode == MODE_LEVEL_EDIT) {
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			world->camera.moveUpOne();
-		}
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			world->camera.moveDownOne();
-		}
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			world->camera.moveLeftOne();
-		}
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			world->camera.moveRightOne();
-		}
-		if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS) {
-			world->camera.moveForward(deltaTime);
-		}
-		if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS) {
-			world->camera.moveBack(deltaTime);
-		}
+// GLOBAL STATE STUFF
+
+void hitTheLights() {
+	// i starts at one to keep global light active
+	for (int i = 1; i < MAX_LIGHTS; i++) {
+		world->lights[i].current = false;
 	}
 }
 
-void processJoystickInput(GLFWgamepadstate state, float deltaTime) {
-    if(mode != MODE_PLAY && mode != MODE_REPLAY) return;
-	
-    moveWithController(state, deltaTime);
+void setPauseCoords() {
+	for (int i = 0; i < 30; i++) {
+		pauseCoords[i].x = rand() % currentScreenWidth;
+		pauseCoords[i].y = rand() % currentScreenHeight;
+		pauseCoords[i].z = rand() % 200;
+	}
+}
+
+void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
+	bool foundBullet = false;
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (!world->enemyBullets[i].current) {
+			world->enemyBullets[i].init(worldOffset,
+				my_vec2(dirVec.x, dirVec.y),
+				&models.enemyBullet, speed);
+			foundBullet = true;
+			break;
+		}
+	}
+
+	if (!foundBullet) printf("Bullet array full! Ah!\n");
 }
 
 unsigned int getCurrentLevel() {
@@ -320,6 +249,65 @@ void goForwardOneLevel() {
 	if (currentLevel >= levelCount) currentLevel = 0;
 
 	loadCurrentLevel();
+}
+
+// This is starting to become a world state reset...
+void loadCurrentLevel() {
+	SecureZeroMemory(world, sizeof(WorldState));
+
+	currentInputIndex = 0;
+
+	srand(250);
+
+	Level *level = &levels[currentLevel];
+
+	world->init(level->sizeX, level->sizeY);
+
+	world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+
+	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
+
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		world->enemies[i].current = false;
+	}
+
+	world->numEnemies = 0;
+
+	unsigned int numOfEnemies = level->numEnemies;
+	for (unsigned int i = 0; i < numOfEnemies; i++) {
+
+		unsigned int enemyType = level->enemies[i].enemyType;
+		unsigned int gridX = level->enemies[i].gridX;
+		unsigned int gridY = level->enemies[i].gridY;
+
+		addEnemyToWorld(enemyType, my_ivec2(gridX, gridY));
+	}
+
+	// reset camera
+	if (mode == MODE_LEVEL_EDIT) {
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
+	}
+	else {
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+	}
+
+	// clear particles
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		world->particleEmitters[i].current = false;
+	}
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		world->playerBullets[i].current = false;
+		world->enemyBullets[i].current = false;
+	}
+
+	hitTheLights();
+
+	models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
+	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
+	models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
+
+	eventTextBox.clearTextBox();
 }
 
 void deleteCurrentLevel() {
@@ -359,7 +347,7 @@ void addEnemyToLevel(int type, my_ivec2 gridCoords) {
 void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	if (world->numEnemies >= MAX_ENEMIES) {
 		printf("ERROR: Max enemies reached.\n");
-		addTextToBox("ERROR: Max enemies reached.", &eventTextBox);
+		eventTextBox.addTextToBox("ERROR: Max enemies reached.");
 		return;
 	}
 
@@ -396,6 +384,132 @@ my_ivec3 cameraCenterToGridCoords() {
 	return gridCoords;
 }
 
+void processConsoleCommand(std::string command) {
+	std::vector<std::string> commandVector = splitString(command, ' ');
+
+	if (commandVector[0] == "play") {
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+
+		mode = MODE_PLAY;
+		eventTextBox.addTextToBox("Mode: Play");
+	}
+
+	if (commandVector[0] == "freecam") {
+		mode = MODE_FREE_CAMERA;
+
+		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+		eventTextBox.addTextToBox("Mode: Free Camera");
+	}
+
+	if (commandVector[0] == "edit") {
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
+
+		mode = MODE_LEVEL_EDIT;
+		eventTextBox.addTextToBox("Mode: Level Edit");
+	}
+
+	if (commandVector[0] == "grid") {
+		guidingGrid = !guidingGrid;
+		console.historyTextbox.addTextToBox("Guiding Grid: " + std::to_string(guidingGrid));
+	}
+
+	if (commandVector[0] == "orbit") {
+		lightOrbit = !lightOrbit;
+		eventTextBox.addTextToBox("Light Orbit: " + std::to_string(lightOrbit));
+	}
+
+	if (commandVector[0] == "level count") {
+		eventTextBox.addTextToBox("levelCount: " + std::to_string(levelCount));
+	}
+
+	if (commandVector[0] == "newLevel") {
+
+		if (commandVector.size() < 3) {
+			eventTextBox.addTextToBox("error: missing args gridSizeX and gridSizeY");
+			return;
+		}
+
+		unsigned int gridSizeX = std::stoi(commandVector[1], nullptr, 10);
+		unsigned int gridSizeY = std::stoi(commandVector[2], nullptr, 10);
+
+		levelCount = addLevel(levels, levelCount, gridSizeX, gridSizeY);
+		currentLevel = levelCount - 1;
+		loadCurrentLevel();
+	}
+
+	if (commandVector[0] == "mat") {
+		if (commandVector.size() < 3) {
+			eventTextBox.addTextToBox("error: missing args for material and model");
+			return;
+		}
+
+		setMaterial(commandVector[1], commandVector[2], &materials, &models, &console);
+	}
+}
+
+void createParticleEmitter(my_vec3 newPos) {
+
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (!world->particleEmitters[i].current) {
+			world->particleEmitters[i].init(newPos, &models.bulletPart, world->lights);
+			return;
+		}
+	}
+
+	printf("ParticleEmitter array full! Ah!\n");
+}
+
+// CALLBACKS
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+	currentScreenHeight = height;
+
+	currentScreenWidth = (INITIAL_SCREEN_WIDTH * currentScreenHeight) / INITIAL_SCREEN_HEIGHT;
+
+	glViewport((width - currentScreenWidth) / 2, 0, currentScreenWidth, currentScreenHeight);
+
+	console.refresh((float)currentScreenWidth, (float)currentScreenHeight);
+	editorUI.refresh((float)currentScreenWidth, (float)currentScreenHeight);
+	pauseThingy.setBounds(AABB(0.0f, (float)currentScreenWidth, (float)currentScreenHeight, 0.0f));
+	setPauseCoords();
+
+	refreshProjection();
+}
+
+void character_callback(GLFWwindow* window, unsigned int codepoint)
+{
+	if (console.isOut) {
+		console.addInput((char)codepoint);
+	}
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, true);
+	}
+
+	if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+		printf("butts");
+		console.flipOut();
+		return;
+	}
+
+	if (console.isOut) {
+		if (key == GLFW_KEY_BACKSPACE) {
+			console.removeCharacter();
+		}
+
+		if (key == GLFW_KEY_ENTER) {
+			console.submit();
+		}
+
+		return;
+	}
+
+	control ctlFunc = getControlFunc();
+	if (ctlFunc) ctlFunc(action, key, globalDeltaTime);
+}
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (mode != MODE_LEVEL_EDIT) return;
@@ -404,7 +518,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 		// check in window
 		if (lastCursorX < 0 || lastCursorX > currentScreenWidth ||
 			lastCursorY < 0 || lastCursorY > currentScreenHeight) {
-			addTextToBox("Cursor is off screen, &eventTextBox", &eventTextBox);
+			eventTextBox.addTextToBox("Cursor is off screen, &eventTextBox");
 			return;
 		}
 
@@ -487,106 +601,7 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	lastCursorY = (float)yPos;
 }
 
-void processConsoleCommand(std::string command) {
-	std::vector<std::string> commandVector = splitString(command, ' ');
-	
-	if (commandVector[0] == "play") {
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
-
-		mode = MODE_PLAY;
-		addTextToBox("Mode: Play", &eventTextBox);
-	}
-
-	if (commandVector[0] == "freecam") {
-		mode = MODE_FREE_CAMERA;
-
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
-		addTextToBox("Mode: Free Camera", &eventTextBox);
-	}
-
-	if (commandVector[0] == "edit") {
-		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
-
-		mode = MODE_LEVEL_EDIT;
-		addTextToBox("Mode: Level Edit", &eventTextBox);
-	}
-
-	if (commandVector[0] == "grid") {
-		guidingGrid = !guidingGrid;
-		addTextToBox("Guiding Grid: " + std::to_string(guidingGrid), &console.historyTextbox);
-	}
-
-	if (commandVector[0] == "orbit") {
-		lightOrbit = !lightOrbit;
-		addTextToBox("Light Orbit: " + std::to_string(lightOrbit), &eventTextBox);
-	}
-
-	if (commandVector[0] == "level count") {
-		addTextToBox("levelCount: " + std::to_string(levelCount), &eventTextBox);
-	}
-
-	if (commandVector[0] == "newLevel") {
-
-		if (commandVector.size() < 3) {
-			addTextToBox("error: missing args gridSizeX and gridSizeY", &eventTextBox);
-			return;
-		}
-
-		unsigned int gridSizeX = std::stoi(commandVector[1], nullptr, 10);
-		unsigned int gridSizeY = std::stoi(commandVector[2], nullptr, 10);
-
-		levelCount = addLevel(levels, levelCount, gridSizeX, gridSizeY);
-		currentLevel = levelCount - 1;
-		loadCurrentLevel();
-	}
-
-	if (commandVector[0] == "mat") {
-		if (commandVector.size() < 3) {
-			addTextToBox("error: missing args for material and model", &eventTextBox);
-			return;
-		}
-
-		setMaterial(commandVector[1], commandVector[2], &materials, &models, &console);
-	}
-}
-
-void setUniformBool(unsigned int shaderProgramID, const char *uniformName, bool value) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform1i(location, value);
-}
-
-void setUniform1f(unsigned int shaderProgramID, const char *uniformName, float value) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform1f(location, value);
-}
-
-void setUniform3f(unsigned int shaderProgramID, const char *uniformName, my_vec3 my_vec3) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform3f(location, my_vec3.x, my_vec3.y, my_vec3.z);
-}
-
-void setUniform4f(unsigned int shaderProgramID, const char *uniformName, my_vec4 my_vec4) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniform4f(location, my_vec4.x, my_vec4.y, my_vec4.z, my_vec4.w);
-}
-
-void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, glm::mat4 mat4) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	my_mat4 myMat4 = my_mat4(mat4);
-	glUniformMatrix4fv(location, 1, GL_FALSE, (GLfloat *)&myMat4);
-}
-
-void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_mat4 mat4) {
-	glUseProgram(shaderProgramID);
-	unsigned int location = glGetUniformLocation(shaderProgramID, uniformName);
-	glUniformMatrix4fv(location, 1, GL_FALSE, (GLfloat *)&mat4);
-}
-
+// MODEL CREATION
 void createBulletModel() {
 	Mesh bulletMesh = Mesh(&regularShaderProgramID, &materials.grey);
 	models.bullet.name = std::string("bullet");
@@ -629,6 +644,7 @@ void createPlayerAndEnemyModels() {
 	models.enemy.scale(my_vec3(1.0f, 1.0f, 0.5f));
 }
 
+// DRAWS, REGULAR
 void drawGrid() {
 	my_vec3 floorWorldOffset = my_vec3(1.0f, -1.0f, 0.0f);
 	
@@ -661,27 +677,39 @@ void drawGrid() {
 	
 }
 
-void moveLightAroundOrbit(float deltaTime) {
-	float radius = 35.0f;
-	float speed = 90.0f; // degrees / second
-	float degreesMoved = speed * deltaTime;
+void drawBullets() {
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (world->playerBullets[i].current) world->playerBullets[i].draw();
+	}
 
-	float midGridX = (float) world->gridSizeX / 2;
-	float midGridY = -(float) world->gridSizeY / 2;
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (world->enemyBullets[i].current) world->enemyBullets[i].draw();
+	}
+}
 
-	float newDegrees = world->lights[0].currentDegrees + degreesMoved;
-	if (newDegrees > 360) newDegrees -= 360;
+void drawEnemies() {
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		if (world->enemies[i].current) world->enemies[i].draw();
+	}
+}
 
-	float newX = glm::cos(glm::radians(newDegrees)) * radius + midGridX;
-	float newY = glm::sin(glm::radians(newDegrees)) * radius + midGridY;
+void drawParticleEmitters() {
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (world->particleEmitters[i].current) {
+			world->particleEmitters[i].draw();
+		}
+	}
+}
 
-	world->lights[0].pos.x = newX;
-	world->lights[0].pos.y = newY;
+void drawProspectiveOutline() {
+	// turn current center of screen into grid coordinates
+	my_ivec3 gridCoords = cameraCenterToGridCoords();
 
-	//world->lightEntity.worldOffset.x = newX;
-	//world->lightEntity.worldOffset.y = newY;
+	my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
+	worldOffset.z = 1.05f; // extra for outline visibility
 
-	world->lights[0].currentDegrees = newDegrees;
+	// draw just an outline in that space
+	models.enemy.drawOnlyOutline(worldOffset);
 }
 
 // GRID LINES
@@ -759,6 +787,7 @@ void drawGuidingGrid() {
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
 
+// UPDATES
 void updateBullets(float deltaTime) {
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(world->playerBullets[i].current) {
@@ -772,22 +801,6 @@ void updateBullets(float deltaTime) {
 			bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime,
 				bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
 		}
-    }
-}
-
-void drawBullets() {
-    for(int i = 0; i < MAX_BULLETS; i++) {
-        if(world->playerBullets[i].current) world->playerBullets[i].draw();
-    }
-
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (world->enemyBullets[i].current) world->enemyBullets[i].draw();
-	}
-}
-
-void drawEnemies() {
-    for(int i = 0; i < MAX_ENEMIES; i++) {
-		if(world->enemies[i].current) world->enemies[i].draw();
     }
 }
 
@@ -866,7 +879,7 @@ void checkPlayerForEnemyCollisions() {
 		if (world->player.bounds.bottom	> enemy->bounds.top)		continue;
 
 		mode = MODE_PAUSED;
-		addTextToBox("You Died. Try Again.", &eventTextBox);
+		eventTextBox.addTextToBox("You Died. Try Again.");
 		loadCurrentLevel();		
 
 		break;
@@ -886,23 +899,11 @@ void checkPlayerForEnemyBulletCollisions() {
 		if (world->player.bounds.bottom	> bullet->bounds.top)		continue;
 
 		mode = MODE_PAUSED;
-		addTextToBox("You Died. Try Again.", &eventTextBox);
+		eventTextBox.addTextToBox("You Died. Try Again.");
 		loadCurrentLevel();	
 
 		break;
 	}
-}
-
-void createParticleEmitter(my_vec3 newPos) {
-	
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (!world->particleEmitters[i].current) {
-			world->particleEmitters[i].init(newPos, &models.bulletPart, world->lights);
-			return;
-		}
-	}
-
-	printf("ParticleEmitter array full! Ah!\n");
 }
 
 void updateParticleEmitters(float deltaTime) {
@@ -913,82 +914,27 @@ void updateParticleEmitters(float deltaTime) {
 	}
 }
 
-void drawParticleEmitters() {
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (world->particleEmitters[i].current) {
-			world->particleEmitters[i].draw();
-		}
-	}
-}
+void moveLightAroundOrbit(float deltaTime) {
+	float radius = 35.0f;
+	float speed = 90.0f; // degrees / second
+	float degreesMoved = speed * deltaTime;
 
-// This is starting to become a world state reset...
-void loadCurrentLevel() {
-	SecureZeroMemory(world, sizeof(WorldState));
+	float midGridX = (float)world->gridSizeX / 2;
+	float midGridY = -(float)world->gridSizeY / 2;
 
-	currentInputIndex = 0;
+	float newDegrees = world->lights[0].currentDegrees + degreesMoved;
+	if (newDegrees > 360) newDegrees -= 360;
 
-	srand(250);
+	float newX = glm::cos(glm::radians(newDegrees)) * radius + midGridX;
+	float newY = glm::sin(glm::radians(newDegrees)) * radius + midGridY;
 
-	Level *level = &levels[currentLevel];
+	world->lights[0].pos.x = newX;
+	world->lights[0].pos.y = newY;
 
-	world->init(level->sizeX, level->sizeY);
+	//world->lightEntity.worldOffset.x = newX;
+	//world->lightEntity.worldOffset.y = newY;
 
-	world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
-
-	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
-
-	for (int i = 0; i < MAX_ENEMIES; i++) {
-		world->enemies[i].current = false;
-	}
-
-	world->numEnemies = 0;
-
-	unsigned int numOfEnemies = level->numEnemies;
-	for (unsigned int i = 0; i < numOfEnemies; i++) {
-
-		unsigned int enemyType = level->enemies[i].enemyType;
-		unsigned int gridX = level->enemies[i].gridX;
-		unsigned int gridY = level->enemies[i].gridY;
-
-		addEnemyToWorld(enemyType, my_ivec2(gridX, gridY));
-	}
-
-	// reset camera
-	if (mode == MODE_LEVEL_EDIT) {
-		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
-	}
-	else {
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
-	}	
-
-	// clear particles
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		world->particleEmitters[i].current = false;
-	}
-
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		world->playerBullets[i].current = false;
-		world->enemyBullets[i].current = false;
-	}
-
-	hitTheLights();
-
-	models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
-	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
-	models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
-
-	clearTextBox(&eventTextBox);
-}
-
-void drawProspectiveOutline() {
-	// turn current center of screen into grid coordinates
-	my_ivec3 gridCoords = cameraCenterToGridCoords();
-	
-	my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
-	worldOffset.z = 1.05f; // extra for outline visibility
-
-	// draw just an outline in that space
-	models.enemy.drawOnlyOutline(worldOffset);
+	world->lights[0].currentDegrees = newDegrees;
 }
 
 int main() {
@@ -1098,7 +1044,7 @@ int main() {
 		"fragmentShader.frag",
 		GetFileExInfoStandard,
 		&prevFragmentShaderFileData
-	);	
+	);
 
 	while (!glfwWindowShouldClose(window)) {
 
@@ -1197,8 +1143,8 @@ int main() {
 		
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
-		drawTextBox(&eventTextBox, &arial);
-		drawTextBox(&fpsBox, &arial);
+		eventTextBox.drawTextBox(&arial);
+		fpsBox.drawTextBox(&arial);
 		if(mode == MODE_LEVEL_EDIT) editorUI.draw();
 		else if (mode == MODE_PAUSED) {
 			//pauseThingy.draw();

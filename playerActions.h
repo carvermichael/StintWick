@@ -1,6 +1,6 @@
 #if !defined(PLAYER_ACTION)
 
-void movePlayer(float x, float y) {
+inline void movePlayer(float x, float y) {
     x *= world->player.speed;
     y *= world->player.speed;
 
@@ -61,7 +61,7 @@ void movePlayer(float x, float y) {
     world->player.updateWorldOffset(finalOffsetX, finalOffsetY);
 }
 
-void playerShoot(float x, float y, float deltaTime) {
+inline void playerShoot(float x, float y, float deltaTime) {
     if(x == 0.0f && y == 0.0f) return;
 
     world->player.timeSinceLastShot += deltaTime;

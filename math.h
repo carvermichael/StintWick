@@ -1,9 +1,11 @@
-#pragma once
+#if !defined(MATH)
+#define MATH
 
 #pragma warning (push, 0)
 #include <cmath>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
 #pragma warning (pop)
 
 #define PI 3.14159f
@@ -24,6 +26,7 @@ struct my_vec2 {
 		this->y = all;
 	}
 };
+
 struct my_ivec2 {
 	int x;
 	int y;
@@ -226,31 +229,31 @@ struct AABB {
 };
 
 // ----- operators -----
-my_vec3 operator-(my_vec3 one, my_vec3 two) {
+static my_vec3 operator-(my_vec3 one, my_vec3 two) {
 	return my_vec3(one.x - two.x, one.y - two.y, one.z - two.z);
 }
 
-my_vec3 operator+(my_vec3 one, my_vec3 two) {
+static my_vec3 operator+(my_vec3 one, my_vec3 two) {
 	return my_vec3(one.x + two.x, one.y + two.y, one.z + two.z);
 }
 
-my_vec3 operator*(my_vec3 v, float f) {
+static my_vec3 operator*(my_vec3 v, float f) {
 	return my_vec3(v.x * f, v.y * f, v.z * f);
 }
 
-my_vec3 operator*(float f, my_vec3 v) {
+static my_vec3 operator*(float f, my_vec3 v) {
 	return my_vec3(v.x * f, v.y * f, v.z * f);
 }
 
-my_vec2 operator*(my_vec2 v, float f) {
+static my_vec2 operator*(my_vec2 v, float f) {
 	return my_vec2(v.x * f, v.y * f);
 }
 
-my_vec2 operator*(float f, my_vec2 v) {
+static my_vec2 operator*(float f, my_vec2 v) {
 	return my_vec2(v.x * f, v.y * f);
 }
 
-float mapToNewRange(float x, float minBefore, float maxBefore, float minAfter, float maxAfter) {
+static float mapToNewRange(float x, float minBefore, float maxBefore, float minAfter, float maxAfter) {
 
 	float beforeRange = maxBefore - minBefore;
 	float afterRange = maxAfter - minAfter;
@@ -262,44 +265,44 @@ float mapToNewRange(float x, float minBefore, float maxBefore, float minAfter, f
 //	assert(0);
 //}
 
-my_vec2 normalize(my_vec2 in) {
+static my_vec2 normalize(my_vec2 in) {
 	float magnitude = sqrt(in.x*in.x + in.y*in.y);
 
 	return in * (1 / magnitude);	
 }
 
-my_vec3 normalize(my_vec3 v) {
+static my_vec3 normalize(my_vec3 v) {
 	float magnitude = sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 
 	return v * (1 / magnitude);
 }
 
-my_vec3 crossproduct(my_vec3 a, my_vec3 b) {
+static my_vec3 crossproduct(my_vec3 a, my_vec3 b) {
 	return my_vec3(a.y*b.z - a.z*b.y,
 				   a.z*b.x - a.x*b.z,
 				   a.x*b.y - a.y*b.x);
 }
 
-float length(my_vec3 vec3) {
+static float length(my_vec3 vec3) {
 
 	return sqrt(vec3.x * vec3.x + vec3.y * vec3.y + vec3.z * vec3.z);
 
 }
 
-float dot(my_vec3 a, my_vec3 b) {
+static float dot(my_vec3 a, my_vec3 b) {
 	return a.x * b.x +
 		   a.y * b.y +
 		   a.z * b.z;
 }
 
-glm::vec3 toGLM(my_vec3 v) {
+static glm::vec3 toGLM(my_vec3 v) {
 	return glm::vec3(v.x, v.y, v.z);
 }
 
 // Used to create the cut-off pyramid frustum in going from view space
 // to clip space. Current use: for standard 3D camera perspective (depth
 // testing needs to be on, of course).
-my_mat4 perspective(float fovy, float aspect, float zNear, float zFar) {
+static my_mat4 perspective(float fovy, float aspect, float zNear, float zFar) {
 	// TODO
 
 	assert(0);
@@ -310,7 +313,7 @@ my_mat4 perspective(float fovy, float aspect, float zNear, float zFar) {
 // Used to create a rectangular frustrum in going from view space
 // to clip space. Current use: for UI elements (note: depth testing is 
 // off here, too).
-my_mat4 ortho(float left, float right, float bottom, float top) {
+static my_mat4 ortho(float left, float right, float bottom, float top) {
 	// TODO
 
 	assert(0);
@@ -326,7 +329,7 @@ my_mat4 ortho(float left, float right, float bottom, float top) {
 // Typical use: adding a worldOffset (the vec3) to the identity matrix, then 
 //				using the result as the model matrix when going from
 //				local space to world space.
-my_mat4 translate(my_mat4 inMat4, my_vec3 inVec3) {
+static my_mat4 translate(my_mat4 inMat4, my_vec3 inVec3) {
 	inMat4.col3.x = inVec3.x;
 	inMat4.col3.y = inVec3.y;
 	inMat4.col3.z = inVec3.z;
@@ -336,7 +339,7 @@ my_mat4 translate(my_mat4 inMat4, my_vec3 inVec3) {
 
 // Used for generating the view matrix, which then is used
 // to translate from world space to view space.
-my_mat4 lookAt(my_vec3 pos, my_vec3 posFront, my_vec3 up) {
+static my_mat4 lookAt(my_vec3 pos, my_vec3 posFront, my_vec3 up) {
 	// TODO
 
 	my_mat4 mat4 = my_mat4(1.0f);
@@ -383,30 +386,31 @@ my_mat4 lookAt(my_vec3 pos, my_vec3 posFront, my_vec3 up) {
 	return mat4;
 }
 
-void printGLMMat4(glm::mat4 mat4) {
-	printf("---------------------------------\n");
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][0], mat4[1][0], mat4[2][0], mat4[3][0]);
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][1], mat4[1][1], mat4[2][1], mat4[3][1]);
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][2], mat4[1][2], mat4[2][2], mat4[3][2]);
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][3], mat4[1][3], mat4[2][3], mat4[3][3]);
-	printf("---------------------------------\n");
-}
 
-void printMat4(my_mat4 mat4) {
-	printf("---------------------------------\n");
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][0], mat4[1][0], mat4[2][0], mat4[3][0]);
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][1], mat4[1][1], mat4[2][1], mat4[3][1]);
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][2], mat4[1][2], mat4[2][2], mat4[3][2]);
-	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][3], mat4[1][3], mat4[2][3], mat4[3][3]);
-	printf("---------------------------------\n");
-}
+//void printGLMMat4(glm::mat4 mat4) {
+//	printf("---------------------------------\n");
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][0], mat4[1][0], mat4[2][0], mat4[3][0]);
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][1], mat4[1][1], mat4[2][1], mat4[3][1]);
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][2], mat4[1][2], mat4[2][2], mat4[3][2]);
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][3], mat4[1][3], mat4[2][3], mat4[3][3]);
+//	printf("---------------------------------\n");
+//}
+//
+//void printMat4(my_mat4 mat4) {
+//	printf("---------------------------------\n");
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][0], mat4[1][0], mat4[2][0], mat4[3][0]);
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][1], mat4[1][1], mat4[2][1], mat4[3][1]);
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][2], mat4[1][2], mat4[2][2], mat4[3][2]);
+//	printf("%.2f, %.2f, %.2f, %.2f\n", mat4[0][3], mat4[1][3], mat4[2][3], mat4[3][3]);
+//	printf("---------------------------------\n");
+//}
 
-my_vec2 randomVec2() {
+static my_vec2 randomVec2() {
 	return normalize(my_vec2((float)(rand() - (RAND_MAX / 2)), (float)(rand() - (RAND_MAX / 2))));
 }
 
 // ----- trig -----
-float radians(float degrees) {
+static float radians(float degrees) {
 	return degrees * PI / 180;
 }
 
@@ -419,3 +423,6 @@ float radians(float degrees) {
 //float cos(float radians) {
 //	return cosf(radians);
 //}
+
+
+#endif // !MATH
