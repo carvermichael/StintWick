@@ -46,6 +46,7 @@ struct InputRecord {
 	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
 	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
 	unsigned int mode = MODE_PAUSED;
+	unsigned int editor_mode = EDITOR_MODE_ENEMY;
 	float globalDeltaTime = 0.0f;
 	float lastFrameTime = 0.0f;
 	float lastCursorX = 400;
@@ -303,9 +304,17 @@ void loadCurrentLevel() {
 
 	hitTheLights();
 
-	models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
-	models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
-	models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
+	// v2 wall setting
+	world->numWalls = level->numWalls;
+
+	for (unsigned int i = 0; i < world->numWalls; i++) {
+		world->walls[i] = level->walls[i];
+	}
+
+	// off for cube-based V2 levels
+	//models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
+	//models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
+	//models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
 
 	eventTextBox.clearTextBox();
 }
@@ -363,6 +372,24 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 
 	world->enemies[world->numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
 	world->numEnemies++;
+}
+
+// TODO: need addWallToLevel as well
+
+void addWallToWorld(my_ivec2 gridCoords) {
+	world->walls[world->numWalls].x = gridCoords.x;
+	world->walls[world->numWalls].y = gridCoords.y;
+
+	world->numWalls++;
+}
+
+void toggleEditorMode() {
+	if (editor_mode == EDITOR_MODE_ENEMY) editor_mode = EDITOR_MODE_WALL;
+	else if (editor_mode == EDITOR_MODE_WALL) editor_mode = EDITOR_MODE_ENEMY;
+}
+
+int getEditorMode() {
+	return editor_mode;
 }
 
 my_ivec3 cameraCenterToGridCoords() {
@@ -530,16 +557,22 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 		if (mode == MODE_LEVEL_EDIT) {
 			if (editorUI.click(my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight)))) return;
 		}
-				
-		// place enemy
+
 		// TODO: Raycast from click coords instead of camera center.
 		// Slight hack to get a working way to place enemies before groking a raycast from click coords. (carver - 9-09-2020)
 		my_ivec3 gridCoords = cameraCenterToGridCoords();
 
-		// TODO: maybe find a better way to keep world and level in sync
-		//			- may end up with a staging level struct at some point
-		addEnemyToWorld(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
-		addEnemyToLevel(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
+		if (editor_mode == EDITOR_MODE_ENEMY) {
+			// place enemy
+		
+			// TODO: maybe find a better way to keep world and level in sync
+			//			- may end up with a staging level struct at some point
+			addEnemyToWorld(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
+			addEnemyToLevel(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
+		}
+		else if (editor_mode == EDITOR_MODE_WALL) {
+			addWallToWorld(my_ivec2(gridCoords.x, gridCoords.y));
+		}		
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
@@ -624,13 +657,13 @@ void createGridFloorAndWallModels() {
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
 	
-	Mesh wallLeftMesh = Mesh(&regularShaderProgramID, &materials.grey);
+	Mesh wallLeftMesh = Mesh(&regularShaderProgramID, &materials.yellow);
 	models.wallLeftModel.name = std::string("wallLeft");
 	models.wallLeftModel.meshes.push_back(wallLeftMesh);
 	
-	Mesh wallTopMesh = Mesh(&regularShaderProgramID, &materials.grey);
+	Mesh wallTopMesh = Mesh(&regularShaderProgramID, &materials.yellow);
 	models.wallTopModel.name = std::string("wall");
-	models.wallTopModel.meshes.push_back(wallTopMesh);	
+	models.wallTopModel.meshes.push_back(wallTopMesh);
 }
 
 void createPlayerAndEnemyModels() {
@@ -674,7 +707,18 @@ void drawGrid() {
 		// bottom
 		models.wallTopModel.draw(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
 	}
-	
+}
+
+void drawGridV2() {
+	unsigned int numWalls = world->numWalls;
+
+	for (unsigned int i = 0; i < numWalls; i++) {
+		my_ivec3 gridCoords = my_ivec3(world->walls[i].x, world->walls[i].y, 1);
+		my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
+		worldOffset.z = 1.0f;
+
+		models.wallTopModel.draw(worldOffset);
+	}
 }
 
 void drawBullets() {
@@ -834,6 +878,43 @@ void checkBulletsForWallCollisions() {
 			world->enemyBullets[i].current = false;			
 		}
 	}
+}
+
+void checkBulletsForWallCollisionsV2() {
+
+	// playerBullets v. walls case
+	for (int i = 0; i < MAX_BULLETS; i++) {
+
+		if (!world->playerBullets[i].current) continue;
+		Bullet *bullet = &world->playerBullets[i];
+
+		for (unsigned int j = 0; j < world->numWalls; j++) {
+
+			my_ivec2 wall = world->walls[j];
+			my_vec3 wallOffset = gridCoordsToWorldOffset(my_ivec3(wall.x, wall.y, 1));
+			wallOffset.y = (-1.0f) * wallOffset.y;
+
+			float wallSize = 1.0f;
+
+			if (bullet->bounds.left > wall.x + wallSize)	continue; // right
+			if (bullet->bounds.right < wall.x)				continue; // left
+			if (bullet->bounds.top < wall.y - wallSize)		continue; // bottom (might be minus for wallSize here...)
+			if (bullet->bounds.bottom > wall.y)				continue; // top
+
+			createParticleEmitter(my_vec3(bullet->worldOffset.x,
+				bullet->worldOffset.y,
+				1.5f));
+
+			bullet->current = false;
+			world->numEnemies--;
+			world->camera.shakeScreen(0.075f);
+
+			break;
+		}
+	}
+
+	// enemy bullets v walls case
+
 }
 
 void checkBulletsForEnemyCollisions() {
@@ -1003,7 +1084,7 @@ int main() {
 	fpsBox.x = (float)(currentScreenWidth - 150);
 	fpsBox.y = (float)(currentScreenHeight - 50);
 
-	levelCount = loadLevels(levels);
+	levelCount = loadLevelsV2(levels);
 	currentLevel = 0;
 
 	loadCurrentLevel();
@@ -1107,7 +1188,7 @@ int main() {
 		setUniform3f(regularShaderProgramID, "playerPos", world->player.worldOffset);
 
 		updateBullets(timeStepForUpdate);
-		checkBulletsForWallCollisions();
+		checkBulletsForWallCollisionsV2();
 		checkBulletsForEnemyCollisions();
 		checkPlayerForEnemyCollisions();
 		checkPlayerForEnemyBulletCollisions();
@@ -1129,12 +1210,12 @@ int main() {
 
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+		glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
 		
-		drawGrid();
+		drawGridV2();
 	    world->player.draw();
         drawEnemies();
         drawBullets();

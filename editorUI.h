@@ -17,7 +17,8 @@ struct Selector {
 	UI_Rect stateIndicator;
 
 	void setup(unsigned int inShaderProgramID, Font *inFont, my_vec2 *inTopLeft, float *inHeight, float *inWidth) {
-		this->font = font;
+		this->shaderProgramID = inShaderProgramID;
+		this->font = inFont;
 
 		location.x = inTopLeft->x;
 		location.y = inTopLeft->y;
@@ -123,6 +124,31 @@ struct EnemySelector : Selector {
 	}
 };
 
+struct WallSelector : Selector {
+	bool click(my_vec2 clickCoords) {
+		if (stateIndicator.click(clickCoords)) {
+			toggleEditorMode();
+			return true;
+		}
+
+		return false;
+	}
+
+	void draw() {
+		stateIndicator.draw();
+
+		std::string wallBoolText = "Mode: ";
+		int editor_mode = getEditorMode();
+		if (editor_mode == EDITOR_MODE_ENEMY) {
+			wallBoolText += "Enemy";
+		} else if (editor_mode == EDITOR_MODE_WALL) {
+			wallBoolText += "Wall";
+		}
+		drawText(font, wallBoolText, stateIndicator.bounds.AX + 8.0f, stateIndicator.bounds.BY + 4.0f, 0.5f, my_vec3(1.0f, 1.0f, 1.0f));
+	}
+
+};
+
 struct EditorUI {
 	Font *font;
 
@@ -138,6 +164,7 @@ struct EditorUI {
 
 	LevelSelector levelSelector;
 	EnemySelector enemySelector;
+	WallSelector wallSelector;
 	UI_Rect deleteButton;
 
 	void setup(unsigned int inShaderProgramID, Font *inFont, float screenWidth, float screenHeight) {
@@ -165,6 +192,7 @@ struct EditorUI {
 		
 		levelSelector.setup(inShaderProgramID, inFont, &currentTopLeft, &remainingHeight, &remainingWidth);
 		enemySelector.setup(inShaderProgramID, inFont, &currentTopLeft, &remainingHeight, &remainingWidth);
+		wallSelector.setup(inShaderProgramID, inFont, &currentTopLeft, &remainingHeight, &remainingWidth);
 
 		deleteButton.setup(inShaderProgramID);
 		deleteButton.color = my_vec4(0.25f, 0.05f, 0.05f, 0.6f);
@@ -175,6 +203,7 @@ struct EditorUI {
 		background.draw();
 		levelSelector.draw();
 		enemySelector.draw();
+		wallSelector.draw();
 		deleteButton.draw();
 	}
 
@@ -185,6 +214,7 @@ struct EditorUI {
 		// then, go through elements, return after first one gets dibs
 		if (levelSelector.click(clickCoords)) return true;
 		if (enemySelector.click(clickCoords)) return true;
+		if (wallSelector.click(clickCoords)) return true;
 		if (deleteButton.click(clickCoords)) {
 			deleteCurrentLevel();
 			

@@ -27,12 +27,49 @@
 	2 24 6
 */
 
+/*
+New level format:
+
+	15 26  // player starting position - x y
+	
+	12	   // # wall pieces
+	12 13  // x, y coords of walls
+	12 14
+	2 3
+	2 4
+	2 5
+	1 5
+	0 5
+	2 6
+	5 8
+	4 7
+	3 6
+	2 1
+
+	9	   // # enemies
+	1 8  4 // enemies - type, gridX, gridY
+	1 12 4
+	1 16 4
+	1 20 4
+	1 24 4
+	2 12 6
+	2 16 6
+	2 20 6
+	2 24 6
+
+*/
+
 struct Level {
 
 	bool initialized;
 
+	// v1 stuff
 	int sizeX;
 	int sizeY;
+
+	// v2 stuff
+	unsigned int numWalls;
+	my_ivec2 walls[MAX_WALLS];
 
 	int numEnemies;
 
@@ -124,6 +161,51 @@ unsigned int loadLevels(Level levels[]) {
 
 		currentLevel->initialized = true;
 		
+		levelCount++;
+	}
+
+	return levelCount;
+}
+
+unsigned int loadLevelsV2(Level levels[]) {
+
+	const char* fileName = "levels_v2.lev";
+
+	std::ifstream levelFile;
+	levelFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	levelFile.open(fileName);
+
+	std::stringstream levelStream;
+	levelStream << levelFile.rdbuf();
+	levelFile.close();
+
+	unsigned int levelCount = 0;
+	unsigned int numLevels;
+
+	levelStream >> numLevels;
+
+	while (!levelStream.eof() && levelCount <= MAX_LEVELS && levelCount < numLevels) {
+		Level *currentLevel = &levels[levelCount];
+		
+		levelStream >> currentLevel->playerStartX;
+		levelStream >> currentLevel->playerStartY;
+
+		levelStream >> currentLevel->numWalls;
+		for (unsigned int i = 0; i < currentLevel->numWalls; i++) {
+			levelStream >> currentLevel->walls[i].x;
+			levelStream >> currentLevel->walls[i].y;
+		}
+
+		levelStream >> currentLevel->numEnemies;
+
+		for (int i = 0; i < currentLevel->numEnemies; i++) {
+			levelStream >> currentLevel->enemies[i].enemyType;
+			levelStream >> currentLevel->enemies[i].gridX;
+			levelStream >> currentLevel->enemies[i].gridY;
+		}
+
+		currentLevel->initialized = true;
+
 		levelCount++;
 	}
 

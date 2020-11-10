@@ -8,10 +8,14 @@
 struct WorldState {
 	unsigned int seed;
 
+	// level v1 stuff
 	unsigned int gridSizeX;
 	unsigned int gridSizeY;
-
     AABB wallBounds;
+
+	// level v2 stuff
+	unsigned int numWalls;
+	my_ivec2 walls[MAX_WALLS];
 
 	Camera camera;
 
@@ -39,6 +43,9 @@ struct WorldState {
 
 		lights[0].current = true;
 		lights[0].pos = my_vec3(-2.0f, -5.0f, 4.0f);
+		lights[0].ambient = my_vec3(1.0f, 1.0f, 1.0f);
+		lights[0].diffuse = my_vec3(1.0f, 1.0f, 1.0f);
+		lights[0].specular = my_vec3(1.0f, 1.0f, 1.0f);
 
 		numEnemies = 0;
     }

@@ -26,6 +26,8 @@ void Camera::initOverhead(unsigned int gridSizeX, unsigned int gridSizeY) {
 void Camera::initForGrid(unsigned int gridSizeX, unsigned int gridSizeY, my_vec3 playerPos) {
 	yaw = -90.0f;
 	pitch = 45.0f;
+	speed = 45.0f;
+	sensitivity = 0.1f;
 
 	//float midGridX = (float)gridSizeX / 2;
 	//float bottomGridY = -(float)gridSizeY * 1.65f;
@@ -38,7 +40,7 @@ void Camera::initForGrid(unsigned int gridSizeX, unsigned int gridSizeY, my_vec3
 	//position = my_vec3(midGridX, bottomGridY, 30.0f);
 
 	//update(0.0f, playerPos)
-
+	
 	float midGridX = playerPos.x;
 	float bottomGridY = playerPos.y - 45.0f;
 
@@ -102,21 +104,14 @@ void Camera::update(float deltaTime, my_vec3 playerPos) {
 	/*else {
 		bottomGridY = position.y - yDiff * cameraSpeedSlow * deltaTime;
 	}*/
-
-
-
-
-
+	   	  
 	// vec2OfCameraPos - vec2OfPlayerPos
 	// if outside radius, move with ^^ that vec at faster speed
 	// if inside radius, move with that vec at much slower speed
 
 
 	// move to destination at camera speed (w/ timestep)
-
-
-
-
+	   	 
 
 	// simple movement with player
 	//float midGridX = playerPos.x;

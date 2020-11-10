@@ -64,12 +64,12 @@ void main()
 	}
 
 	// TODO: re-add attenuation for shrapnel lighting
-	specularResult *= 0.2f; // attenuation stand-in
+//	specularResult *= 0.2f; // attenuation stand-in
 
 	vec3 result = (ambientResult + diffuseResult + specularResult);
 
 	// uncomment next line for fog
-	// result = mix(result, fogColor, fogFactor);
+	result = mix(result, fogColor, fogFactor);
 
 	fragColorOut = vec4(result, 1.0f);
 };

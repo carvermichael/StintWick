@@ -25,11 +25,15 @@
 #define MODE_REPLAY				3
 #define MODE_PAUSED				4
 
+#define EDITOR_MODE_ENEMY		0
+#define EDITOR_MODE_WALL		1
+
 #define MAX_LEVELS			  50
 #define MAX_BULLETS			  25
 #define MAX_ENEMIES			  20
 #define MAX_PARTICLE_EMITTERS 30
 #define MAX_LIGHTS			  500
+#define MAX_WALLS			  500
 
 #define CONSTANTS
 #endif // !CONSTANTS
