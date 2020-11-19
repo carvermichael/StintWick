@@ -34,8 +34,14 @@
 #define MAX_PARTICLE_EMITTERS 30
 #define MAX_LIGHTS			  500
 #define MAX_WALLS			  500
+#define MAX_GRID_ONE_DIM	  500
+
+// grid constants in world state -- don't use anything but 0 and 1 right now, but with level gen, this will come in handy for entity placement
+#define NOTHING		0
+#define WALL		1
+#define PLAYER		2
+#define ENEMY_1		3
+#define ENEMY_2		4
 
 #define CONSTANTS
 #endif // !CONSTANTS
-
-

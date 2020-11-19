@@ -69,7 +69,7 @@ struct Level {
 
 	// v2 stuff
 	unsigned int numWalls;
-	my_ivec2 walls[MAX_WALLS];
+	my_ivec2 wallLocations[MAX_WALLS];
 
 	int numEnemies;
 
@@ -192,8 +192,8 @@ unsigned int loadLevelsV2(Level levels[]) {
 
 		levelStream >> currentLevel->numWalls;
 		for (unsigned int i = 0; i < currentLevel->numWalls; i++) {
-			levelStream >> currentLevel->walls[i].x;
-			levelStream >> currentLevel->walls[i].y;
+			levelStream >> currentLevel->wallLocations[i].x;
+			levelStream >> currentLevel->wallLocations[i].y;
 		}
 
 		levelStream >> currentLevel->numEnemies;
@@ -210,6 +210,54 @@ unsigned int loadLevelsV2(Level levels[]) {
 	}
 
 	return levelCount;
+}
+
+void saveAllLevelsV2(Level levels[], unsigned int levelCount, Textbox *eventTextbox) {
+
+	// TODO: logging and error handling
+	// TODO: more robust solution --> write to temp file with timestamp, then switch names
+
+	eventTextbox->addTextToBox("Saving...");
+
+	std::stringstream stringStream;
+
+	stringStream << std::to_string(levelCount) + "\n\n";
+
+	for (int i = 0; i < MAX_LEVELS; i++) {
+		Level *currentLevel = &levels[i];
+		if (!currentLevel->initialized) break;
+
+		stringStream << std::to_string(currentLevel->playerStartX) + " " + std::to_string(currentLevel->playerStartY) + "\n";
+		
+		stringStream << std::to_string(currentLevel->numWalls) + "\n\n";
+		
+		for (unsigned int k = 0; k < currentLevel->numWalls; k++) {
+			stringStream << std::to_string(currentLevel->wallLocations->x) + " " + std::to_string(currentLevel->wallLocations->y) + "\n";
+		}
+		stringStream << "\n";
+		
+		stringStream << std::to_string(currentLevel->numEnemies) + "\n";
+
+		for (int j = 0; j < currentLevel->numEnemies; j++) {
+			stringStream << std::to_string(currentLevel->enemies[j].enemyType) + " ";
+			stringStream << std::to_string(currentLevel->enemies[j].gridX) + " ";
+			stringStream << std::to_string(currentLevel->enemies[j].gridY) + "\n";
+		}
+
+		stringStream << "\n";
+	}
+
+	const char* fileName = "levels_v2.lev";
+	std::ofstream levelFile;
+	levelFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	levelFile.open(fileName);
+	levelFile.clear();
+	levelFile << stringStream.str();
+	levelFile.close();
+
+	eventTextbox->addTextToBox("Saving complete.");
+
+
 }
 
 void saveAllLevels(Level levels[], unsigned int levelCount, Textbox *eventTextbox) {

@@ -42,6 +42,11 @@ struct my_ivec2 {
 		x = all;
 		y = all;
 	}
+
+	bool operator==(my_ivec2 v) {
+		return	this->x == v.x &&
+				this->y == v.y;
+	}
 };
 
 struct my_vec3 {
@@ -225,6 +230,14 @@ struct AABB {
 		this->bottom	= bottom; 
 		this->left		= left;
 		this->right		= right;
+	}
+
+	// Assuming size is 1 -- which is the case for basically everything at this point (Carver - 11/15/2020)
+	AABB(my_vec2 topLeft) {
+		this->AX = topLeft.x;
+		this->AY = topLeft.y;
+		this->BX = topLeft.x + 1.0f;
+		this->BY = topLeft.y - 1.0f;
 	}
 };
 

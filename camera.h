@@ -22,7 +22,7 @@ struct Camera {
 
 	void initOverhead(unsigned int gridSizeX, unsigned int gridSizeY);
 
-	void initForGrid(unsigned int gridSizeX, unsigned int gridSizeY, my_vec3 playerPos);
+	void initOnPlayer(my_vec3 playerPos);
 
 	my_mat4 generateMyView();
 

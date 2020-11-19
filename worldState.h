@@ -15,7 +15,10 @@ struct WorldState {
 
 	// level v2 stuff
 	unsigned int numWalls;
-	my_ivec2 walls[MAX_WALLS];
+	my_ivec2 wallLocations[MAX_WALLS];
+	
+	// level v3 stuff -- not being stupid this time
+	unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM];
 
 	Camera camera;
 

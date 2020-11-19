@@ -23,7 +23,7 @@ void Camera::initOverhead(unsigned int gridSizeX, unsigned int gridSizeY) {
 	posWithShake = position;
 }
 
-void Camera::initForGrid(unsigned int gridSizeX, unsigned int gridSizeY, my_vec3 playerPos) {
+void Camera::initOnPlayer(my_vec3 playerPos) {
 	yaw = -90.0f;
 	pitch = 45.0f;
 	speed = 45.0f;
@@ -65,11 +65,13 @@ my_mat4 Camera::generateMyView() {
 	direction.z = sin(radians(yaw)) * cos(radians(pitch));
 	front = normalize(direction);
 
-	my_mat4 view = lookAt(posWithShake, posWithShake + front, up);
+	// TODO: free camera breaks here when using posWithShake instead of just position, find out why
+	my_mat4 view = lookAt(position, position + front, up);
 	return view;
 }
 
 void Camera::update(float deltaTime, my_vec3 playerPos) {
+	
 	// find destination position
 	// center x = playerPos.x
 	// center y = playerPos.y - 45
@@ -130,7 +132,7 @@ void Camera::update(float deltaTime, my_vec3 playerPos) {
 	posWithShake = position;
 
 	// shake logic
-	if (this->shakeTimeRemaining > 0.0f) {
+	if (this->shakeTimeRemaining > 0.00001f) {
 		my_vec2 vec2 = randomVec2() * deltaTime * shakeAmount;
 
 		this->posWithShake = this->position;

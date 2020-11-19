@@ -47,6 +47,8 @@ struct InputRecord {
 	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
 	unsigned int mode = MODE_PAUSED;
 	unsigned int editor_mode = EDITOR_MODE_ENEMY;
+	bool blinkMeshes = true;
+
 	float globalDeltaTime = 0.0f;
 	float lastFrameTime = 0.0f;
 	float lastCursorX = 400;
@@ -262,9 +264,13 @@ void loadCurrentLevel() {
 
 	Level *level = &levels[currentLevel];
 
-	world->init(level->sizeX, level->sizeY);
+	world->lights[0].current = true;
+	world->lights[0].pos = my_vec3(-2.0f, -5.0f, 4.0f);
+	world->lights[0].ambient = my_vec3(1.0f, 1.0f, 1.0f);
+	world->lights[0].diffuse = my_vec3(1.0f, 1.0f, 1.0f);
+	world->lights[0].specular = my_vec3(1.0f, 1.0f, 1.0f);
 
-	world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+	world->camera.initOnPlayer(world->player.worldOffset);
 
 	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
 
@@ -289,7 +295,7 @@ void loadCurrentLevel() {
 		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 	}
 	else {
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+		world->camera.initOnPlayer(world->player.worldOffset);
 	}
 
 	// clear particles
@@ -305,10 +311,16 @@ void loadCurrentLevel() {
 	hitTheLights();
 
 	// v2 wall setting
-	world->numWalls = level->numWalls;
+	//world->numWalls = level->numWalls;
+	
+	//for (unsigned int i = 0; i < world->numWalls; i++) {
+	//	world->wallLocations[i] = level->wallLocations[i];
+	//}
 
-	for (unsigned int i = 0; i < world->numWalls; i++) {
-		world->walls[i] = level->walls[i];
+	// v3 wall setting
+	for (unsigned int i = 0; i < level->numWalls; i++) {
+		my_ivec2 currWallLoc = level->wallLocations[i];
+		world->grid[currWallLoc.x][currWallLoc.y] = WALL;
 	}
 
 	// off for cube-based V2 levels
@@ -375,12 +387,15 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 }
 
 // TODO: need addWallToLevel as well
-
 void addWallToWorld(my_ivec2 gridCoords) {
-	world->walls[world->numWalls].x = gridCoords.x;
-	world->walls[world->numWalls].y = gridCoords.y;
+	//// v2
+	//world->wallLocations[world->numWalls].x = gridCoords.x;
+	//world->wallLocations[world->numWalls].y = gridCoords.y;
 
-	world->numWalls++;
+	//world->numWalls++;
+
+	// v3
+	world->grid[gridCoords.x][gridCoords.y] = WALL;
 }
 
 void toggleEditorMode() {
@@ -415,7 +430,7 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 
 	if (commandVector[0] == "play") {
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+		world->camera.initOnPlayer(world->player.worldOffset);
 
 		mode = MODE_PLAY;
 		eventTextBox.addTextToBox("Mode: Play");
@@ -424,8 +439,12 @@ void processConsoleCommand(std::string command) {
 	if (commandVector[0] == "freecam") {
 		mode = MODE_FREE_CAMERA;
 
-		world->camera.initForGrid(world->gridSizeX, world->gridSizeY, world->player.worldOffset);
+		world->camera.initOnPlayer(world->player.worldOffset);
 		eventTextBox.addTextToBox("Mode: Free Camera");
+	}
+
+	if (commandVector[0] == "overhead") {
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 	}
 
 	if (commandVector[0] == "edit") {
@@ -516,7 +535,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 
 	if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
-		printf("butts");
 		console.flipOut();
 		return;
 	}
@@ -678,46 +696,68 @@ void createPlayerAndEnemyModels() {
 }
 
 // DRAWS, REGULAR
+//void drawGrid() {
+//	my_vec3 floorWorldOffset = my_vec3(1.0f, -1.0f, 0.0f);
+//	
+//	if (outlineOnly) {
+//		models.floorModel.drawOnlyOutline(floorWorldOffset);
+//
+//		// left
+//		models.wallLeftModel.drawOnlyOutline(my_vec3(0.0f, 0.0f, 0.0f));
+//		// top
+//		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, 0.0f, 0.0f));
+//
+//		// right
+//		models.wallLeftModel.drawOnlyOutline(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
+//		// bottom
+//		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
+//	}
+//	else {
+//		models.floorModel.draw(floorWorldOffset);
+//		
+//		// left
+//		models.wallLeftModel.draw(my_vec3(0.0f, 0.0f, 0.0f));
+//		// top
+//		models.wallTopModel.draw(my_vec3(1.0f, 0.0f, 0.0f));
+//
+//		// right
+//		models.wallLeftModel.draw(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
+//		// bottom
+//		models.wallTopModel.draw(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
+//	}
+//}
+//
+//void drawGridV2() {
+//	unsigned int numWalls = world->numWalls;
+//
+//	float outlineFactor = 0.0f;
+//	if (blinkMeshes) {
+//		float currentTime = (float)glfwGetTime();
+//		//std::string timeStr = "currentTime: " + std::to_string(currentTime) + "--";
+//		//printf(timeStr.c_str());
+//		currentTime *= 7.5f;
+//
+//		outlineFactor = sin(currentTime);
+//	}
+//
+//	for (unsigned int i = 0; i < numWalls; i++) {
+//		my_ivec3 gridCoords = my_ivec3(world->wallLocations[i].x, world->wallLocations[i].y, 1);
+//		my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
+//		worldOffset.z = 1.0f;
+//
+//		models.wallTopModel.draw(worldOffset);
+//		models.wallTopModel.draw(worldOffset, 1.0f, outlineFactor);
+//	}
+//}
+
 void drawGrid() {
-	my_vec3 floorWorldOffset = my_vec3(1.0f, -1.0f, 0.0f);
-	
-	if (outlineOnly) {
-		models.floorModel.drawOnlyOutline(floorWorldOffset);
-
-		// left
-		models.wallLeftModel.drawOnlyOutline(my_vec3(0.0f, 0.0f, 0.0f));
-		// top
-		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, 0.0f, 0.0f));
-
-		// right
-		models.wallLeftModel.drawOnlyOutline(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
-		// bottom
-		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
-	}
-	else {
-		models.floorModel.draw(floorWorldOffset);
-		
-		// left
-		models.wallLeftModel.draw(my_vec3(0.0f, 0.0f, 0.0f));
-		// top
-		models.wallTopModel.draw(my_vec3(1.0f, 0.0f, 0.0f));
-
-		// right
-		models.wallLeftModel.draw(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
-		// bottom
-		models.wallTopModel.draw(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
-	}
-}
-
-void drawGridV2() {
-	unsigned int numWalls = world->numWalls;
-
-	for (unsigned int i = 0; i < numWalls; i++) {
-		my_ivec3 gridCoords = my_ivec3(world->walls[i].x, world->walls[i].y, 1);
-		my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
-		worldOffset.z = 1.0f;
-
-		models.wallTopModel.draw(worldOffset);
+	for (unsigned int i = 0; i < MAX_GRID_ONE_DIM; i++) {
+		for (unsigned int j = 0; j < MAX_GRID_ONE_DIM; j++) {
+			if(world->grid[i][j] == WALL) {
+				my_vec3 worldOffset = gridCoordsToWorldOffset(my_ivec3(i, j, 1));
+				models.wallLeftModel.draw(worldOffset);
+			}
+		}
 	}
 }
 
@@ -890,7 +930,7 @@ void checkBulletsForWallCollisionsV2() {
 
 		for (unsigned int j = 0; j < world->numWalls; j++) {
 
-			my_ivec2 wall = world->walls[j];
+			my_ivec2 wall = world->wallLocations[j];
 			my_vec3 wallOffset = gridCoordsToWorldOffset(my_ivec3(wall.x, wall.y, 1));
 			wallOffset.y = (-1.0f) * wallOffset.y;
 
@@ -1188,21 +1228,21 @@ int main() {
 		setUniform3f(regularShaderProgramID, "playerPos", world->player.worldOffset);
 
 		updateBullets(timeStepForUpdate);
-		checkBulletsForWallCollisionsV2();
-		checkBulletsForEnemyCollisions();
-		checkPlayerForEnemyCollisions();
-		checkPlayerForEnemyBulletCollisions();
+		//checkBulletsForWallCollisionsV2();
+		//checkBulletsForEnemyCollisions();
+		//checkPlayerForEnemyCollisions();
+		//checkPlayerForEnemyBulletCollisions();
 		updateEnemies(timeStepForUpdate);
 		updateParticleEmitters(timeStepForUpdate);
-		world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
+		if(mode != MODE_FREE_CAMERA) world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
 		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
 		console.update(deltaTime);
 
-		if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
-			loadCurrentLevel();
-			currentInputIndex = 0;
-			mode = MODE_REPLAY;
-		}
+		//if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
+		//	loadCurrentLevel();
+		//	currentInputIndex = 0;
+		//	mode = MODE_REPLAY;
+		//}
 
 		// -- DRAW --
 		refreshView();
@@ -1215,7 +1255,7 @@ int main() {
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
 		
-		drawGridV2();
+		drawGrid();
 	    world->player.draw();
         drawEnemies();
         drawBullets();

@@ -76,16 +76,16 @@ inline void control_edit(int action, int key, float deltaTime) {
 	if (action != GLFW_PRESS) return;
 	
 	if (key == GLFW_KEY_F5) {
-		saveAllLevels(levels, levelCount, &eventTextBox);
+		saveAllLevelsV2(levels, levelCount, &eventTextBox);
 	}
-	/*
-	if (key == GLFW_KEY_RIGHT) {
+	
+	if (key == GLFW_KEY_Q) {
 		goForwardOneLevel();
 	}
-	if (key == GLFW_KEY_LEFT) {
+	if (key == GLFW_KEY_E) {
 		goBackOneLevel();
 	}
-	*/
+	
 	if (key == GLFW_KEY_UP) {
 		world->camera.moveUpOne();
 	}
@@ -98,14 +98,14 @@ inline void control_edit(int action, int key, float deltaTime) {
 	if (key == GLFW_KEY_RIGHT) {
 		world->camera.moveRightOne();
 	}
-	/*
+	
 	if (key == GLFW_KEY_EQUAL) {
 		world->camera.moveForward(deltaTime);
 	}
 	if (key == GLFW_KEY_MINUS) {
 		world->camera.moveBack(deltaTime);
 	}
-	*/
+	
 }
 
 inline control getControlFunc() {

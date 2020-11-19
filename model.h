@@ -176,13 +176,21 @@ struct Mesh {
 			glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
 		}
 
+		// ughhhh, this is so hacky...
+		//outlineFactor = 1.0f;
 		if (outlineFactor > 0.0f) { // could I just let this fly, do the draw with the zero mult?
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_ID);
+			glDepthFunc(GL_LEQUAL);
+			//glDepthFunc(GL_LESS);
 			setUniform3f(*shaderProgramID, "materialAmbient", my_vec3(1.0f) * outlineFactor);
 			setUniform3f(*shaderProgramID, "materialDiffuse", my_vec3(1.0f) * outlineFactor);
 			setUniform3f(*shaderProgramID, "materialSpecular", my_vec3(1.0f) * outlineFactor);
 			setUniform1f(*shaderProgramID, "materialShininess", 100.0f);
 
-			glDepthFunc(GL_LEQUAL);
+			// hypotenuses
+			glDrawElements(GL_LINES_ADJACENCY, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
+		
+			// outline of squares
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outline_EBO_ID);
 			glDrawElements(GL_LINE_LOOP, (GLsizei)outlineIndices.size(), GL_UNSIGNED_INT, 0);
 		}
