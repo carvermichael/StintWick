@@ -1,6 +1,7 @@
 #if !defined(ENTITIES)
 
 #include "math.h"
+#include "global_manip.h"
 
 struct Bullet {
 
@@ -18,16 +19,31 @@ struct Bullet {
 
     void init(my_vec3 offset, my_vec2 dirVec, Model *newModel, float newSpeed) {
         current = true;
-
-        worldOffset = offset;
+				
         direction = dirVec;
         model = newModel;
+		updateWorldOffset(offset.x, offset.y);
 
         speed = newSpeed;
     }
 
 	void draw() {
 		model->draw(worldOffset, 1.0f, outlineFactor);
+	}
+
+	void update(float deltaTime) {
+		my_vec2 moveAdjust = my_vec2(direction.x * speed * deltaTime, direction.y * speed * deltaTime);
+
+		bool collided;
+		my_vec2 finalOffset = adjustForWallCollisions(bounds, moveAdjust.x, moveAdjust.y, &collided);
+
+		if (collided) {
+			current = false;
+			createParticleEmitter(my_vec3(finalOffset.x, finalOffset.y, 1.5f));
+		}
+		else {
+			updateWorldOffset(finalOffset.x, finalOffset.y);
+		}
 	}
 
     void updateWorldOffset(float x, float y) {
@@ -117,6 +133,10 @@ struct Entity {
 		bounds.BX = x + model->scaleFactor.x;
 		bounds.BY = y - model->scaleFactor.y;
     }
+
+	void updateWorldOffset(my_vec2 worldOffset) {
+		updateWorldOffset(worldOffset.x, worldOffset.y);
+	}
 };
 
 struct Player : Entity {
@@ -178,9 +198,15 @@ struct Follow : EnemyStrat {
 		if (distFromPlayer > 15.0f) return;
 		
 		my_vec3 dirVec = normalize(player->worldOffset - entity->worldOffset);
-		my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
+		
+		my_vec3 moveAdjust = dirVec * entity->speed * deltaTime;
+		
+		//my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
+		
+		bool collided;
+		my_vec2 finalOffset = adjustForWallCollisions(entity->bounds, moveAdjust.x, moveAdjust.y, &collided);
 
-		entity->updateWorldOffset(newWorldOffset.x, newWorldOffset.y);
+		entity->updateWorldOffset(finalOffset);
 	}
 };
 

@@ -696,60 +696,6 @@ void createPlayerAndEnemyModels() {
 }
 
 // DRAWS, REGULAR
-//void drawGrid() {
-//	my_vec3 floorWorldOffset = my_vec3(1.0f, -1.0f, 0.0f);
-//	
-//	if (outlineOnly) {
-//		models.floorModel.drawOnlyOutline(floorWorldOffset);
-//
-//		// left
-//		models.wallLeftModel.drawOnlyOutline(my_vec3(0.0f, 0.0f, 0.0f));
-//		// top
-//		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, 0.0f, 0.0f));
-//
-//		// right
-//		models.wallLeftModel.drawOnlyOutline(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
-//		// bottom
-//		models.wallTopModel.drawOnlyOutline(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
-//	}
-//	else {
-//		models.floorModel.draw(floorWorldOffset);
-//		
-//		// left
-//		models.wallLeftModel.draw(my_vec3(0.0f, 0.0f, 0.0f));
-//		// top
-//		models.wallTopModel.draw(my_vec3(1.0f, 0.0f, 0.0f));
-//
-//		// right
-//		models.wallLeftModel.draw(my_vec3((float)world->gridSizeX - 1.0f, 0.0f, 0.0f));
-//		// bottom
-//		models.wallTopModel.draw(my_vec3(1.0f, -(float)world->gridSizeY + 1.0f, 0.0f));
-//	}
-//}
-//
-//void drawGridV2() {
-//	unsigned int numWalls = world->numWalls;
-//
-//	float outlineFactor = 0.0f;
-//	if (blinkMeshes) {
-//		float currentTime = (float)glfwGetTime();
-//		//std::string timeStr = "currentTime: " + std::to_string(currentTime) + "--";
-//		//printf(timeStr.c_str());
-//		currentTime *= 7.5f;
-//
-//		outlineFactor = sin(currentTime);
-//	}
-//
-//	for (unsigned int i = 0; i < numWalls; i++) {
-//		my_ivec3 gridCoords = my_ivec3(world->wallLocations[i].x, world->wallLocations[i].y, 1);
-//		my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
-//		worldOffset.z = 1.0f;
-//
-//		models.wallTopModel.draw(worldOffset);
-//		models.wallTopModel.draw(worldOffset, 1.0f, outlineFactor);
-//	}
-//}
-
 void drawGrid() {
 	for (unsigned int i = 0; i < MAX_GRID_ONE_DIM; i++) {
 		for (unsigned int j = 0; j < MAX_GRID_ONE_DIM; j++) {
@@ -875,15 +821,11 @@ void drawGuidingGrid() {
 void updateBullets(float deltaTime) {
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(world->playerBullets[i].current) {
-            Bullet *bullet = &world->playerBullets[i];
-            bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime, 
-                                      bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
+            world->playerBullets[i].update(deltaTime);			
         }
 
 		if (world->enemyBullets[i].current) {
-			Bullet *bullet = &world->enemyBullets[i];
-			bullet->updateWorldOffset(bullet->worldOffset.x + bullet->direction.x * bullet->speed * deltaTime,
-				bullet->worldOffset.y + bullet->direction.y * bullet->speed * deltaTime);
+			world->enemyBullets[i].update(deltaTime);
 		}
     }
 }
@@ -894,67 +836,68 @@ void updateEnemies(float deltaTime) {
 	}
 }
 
-void checkBulletsForWallCollisions() {
+// TODO: bug fix -- bullets move fast enough such that they cross multiple integer boundaries, resulting in frequent teleporting through walls (at 60 fps)
+//			     -- in wall collision check, need to check every integer boundary crossed, moving initial position to final position
+my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided) {
 
-    for(int i = 0; i < MAX_BULLETS; i++) {
-        if(!world->playerBullets[i].current) continue;
-        if(world->playerBullets[i].worldOffset.x < world->wallBounds.AX ||
-           world->playerBullets[i].worldOffset.x > world->wallBounds.BX ||
-           world->playerBullets[i].worldOffset.y > world->wallBounds.AY ||
-           world->playerBullets[i].worldOffset.y < world->wallBounds.BY) {
-            world->playerBullets[i].current = false;
-			createParticleEmitter(my_vec3(world->playerBullets[i].worldOffset.x,
-											world->playerBullets[i].worldOffset.y,
-											1.5f));
-        }
-    }
+	*collided = false;
 
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (!world->enemyBullets[i].current) continue;
-		if (world->enemyBullets[i].worldOffset.x < world->wallBounds.AX ||
-			world->enemyBullets[i].worldOffset.x > world->wallBounds.BX ||
-			world->enemyBullets[i].worldOffset.y > world->wallBounds.AY ||
-			world->enemyBullets[i].worldOffset.y < world->wallBounds.BY) {
-			world->enemyBullets[i].current = false;			
+	float finalOffsetX = entityBounds.AX;
+	float finalOffsetY = entityBounds.AY;
+
+	int playerAXFloor = (int)entityBounds.AX;
+	int playerBXFloor = (int)entityBounds.BX;
+	int playerAYFloor = (int)entityBounds.AY;
+	int playerBYFloor = (int)entityBounds.BY;
+
+	if (moveX < 0) {
+		if (finalOffsetX + moveX < playerAXFloor &&							// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerAXFloor - 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerAXFloor - 1][-playerBYFloor] == WALL)) {
+			finalOffsetX = (float)playerAXFloor;
+			*collided = true;
+		}
+		else {
+			finalOffsetX += moveX;
 		}
 	}
-}
-
-void checkBulletsForWallCollisionsV2() {
-
-	// playerBullets v. walls case
-	for (int i = 0; i < MAX_BULLETS; i++) {
-
-		if (!world->playerBullets[i].current) continue;
-		Bullet *bullet = &world->playerBullets[i];
-
-		for (unsigned int j = 0; j < world->numWalls; j++) {
-
-			my_ivec2 wall = world->wallLocations[j];
-			my_vec3 wallOffset = gridCoordsToWorldOffset(my_ivec3(wall.x, wall.y, 1));
-			wallOffset.y = (-1.0f) * wallOffset.y;
-
-			float wallSize = 1.0f;
-
-			if (bullet->bounds.left > wall.x + wallSize)	continue; // right
-			if (bullet->bounds.right < wall.x)				continue; // left
-			if (bullet->bounds.top < wall.y - wallSize)		continue; // bottom (might be minus for wallSize here...)
-			if (bullet->bounds.bottom > wall.y)				continue; // top
-
-			createParticleEmitter(my_vec3(bullet->worldOffset.x,
-				bullet->worldOffset.y,
-				1.5f));
-
-			bullet->current = false;
-			world->numEnemies--;
-			world->camera.shakeScreen(0.075f);
-
-			break;
+	if (moveX > 0) {
+		if ((int)(entityBounds.BX + moveX) > playerBXFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerBXFloor + 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerBXFloor + 1][-playerBYFloor] == WALL)) {
+			finalOffsetX = (float)(playerBXFloor - 0.01f);					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
+			*collided = true;
+		}
+		else {
+			finalOffsetX += moveX;
 		}
 	}
 
-	// enemy bullets v walls case
+	if (moveY < 0) {
+		if ((int)(entityBounds.BY + moveY) <= playerBYFloor - 1 &&			// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerBXFloor][-playerBYFloor + 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerAXFloor][-playerBYFloor + 1] == WALL)) {
+			finalOffsetY = (float)playerBYFloor + 0.001f;
+			*collided = true;
+		}
+		else {
+			finalOffsetY += moveY;
+		}
+	}
 
+	if (moveY > 0) {
+		if ((int)(entityBounds.BY + moveY) > playerBYFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerBXFloor][-playerAYFloor - 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerAXFloor][-playerAYFloor - 1] == WALL)) {
+			finalOffsetY = (float)playerAYFloor - 0.001f;					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
+			*collided = true;
+		}
+		else {
+			finalOffsetY += moveY;
+		}
+	}
+
+	return my_vec2(finalOffsetX, finalOffsetY);
 }
 
 void checkBulletsForEnemyCollisions() {
@@ -1228,10 +1171,9 @@ int main() {
 		setUniform3f(regularShaderProgramID, "playerPos", world->player.worldOffset);
 
 		updateBullets(timeStepForUpdate);
-		//checkBulletsForWallCollisionsV2();
-		//checkBulletsForEnemyCollisions();
-		//checkPlayerForEnemyCollisions();
-		//checkPlayerForEnemyBulletCollisions();
+		checkBulletsForEnemyCollisions();
+		checkPlayerForEnemyCollisions();
+		checkPlayerForEnemyBulletCollisions();
 		updateEnemies(timeStepForUpdate);
 		updateParticleEmitters(timeStepForUpdate);
 		if(mode != MODE_FREE_CAMERA) world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
