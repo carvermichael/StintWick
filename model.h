@@ -334,7 +334,7 @@ struct Models {
 
 			Model floorModel;
 			Model wallTopModel;
-			Model wallLeftModel;
+			Model wall;
 
 			Model lightCube;
 

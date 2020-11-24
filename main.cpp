@@ -325,7 +325,7 @@ void loadCurrentLevel() {
 
 	// off for cube-based V2 levels
 	//models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
-	//models.wallLeftModel.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
+	//models.wall.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
 	//models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
 
 	eventTextBox.clearTextBox();
@@ -675,13 +675,9 @@ void createGridFloorAndWallModels() {
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
 	
-	Mesh wallLeftMesh = Mesh(&regularShaderProgramID, &materials.yellow);
-	models.wallLeftModel.name = std::string("wallLeft");
-	models.wallLeftModel.meshes.push_back(wallLeftMesh);
-	
-	Mesh wallTopMesh = Mesh(&regularShaderProgramID, &materials.yellow);
-	models.wallTopModel.name = std::string("wall");
-	models.wallTopModel.meshes.push_back(wallTopMesh);
+	Mesh wallMesh = Mesh(&regularShaderProgramID, &materials.yellow);
+	models.wall.name = std::string("wallLeft");
+	models.wall.meshes.push_back(wallMesh);
 }
 
 void createPlayerAndEnemyModels() {
@@ -701,7 +697,7 @@ void drawGrid() {
 		for (unsigned int j = 0; j < MAX_GRID_ONE_DIM; j++) {
 			if(world->grid[i][j] == WALL) {
 				my_vec3 worldOffset = gridCoordsToWorldOffset(my_ivec3(i, j, 1));
-				models.wallLeftModel.draw(worldOffset);
+				models.wall.draw(worldOffset);
 			}
 		}
 	}
