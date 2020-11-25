@@ -9,6 +9,9 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #pragma warning (pop)
 
 #include <time.h>
@@ -997,6 +1000,38 @@ void moveLightAroundOrbit(float deltaTime) {
 	world->lights[0].currentDegrees = newDegrees;
 }
 
+DWORD WINAPI imageLoadAndFree(LPVOID lpParam) {
+	// Basic usage (see HDR discussion below for HDR usage):
+	//    int x,y,n;
+	//    unsigned char *data = stbi_load(filename, &x, &y, &n, 0);
+	//    // ... process data if not NULL ...
+	//    // ... x = width, y = height, n = # 8-bit components per pixel ...
+	//    // ... replace '0' with '1'..'4' to force that many components per pixel
+	//    // ... but 'n' will always be the number that it would have been if you said 0
+	//    stbi_image_free(data)
+	//
+	// Standard parameters:
+	//    int *x                 -- outputs image width in pixels
+	//    int *y                 -- outputs image height in pixels
+	//    int *channels_in_file  -- outputs # of image components in image file
+	//    int desired_channels   -- if non-zero, # of image components requested in result
+	int count = 0;
+
+	while (true) {
+
+		printf("loading %d \n", count);
+
+		int x, y, n;
+		unsigned char *data = stbi_load("botw.jpg", &x, &y, &n, 0);
+		printf("...loaded...");
+
+		stbi_image_free(data);
+		printf("freed!\n");
+		count++;
+	}
+}
+
+
 int main() {
 	world = (WorldState *)VirtualAlloc(0, sizeof(WorldState), MEM_COMMIT, PAGE_READWRITE);
 		
@@ -1105,6 +1140,15 @@ int main() {
 		GetFileExInfoStandard,
 		&prevFragmentShaderFileData
 	);
+
+	DWORD threadId;
+	HANDLE threadHandle = CreateThread(
+		NULL,                   // default security attributes
+		0,                      // use default stack size  
+		imageLoadAndFree,       // thread function name
+		0,			            // argument to thread function 
+		0,                      // use default creation flags 
+		&threadId);				// returns the thread identifier 
 
 	while (!glfwWindowShouldClose(window)) {
 
