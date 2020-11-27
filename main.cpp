@@ -57,7 +57,7 @@ struct InputRecord {
 	float lastCursorX = 400;
 	float lastCursorY = 300;
 	bool firstMouse = true;
-	int timeStepDenom = 1;
+	
 	//bool pause = true;
 	bool lightOrbit = false;
 	bool guidingGrid = false;
@@ -1031,6 +1031,22 @@ DWORD WINAPI imageLoadAndFree(LPVOID lpParam) {
 	}
 }
 
+void liveReloadFragmentShader(WIN32_FILE_ATTRIBUTE_DATA *prevFragmentShaderFileData, WIN32_FILE_ATTRIBUTE_DATA *fragmentShaderFileData) {
+	GetFileAttributesExA(
+		"fragmentShader.frag",
+		GetFileExInfoStandard,
+		fragmentShaderFileData
+	);
+
+	if (fragmentShaderFileData->ftLastWriteTime.dwLowDateTime != prevFragmentShaderFileData->ftLastWriteTime.dwLowDateTime) {
+		printf("File updated.\n");
+		regularShaderProgramID = createShaderProgram("vertexShader.vert", "fragmentShader.frag");
+
+		refreshProjection();
+		refreshView();
+		prevFragmentShaderFileData = fragmentShaderFileData;
+	}
+}
 
 int main() {
 	world = (WorldState *)VirtualAlloc(0, sizeof(WorldState), MEM_COMMIT, PAGE_READWRITE);
@@ -1106,8 +1122,7 @@ int main() {
 	lastFrameTime = (float)glfwGetTime();
 
     float deltaTime = 0.0f;
-	float timeStep	= deltaTime;
-
+	
     float targetFrameTime60 = 1.0f / 60.0f;
 	float targetFrameTime90 = 1.0f / 90.0f;
 
@@ -1130,43 +1145,30 @@ int main() {
 	GLFWgamepadstate gamepadState;
 	GLFWgamepadstate prevGamepadState;
 	float deltaTimeForUpdate;
-	float timeStepForUpdate;
+	
 	// game loop
 	WIN32_FILE_ATTRIBUTE_DATA prevFragmentShaderFileData;
-	
-	WIN32_FILE_ATTRIBUTE_DATA fragmentShaderFileData;
 	GetFileAttributesExA(
 		"fragmentShader.frag",
 		GetFileExInfoStandard,
 		&prevFragmentShaderFileData
 	);
 
-	DWORD threadId;
-	HANDLE threadHandle = CreateThread(
-		NULL,                   // default security attributes
-		0,                      // use default stack size  
-		imageLoadAndFree,       // thread function name
-		0,			            // argument to thread function 
-		0,                      // use default creation flags 
-		&threadId);				// returns the thread identifier 
+	WIN32_FILE_ATTRIBUTE_DATA fragmentShaderFileData = prevFragmentShaderFileData;
+
+	// MULTI-THREAD EXPERIMENT
+	//DWORD threadId;
+	//HANDLE threadHandle = CreateThread(
+	//	NULL,                   // default security attributes
+	//	0,                      // use default stack size  
+	//	imageLoadAndFree,       // thread function name
+	//	0,			            // argument to thread function 
+	//	0,                      // use default creation flags 
+	//	&threadId);				// returns the thread identifier 
 
 	while (!glfwWindowShouldClose(window)) {
 
-		// Checking Fragment Shader for saving
-		GetFileAttributesExA(
-			"fragmentShader.frag",
-			GetFileExInfoStandard,
-			&fragmentShaderFileData
-		);
-
-		if (fragmentShaderFileData.ftLastWriteTime.dwLowDateTime != prevFragmentShaderFileData.ftLastWriteTime.dwLowDateTime) {
-			printf("File updated.\n");
-			regularShaderProgramID = createShaderProgram("vertexShader.vert", "fragmentShader.frag");
-			
-			refreshProjection();
-			refreshView();
-			prevFragmentShaderFileData = fragmentShaderFileData;
-		}
+		liveReloadFragmentShader(&prevFragmentShaderFileData, &fragmentShaderFileData);
 
 		// Getting start button state here, cause it is used to move through states outside of play, too.
 		// Rest of gamepad state is used in moveWithController function.
@@ -1186,18 +1188,15 @@ int main() {
 		if (mode == MODE_REPLAY) {
 			gamepadState = recordedInput[currentInputIndex].gamepadState;
 			deltaTimeForUpdate = recordedInput[currentInputIndex].deltaTime;
-			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;			
-
+			
 			currentInputIndex++;
 		} else if (mode == MODE_PLAY) {
 			recordedInput[currentInputIndex].gamepadState = gamepadState;
 			recordedInput[currentInputIndex].deltaTime = deltaTime;
 			currentInputIndex++;
-			deltaTimeForUpdate = deltaTime;
-			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;
+			deltaTimeForUpdate = deltaTime;			
 		} else if (mode == MODE_PAUSED) {
-			deltaTimeForUpdate = 0.0f;
-			timeStepForUpdate = 0.0f;
+			deltaTimeForUpdate = 0.0f;			
 		}
 
 		// -- INPUT --
@@ -1210,12 +1209,12 @@ int main() {
 		// TODO: this should be elsewhere
 		setUniform3f(regularShaderProgramID, "playerPos", world->player.worldOffset);
 
-		updateBullets(timeStepForUpdate);
+		updateBullets(deltaTimeForUpdate);
 		checkBulletsForEnemyCollisions();
 		checkPlayerForEnemyCollisions();
 		checkPlayerForEnemyBulletCollisions();
-		updateEnemies(timeStepForUpdate);
-		updateParticleEmitters(timeStepForUpdate);
+		updateEnemies(deltaTimeForUpdate);
+		updateParticleEmitters(deltaTimeForUpdate);
 		if(mode != MODE_FREE_CAMERA) world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
 		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
 		console.update(deltaTime);
@@ -1287,8 +1286,6 @@ int main() {
 		stream << "FrameTime(ms): " << std::setprecision(4) << frameTime;
 		drawText(&arial, stream.str(), 0, (float) currentScreenHeight - 30.0f, 0.5f, my_vec3(1.0f));
 		
-        timeStep = deltaTime / timeStepDenom;
-		//if (mode == MODE_PAUSED) timeStep = 0.0f;
 		globalDeltaTime = deltaTime;
 
 		lastFrameTime = (float)glfwGetTime();

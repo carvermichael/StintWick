@@ -33,20 +33,6 @@ inline void moveWithController(GLFWgamepadstate state, float deltaTime) {
     // Up on Y joystick is negative. Flipping here to make it easier to work with in relation to world space.
     playerShoot(rightX, rightY * -1.0f, deltaTime);
 
-    if(state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN] == GLFW_PRESS &&  
-       prevState.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN] == GLFW_RELEASE) {
-        timeStepDenom++;
-		eventTextBox.addTextToBox("TimeStep: 1/" + std::to_string(timeStepDenom));
-    }
-
-    if(state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP] == GLFW_PRESS &&  
-       prevState.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP] == GLFW_RELEASE) {
-        if(timeStepDenom > 1) {
-            timeStepDenom--;
-			eventTextBox.addTextToBox("TimeStep: 1/" + std::to_string(timeStepDenom));
-        }
-    }
-
     prevState = state;
 }
 
