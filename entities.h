@@ -27,15 +27,15 @@ struct Bullet {
         speed = newSpeed;
     }
 
-	void draw() {
-		model->draw(worldOffset, 1.0f, outlineFactor);
+	void draw(my_vec3 globalOffset) {
+		model->draw(worldOffset + globalOffset, 1.0f, outlineFactor);
 	}
 
 	void update(float deltaTime) {
 		my_vec2 moveAdjust = my_vec2(direction.x * speed * deltaTime, direction.y * speed * deltaTime);
 
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(bounds, moveAdjust.x, moveAdjust.y, &collided);
+		my_vec2 finalOffset = adjustForWallCollisions(bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
 
 		if (collided) {
 			current = false;
@@ -98,7 +98,7 @@ struct Entity {
 	float speed = 10.0f;
 	float shotSpeed = 45.0f;
 
-	void draw() {
+	void draw(my_vec3 globalOffset) {
 		float outlineFactor = 0.0f;
 		
 		//if (blinking) {
@@ -112,7 +112,7 @@ struct Entity {
 		//	}
 		//}
 
-		model->draw(worldOffset, 1.0f, outlineFactor);
+		model->draw(worldOffset + globalOffset, 1.0f, outlineFactor);
 	}
 
 	void draw(Material *mat) {
@@ -187,8 +187,8 @@ struct Enemy : Entity {
 		strat->update(this, player, deltaTime);
 	}
 
-	void draw() {
-		model->draw(worldOffset, 1.0f, 0.0f, mat);
+	void draw(my_vec3 globalOffset) {
+		model->draw(worldOffset + globalOffset, 1.0f, 0.0f, mat);
 	}
 };
 
@@ -204,7 +204,7 @@ struct Follow : EnemyStrat {
 		//my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
 		
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(entity->bounds, moveAdjust.x, moveAdjust.y, &collided);
+		my_vec2 finalOffset = adjustForWallCollisions(entity->bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
 
 		entity->updateWorldOffset(finalOffset);
 	}
@@ -291,9 +291,9 @@ struct ParticleEmitter {
 		model = newModel;
 	}
 
-	void draw() {
+	void draw(my_vec3 globalOffset) {
 		for (int i = 0; i < 8; i++) {
-			model->draw(positions[i], 1.0f, 0.75f);
+			model->draw(positions[i] + globalOffset, 1.0f, 0.75f);
 		}
 	}
 

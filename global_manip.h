@@ -2,7 +2,6 @@
 
 #include <iomanip>
 
-void createParticleEmitter(my_vec3 newPos);
 void processConsoleCommand(std::string command);
 void loadCurrentLevel();
 void goBackOneLevel();
@@ -20,7 +19,8 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords);
 my_ivec3 cameraCenterToGridCoords();
 void toggleEditorMode();
 int getEditorMode();
-my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided);
+my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided);
+void createParticleEmitter(my_vec3 newPos);
 
 // TODO: These shouldn't be here --> These will go in the openGL file, when that's created (as part of pulling that out for easier/simpler porting)
 void setUniformBool(unsigned int shaderProgramID, const char *uniformName, bool value);

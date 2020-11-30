@@ -69,7 +69,7 @@ void main()
 	vec3 result = (ambientResult + diffuseResult + specularResult);
 
 	// uncomment next line for fog
-	result = mix(result, fogColor, fogFactor);
+//	result = mix(result, fogColor, fogFactor);
 
 	fragColorOut = vec4(result, 1.0f);
 };
