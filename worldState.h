@@ -314,7 +314,7 @@ struct WorldState {
 		AABB playerBounds = AABB(my_vec2(player.worldOffset.x, player.worldOffset.y));
 
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(playerBounds, my_vec2(x, y), &collided);
+		my_vec2 finalOffset = adjustForWallCollisions(playerBounds, my_vec2(x, y), &collided, true);
 
 		player.updateWorldOffset(finalOffset);
 	}
@@ -336,7 +336,9 @@ struct WorldState {
 			}
 		}
 
-		if (!foundBullet) printf("Bullet array full! Ah!\n");
+		if (!foundBullet) {
+			//printf("Bullet array full! Ah!\n");
+		}
 		else player.timeSinceLastShot = 0.0f;
 	}
 

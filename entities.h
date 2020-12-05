@@ -36,8 +36,10 @@ struct Bullet {
 
 		bool collided;
 		my_vec2 finalOffset = adjustForWallCollisions(bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
+		printf("moveAdjust(%f, %f), boundsAXAY(%f, %f)\n", moveAdjust.x, moveAdjust.y, bounds.AX, bounds.AY);
 
 		if (collided) {
+			printf("collided\n");
 			current = false;
 			createParticleEmitter(my_vec3(finalOffset.x, finalOffset.y, 1.5f));
 		}

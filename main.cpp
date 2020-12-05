@@ -197,10 +197,12 @@ std::vector<std::string> splitString(std::string str, char delimiter) {
 	return returnStrings;
 }
 
+
+
 // GLOBAL STATE STUFF
 // TODO: bug fix -- bullets move fast enough such that they cross multiple integer boundaries, resulting in frequent teleporting through walls and enemies (at 60 fps)
 //			     -- in wall collision check, need to check every integer boundary crossed, moving initial position to final position
-my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided) {
+my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided, bool isPlayer) {
 	float moveX = move.x;
 	float moveY = move.y;
 
@@ -249,19 +251,50 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided)
 		}
 	}
 
+	// TODO: this is all garbage
 	if (moveY > 0) {
-		if ((int)(entityBounds.BY + moveY) > playerBYFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(currentWorldState->grid[playerBXFloor][-playerAYFloor - 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				currentWorldState->grid[playerAXFloor][-playerAYFloor - 1] == WALL)) {
-			finalOffsetY = (float)playerAYFloor - 0.001f;					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
-			*collided = true;
+		//printf("EntityBounds.AY: %f, moveY: %f, playerBYFloor: %d, playerBXFloor: %d, playerAYFloor: %d, playerAXFloor: %d\n", entityBounds.AY, moveY, playerBYFloor, playerBXFloor, playerAYFloor, playerAXFloor);
+		
+		bool firstCheck = (int)(entityBounds.AY + moveY) > playerBYFloor;
+		bool secondCheck = currentWorldState->grid[playerBXFloor][-playerAYFloor] == WALL;
+		bool thirdCheck = currentWorldState->grid[playerAXFloor][-playerAYFloor] == WALL;
+		//printf("firstCheck: %d secondCheck[%d][%d]: %d, thirdCheck[%d][%d]: %d\n", firstCheck, playerBXFloor, (-playerAYFloor - 1), secondCheck, playerAXFloor, (-playerAYFloor - 1), thirdCheck);
+		
+		if (firstCheck) {
+
+			if (secondCheck || thirdCheck) {
+				finalOffsetY = (float)playerAYFloor - 1.020f;
+				/*f (isPlayer) {
+					printf("isplayer and collided\n");
+				}*/
+
+				*collided = true;
+			}
+			else {
+				finalOffsetY += moveY;
+			}
+
 		}
 		else {
 			finalOffsetY += moveY;
 		}
+
+		//if ((int)(entityBounds.BY + moveY) > playerBYFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+		//	(currentWorldState->grid[playerBXFloor][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+		//		currentWorldState->grid[playerAXFloor][-playerAYFloor] == WALL)) {
+		//	finalOffsetY = (float)playerAYFloor - 0.001f;					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
+		//	*collided = true;
+		//}
+		//else {
+		//	finalOffsetY += moveY;
+		//}
 	}
 
 	return my_vec2(finalOffsetX, finalOffsetY);
+}
+
+my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided) {
+	return adjustForWallCollisions(entityBounds, move, collided, 0);
 }
 
 void createParticleEmitter(my_vec3 newPos) {
@@ -296,7 +329,7 @@ void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
 		}
 	}
 
-	if (!foundBullet) printf("Bullet array full! Ah!\n");
+	//if (!foundBullet) printf("Bullet array full! Ah!\n");
 }
 
 unsigned int getCurrentLevel() {

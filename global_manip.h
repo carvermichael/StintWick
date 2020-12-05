@@ -20,6 +20,7 @@ my_ivec3 cameraCenterToGridCoords();
 void toggleEditorMode();
 int getEditorMode();
 my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided);
+my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided, bool isPlayer);
 void createParticleEmitter(my_vec3 newPos);
 
 // TODO: These shouldn't be here --> These will go in the openGL file, when that's created (as part of pulling that out for easier/simpler porting)
