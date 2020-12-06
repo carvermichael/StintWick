@@ -9,7 +9,7 @@
 #include "levels.h"
 #include "utils.h"
 
-
+EnemyStrats enemyStrats;
 
 struct InputRecord {
 	GLFWgamepadstate gamepadState;
@@ -109,6 +109,26 @@ struct WorldState {
 		}
 	}
 
+	void addEnemyToWorld(int type, my_ivec2 gridCoords) {
+		if (numEnemies >= MAX_ENEMIES) {
+			printf("ERROR: Max enemies reached.\n");
+			return;
+		}
+
+		EnemyStrat	*strat	= &enemyStrats.follow;
+		if (type == 0) {
+			strat = &enemyStrats.shoot;
+		}
+		else if (type == 1) {		
+			strat = &enemyStrats.follow;
+		}
+		
+		Material	*mat	= &materials.mats[type];
+
+		enemies[numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
+		numEnemies++;
+	}
+
   //  void init(unsigned int newGridSizeX, unsigned int newGridSizeY) {
 		//mode = MODE_PAUSED;
 		//
@@ -179,7 +199,7 @@ struct WorldState {
 			else if (mode == MODE_PAUSED) mode = MODE_PLAY;
 			else if (mode == MODE_REPLAY) {
 				goForwardOneLevel();
-				loadCurrentLevel();
+				//loadCurrentLevel(); // TODO
 				mode = MODE_PAUSED;
 			}
 		}
@@ -211,22 +231,46 @@ struct WorldState {
 	}
 
 	void updateBullets(float deltaTime) {
+		bool shouldCreateParticleEmitter;
+		my_vec3 particleEmitterLocation;
+		
 		for (int i = 0; i < MAX_BULLETS; i++) {
 			if (playerBullets[i].current) {
-				playerBullets[i].update(deltaTime);
+				playerBullets[i].update(this->grid, deltaTime, &shouldCreateParticleEmitter, &particleEmitterLocation);
+				if (shouldCreateParticleEmitter) {
+					createParticleEmitter(particleEmitterLocation);
+				}
 			}
 
 			if (enemyBullets[i].current) {
-				enemyBullets[i].update(deltaTime);
+				enemyBullets[i].update(this->grid, deltaTime, &shouldCreateParticleEmitter, &particleEmitterLocation);
+				if (shouldCreateParticleEmitter) {
+					createParticleEmitter(particleEmitterLocation);
+				}
 			}
 		}
 	}
 
 	void updateEnemies(float deltaTime) {
 		for (int i = 0; i < MAX_ENEMIES; i++) {
-			if (enemies[i].current) enemies[i].update(&player, deltaTime);
+			if (enemies[i].current) enemies[i].update(&player, enemyBullets, this->grid, deltaTime);
 		}
-	}	
+	}
+
+	//void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
+	//	bool foundBullet = false;
+	//	for (int i = 0; i < MAX_BULLETS; i++) {
+	//		if (!enemyBullets[i].current) {
+	//			enemyBullets[i].init(worldOffset,
+	//				my_vec2(dirVec.x, dirVec.y),
+	//				&models.enemyBullet, speed);
+	//			foundBullet = true;
+	//			break;
+	//		}
+	//	}
+
+	//	//if (!foundBullet) printf("Bullet array full! Ah!\n");
+	//}
 
 	void checkBulletsForEnemyCollisions() {
 
@@ -259,6 +303,17 @@ struct WorldState {
 		}
 	}
 
+	void createParticleEmitter(my_vec3 newPos) {
+		for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+			if (!particleEmitters[i].current) {
+				particleEmitters[i].init(newPos, &models.bulletPart, lights);
+				return;
+			}
+		}
+
+		printf("ParticleEmitter array full! Ah!\n");
+	}
+
 	void checkPlayerForEnemyCollisions() {
 		for (int j = 0; j < MAX_ENEMIES; j++) {
 
@@ -272,7 +327,7 @@ struct WorldState {
 
 			mode = MODE_PAUSED;
 			eventTextBox->addTextToBox("You Died. Try Again.");
-			loadCurrentLevel();
+			//loadCurrentLevel(); // TODO
 
 			break;
 		}
@@ -292,7 +347,7 @@ struct WorldState {
 
 			mode = MODE_PAUSED;
 			eventTextBox->addTextToBox("You Died. Try Again.");
-			loadCurrentLevel();
+			//loadCurrentLevel(); // TODO
 
 			break;
 		}
@@ -314,7 +369,7 @@ struct WorldState {
 		AABB playerBounds = AABB(my_vec2(player.worldOffset.x, player.worldOffset.y));
 
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(playerBounds, my_vec2(x, y), &collided, true);
+		my_vec2 finalOffset = adjustForWallCollisions(this->grid, playerBounds, my_vec2(x, y), &collided, true);
 
 		player.updateWorldOffset(finalOffset);
 	}

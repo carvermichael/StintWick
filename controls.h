@@ -23,10 +23,6 @@ inline void control_freeCam(int action, int key, float deltaTime) {
 		lightOrbit = !lightOrbit;
 		eventTextBox.addTextToBox("Light Orbit: " + std::to_string(lightOrbit));
 	}
-	if (key == GLFW_KEY_F2) {
-		currentWorldState->mode = MODE_PLAY;
-		eventTextBox.addTextToBox("Mode: Play");
-	}
 }
 
 inline void control_edit(int action, int key, float deltaTime) {
@@ -66,9 +62,9 @@ inline void control_edit(int action, int key, float deltaTime) {
 }
 
 inline control getControlFunc() {
-	if (currentWorldState->mode == MODE_PLAY)				return &control_play;
-	if (currentWorldState->mode == MODE_FREE_CAMERA)		return &control_freeCam;
-	if (currentWorldState->mode == MODE_LEVEL_EDIT)		return &control_edit;
+	if (globalMode == MODE_PLAY)				return &control_play;
+	if (globalMode == MODE_FREE_CAMERA)		return &control_freeCam;
+	if (globalMode == MODE_LEVEL_EDIT)		return &control_edit;
 
 	return NULL;
 }
@@ -76,7 +72,7 @@ inline control getControlFunc() {
 inline void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 	// NOTE: Using the callback for free camera movement is super choppy,
 	//		 Cause it's the only thing that involves holding down keys?
-	if (currentWorldState->mode == MODE_FREE_CAMERA) {
+	if (globalMode == MODE_FREE_CAMERA) {
 		const float cameraSpeed = 25.0f * deltaTime;
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			camera.moveForward(deltaTime);
@@ -91,7 +87,7 @@ inline void processKeyboardInput(GLFWwindow *window, float deltaTime) {
 			camera.moveRight(deltaTime);
 		}
 	}
-	else if (currentWorldState->mode == MODE_LEVEL_EDIT) {
+	else if (globalMode == MODE_LEVEL_EDIT) {
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			camera.moveUpOne();
 		}

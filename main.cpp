@@ -46,6 +46,8 @@ Materials materials;
 // TODO: Should all of this go on the heap???
 	// Random Global State -- some subset of this should go in the worldState
 	
+	unsigned int globalMode = MODE_FREE_CAMERA;
+
 	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
 	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
 	unsigned int editor_mode = EDITOR_MODE_ENEMY;
@@ -75,11 +77,11 @@ Materials materials;
 
 	// Larger Game Pieces
 
-	EnemyStrats enemyStrats;
+	
 
 	EditorUI editorUI;
 	Console console;
-	WorldState *currentWorldState;
+	//WorldState *currentWorldState;
 	WorldState *worldStates[2];
 	Camera camera;
 
@@ -120,7 +122,7 @@ void refreshView() {
 	setUniform3f(lightShaderProgramID, "viewPos", camera.position);
 }
 
-void refreshLights() {
+void refreshLights(WorldState *currentWorldState) {
 	for (int i = 0; i < MAX_LIGHTS; i++) {
 		std::string lightsCurrent = "lights[" + std::to_string(i) + "].current";
 		setUniformBool(regularShaderProgramID, lightsCurrent.c_str(), currentWorldState->lights[i].current);
@@ -202,7 +204,7 @@ std::vector<std::string> splitString(std::string str, char delimiter) {
 // GLOBAL STATE STUFF
 // TODO: bug fix -- bullets move fast enough such that they cross multiple integer boundaries, resulting in frequent teleporting through walls and enemies (at 60 fps)
 //			     -- in wall collision check, need to check every integer boundary crossed, moving initial position to final position
-my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided, bool isPlayer) {
+my_vec2 adjustForWallCollisions(unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM], AABB entityBounds, my_vec2 move, bool *collided, bool isPlayer) {
 	float moveX = move.x;
 	float moveY = move.y;
 
@@ -218,8 +220,8 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided,
 
 	if (moveX < 0) {
 		if (finalOffsetX + moveX < playerAXFloor &&							// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(currentWorldState->grid[playerAXFloor - 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				currentWorldState->grid[playerAXFloor - 1][-playerBYFloor] == WALL)) {
+			(grid[playerAXFloor - 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				grid[playerAXFloor - 1][-playerBYFloor] == WALL)) {
 			finalOffsetX = (float)playerAXFloor;
 			*collided = true;
 		}
@@ -229,8 +231,8 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided,
 	}
 	if (moveX > 0) {
 		if ((int)(entityBounds.BX + moveX) > playerBXFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(currentWorldState->grid[playerBXFloor + 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				currentWorldState->grid[playerBXFloor + 1][-playerBYFloor] == WALL)) {
+			(grid[playerBXFloor + 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				grid[playerBXFloor + 1][-playerBYFloor] == WALL)) {
 			finalOffsetX = (float)(playerBXFloor - 0.01f);					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
 			*collided = true;
 		}
@@ -241,8 +243,8 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided,
 
 	if (moveY < 0) {
 		if ((int)(entityBounds.BY + moveY) <= playerBYFloor - 1 &&			// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(currentWorldState->grid[playerBXFloor][-playerBYFloor + 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				currentWorldState->grid[playerAXFloor][-playerBYFloor + 1] == WALL)) {
+			(grid[playerBXFloor][-playerBYFloor + 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				grid[playerAXFloor][-playerBYFloor + 1] == WALL)) {
 			finalOffsetY = (float)playerBYFloor + 0.001f;
 			*collided = true;
 		}
@@ -251,13 +253,13 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided,
 		}
 	}
 
-	// TODO: this is all garbage
+	// TODO: this is all garbage, probably should redo collision detection (w/o weird grid/integer boundary logic) -- just do more standard AABB testing with some culling up front
 	if (moveY > 0) {
 		//printf("EntityBounds.AY: %f, moveY: %f, playerBYFloor: %d, playerBXFloor: %d, playerAYFloor: %d, playerAXFloor: %d\n", entityBounds.AY, moveY, playerBYFloor, playerBXFloor, playerAYFloor, playerAXFloor);
 		
 		bool firstCheck = (int)(entityBounds.AY + moveY) > playerBYFloor;
-		bool secondCheck = currentWorldState->grid[playerBXFloor][-playerAYFloor] == WALL;
-		bool thirdCheck = currentWorldState->grid[playerAXFloor][-playerAYFloor] == WALL;
+		bool secondCheck = grid[playerBXFloor][-playerAYFloor] == WALL;
+		bool thirdCheck = grid[playerAXFloor][-playerAYFloor] == WALL;
 		//printf("firstCheck: %d secondCheck[%d][%d]: %d, thirdCheck[%d][%d]: %d\n", firstCheck, playerBXFloor, (-playerAYFloor - 1), secondCheck, playerAXFloor, (-playerAYFloor - 1), thirdCheck);
 		
 		if (firstCheck) {
@@ -293,20 +295,8 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided,
 	return my_vec2(finalOffsetX, finalOffsetY);
 }
 
-my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided) {
-	return adjustForWallCollisions(entityBounds, move, collided, 0);
-}
-
-void createParticleEmitter(my_vec3 newPos) {
-
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (!currentWorldState->particleEmitters[i].current) {
-			currentWorldState->particleEmitters[i].init(newPos, &models.bulletPart, currentWorldState->lights);
-			return;
-		}
-	}
-
-	printf("ParticleEmitter array full! Ah!\n");
+my_vec2 adjustForWallCollisions(unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM], AABB entityBounds, my_vec2 move, bool *collided) {
+	return adjustForWallCollisions(grid, entityBounds, move, collided, 0);
 }
 
 void setPauseCoords() {
@@ -315,21 +305,6 @@ void setPauseCoords() {
 		pauseCoords[i].y = rand() % currentScreenHeight;
 		pauseCoords[i].z = rand() % 200;
 	}
-}
-
-void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
-	bool foundBullet = false;
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (!currentWorldState->enemyBullets[i].current) {
-			currentWorldState->enemyBullets[i].init(worldOffset,
-				my_vec2(dirVec.x, dirVec.y),
-				&models.enemyBullet, speed);
-			foundBullet = true;
-			break;
-		}
-	}
-
-	//if (!foundBullet) printf("Bullet array full! Ah!\n");
 }
 
 unsigned int getCurrentLevel() {
@@ -344,14 +319,14 @@ void goBackOneLevel() {
 	if (currentLevel == 0) currentLevel = levelCount - 1;
 	else currentLevel--;
 
-	loadCurrentLevel();
+	//loadCurrentLevel(); // TODO
 }
 
 void goForwardOneLevel() {
 	currentLevel++;
 	if (currentLevel >= levelCount) currentLevel = 0;
 
-	loadCurrentLevel();
+	//loadCurrentLevel(); // TODOa
 }
 
 // This is starting to become a world state reset...
@@ -374,27 +349,8 @@ void loadCurrentLevel(WorldState *worldState) {
  	worldState->resetToLevel(&levels[currentLevel], &eventTextBox);
 }
 
-void loadCurrentLevel() {
-	// This memory wipe doesn't work now that recorded inputs are in the worldState struct.
-	// Maybe I should just keep a pointer to inputs in the worldstate, then pass that pointer
-	// with the level when calling resetToLevel.
-	// SecureZeroMemory(currentWorldState, sizeof(WorldState));
-
-	eventTextBox.clearTextBox();
-
-	// reset camera
-	if (currentWorldState->mode == MODE_LEVEL_EDIT) {
-		camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
-	}
-	else {
-		camera.initOnPlayer(currentWorldState->player.worldOffset);
-	}
-
-	currentWorldState->resetToLevel(&levels[currentLevel], &eventTextBox);
-}
-
 void deleteCurrentLevel() {
-	for (unsigned int i = currentLevel; i < levelCount; i++) {
+	/*for (unsigned int i = currentLevel; i < levelCount; i++) {
 		levels[i] = levels[i + 1];
 		levels[i + 1].initialized = false;
 	}
@@ -406,7 +362,7 @@ void deleteCurrentLevel() {
 	}
 
 	levelCount--;
-	loadCurrentLevel();
+	loadCurrentLevel();*/ // TODO
 }
 
 void goBackOneEnemyType() {
@@ -427,29 +383,8 @@ void addEnemyToLevel(int type, my_ivec2 gridCoords) {
 	levels[currentLevel].addEnemy(type, gridCoords, &eventTextBox);
 }
 
-void addEnemyToWorld(int type, my_ivec2 gridCoords) {
-	if (currentWorldState->numEnemies >= MAX_ENEMIES) {
-		printf("ERROR: Max enemies reached.\n");
-		eventTextBox.addTextToBox("ERROR: Max enemies reached.");
-		return;
-	}
-
-	EnemyStrat	*strat	= &enemyStrats.follow;
-	if (type == 0) {
-		strat = &enemyStrats.shoot;
-	}
-	else if (type == 1) {		
-		strat = &enemyStrats.follow;
-	}
-	
-	Material	*mat	= &materials.mats[type];
-
-	currentWorldState->enemies[currentWorldState->numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
-	currentWorldState->numEnemies++;
-}
-
 // TODO: need addWallToLevel as well
-void addWallToWorld(my_ivec2 gridCoords) {
+void addWallToWorld(WorldState *currentWorldState, my_ivec2 gridCoords) {
 	//// v2
 	//world->wallLocations[world->numWalls].x = gridCoords.x;
 	//world->wallLocations[world->numWalls].y = gridCoords.y;
@@ -488,13 +423,14 @@ my_ivec3 cameraCenterToGridCoords() {
 	return gridCoords;
 }
 
+// TODO: this needs to be currentWorldState agnostic
 void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 
 	if (commandVector[0] == "play") {
 		//camera.initOnPlayer(currentWorldState->player.worldOffset);
 
-		currentWorldState->mode = MODE_PLAY;
+		//currentWorldState->mode = MODE_PLAY;
 		worldStates[0]->mode = MODE_PLAY;
 		worldStates[1]->mode = MODE_PLAY;
 
@@ -502,20 +438,21 @@ void processConsoleCommand(std::string command) {
 	}
 
 	if (commandVector[0] == "freecam") {
-		currentWorldState->mode = MODE_FREE_CAMERA;
+		//currentWorldState->mode = MODE_FREE_CAMERA;
+		globalMode = MODE_FREE_CAMERA;
 
-		camera.initOnPlayer(currentWorldState->player.worldOffset);
+		//camera.initOnPlayer(currentWorldState->player.worldOffset);
 		eventTextBox.addTextToBox("Mode: Free Camera");
 	}
 
 	if (commandVector[0] == "overhead") {
-		camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
+		//camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
 	}
 
 	if (commandVector[0] == "edit") {
-		camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
+		//camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
 
-		currentWorldState->mode = MODE_LEVEL_EDIT;
+		globalMode = MODE_LEVEL_EDIT;
 		eventTextBox.addTextToBox("Mode: Level Edit");
 	}
 
@@ -545,7 +482,7 @@ void processConsoleCommand(std::string command) {
 
 		levelCount = addLevel(levels, levelCount, gridSizeX, gridSizeY);
 		currentLevel = levelCount - 1;
-		loadCurrentLevel();
+		//loadCurrentLevel(); // TODO
 	}
 
 	if (commandVector[0] == "mat") {
@@ -609,7 +546,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	if (currentWorldState->mode != MODE_LEVEL_EDIT) return;
+	if (globalMode != MODE_LEVEL_EDIT) return;
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		// check in window
@@ -624,9 +561,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		// w.r.t. UI elements (which have their origin in bottom left, and y increases upward).
 
 		// check in editor box
-		if (currentWorldState->mode == MODE_LEVEL_EDIT) {
-			if (editorUI.click(my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight)))) return;
-		}
+		if (editorUI.click(my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight)))) return;		
 
 		// TODO: Raycast from click coords instead of camera center.
 		// Slight hack to get a working way to place enemies before groking a raycast from click coords. (carver - 9-09-2020)
@@ -637,11 +572,12 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		
 			// TODO: maybe find a better way to keep world and level in sync
 			//			- may end up with a staging level struct at some point
-			addEnemyToWorld(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
+			//addEnemyToWorld(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y)); // TODO: put this back after you've gotten rid of currentWorldState in updates -- need a currentLevelThatYouAreEditing pointer here
 			addEnemyToLevel(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
 		}
 		else if (editor_mode == EDITOR_MODE_WALL) {
-			addWallToWorld(my_ivec2(gridCoords.x, gridCoords.y));
+			// TODO: put this back after you've gotten rid of currentWorldState in updates -- need a currentLevelThatYouAreEditing pointer here
+			//addWallToWorld(currentWorldState, my_ivec2(gridCoords.x, gridCoords.y)); 
 		}		
 	}
 
@@ -650,15 +586,16 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		my_ivec3 gridCoords = cameraCenterToGridCoords();
 		my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
 
+		// TODO: put this back after you've gotten rid of currentWorldState in updates -- need a currentLevelThatYouAreEditing pointer here
 		// remove target enemy from world
-		for (int i = 0; i < MAX_ENEMIES; i++) {
-			if (currentWorldState->enemies[i].current) {
-				if (worldOffset.x == currentWorldState->enemies[i].worldOffset.x &&
-					worldOffset.y == currentWorldState->enemies[i].worldOffset.y) {
-					currentWorldState->enemies[i].current = false;
-				}
-			}
-		}
+		//for (int i = 0; i < MAX_ENEMIES; i++) {
+		//	if (currentWorldState->enemies[i].current) {
+		//		if (worldOffset.x == currentWorldState->enemies[i].worldOffset.x &&
+		//			worldOffset.y == currentWorldState->enemies[i].worldOffset.y) {
+		//			currentWorldState->enemies[i].current = false;
+		//		}
+		//	}
+		//}
 
 		// remove target enemy from level
 		for (int i = 0; i < MAX_ENEMIES; i++) {
@@ -674,7 +611,7 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	// TODO: Figure out how to lockdown the cursor such that the coordinate args can't go outside the viewport
 	//		 Clamping won't work.
 	
-	if (currentWorldState->mode == MODE_FREE_CAMERA) {
+	if (globalMode == MODE_FREE_CAMERA) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 		if (firstMouse)
@@ -689,16 +626,18 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 
 		camera.adjustYawAndPitch(xOffset, yOffset);		
 	}
-	else if (currentWorldState->mode == MODE_LEVEL_EDIT) {
+	else 
+		//if (currentWorldState->mode == MODE_LEVEL_EDIT) 
+	{
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		firstMouse = true;
 
 		// TODO: light up moused over grid piece
-
-	} else if (currentWorldState->mode == MODE_PLAY) {
+	}
+	/*else if (currentWorldState->mode == MODE_PLAY) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		firstMouse = true;
-	}
+	}*/
 
 	lastCursorX = (float)xPos;
 	lastCursorY = (float)yPos;
@@ -830,7 +769,7 @@ void drawGuidingGrid() {
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
 
-void moveLightAroundOrbit(float deltaTime) {
+void moveLightAroundOrbit(WorldState *currentWorldState, float deltaTime) {
 	float radius = 35.0f;
 	float speed = 90.0f; // degrees / second
 	float degreesMoved = speed * deltaTime;
@@ -883,6 +822,31 @@ DWORD WINAPI imageLoadAndFree(LPVOID lpParam) {
 	}
 }
 
+//struct ThreadInput {
+//	WorldState *worldState;
+//	GLFWgamepadstate *gamepadState;
+//	float deltaTime;
+//};
+//
+//DWORD WINAPI updateAndDrawWorldState(LPVOID threadInput) {
+//	ThreadInput *input = (ThreadInput*)threadInput;
+//	
+//	// -- UPDATE -- 
+//	currentWorldState = worldState1;
+//	currentWorldState->update(&gamepadState, deltaTime);
+//	
+//	// -- DRAW --
+//	currentWorldState = worldState1;
+//	refreshView();
+//	refreshLights();
+//
+//	glDepthFunc(GL_LESS);
+//	if (guidingGrid)	drawGuidingGrid();
+//	setUniform3f(regularShaderProgramID, "playerPos", currentWorldState->player.worldOffset); // for fog stuff -- not sure where this should be
+//	currentWorldState->draw();
+//	if (currentWorldState->mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
+//}
+
 void liveReloadFragmentShader(WIN32_FILE_ATTRIBUTE_DATA *prevFragmentShaderFileData, WIN32_FILE_ATTRIBUTE_DATA *fragmentShaderFileData) {
 	GetFileAttributesExA(
 		"fragmentShader.frag",
@@ -907,7 +871,7 @@ int main() {
 	worldStates[0] = worldState1;
 	worldStates[1] = worldState2;
 
-	currentWorldState = worldState1;
+	//currentWorldState = worldState1;
 	worldState2->globalOffset = my_vec3(75.0f, 0.0f, 0.0f);
 
 	// ------------ INIT STUFF -------------
@@ -976,10 +940,10 @@ int main() {
 	levelCount = loadLevelsV2(levels);
 	currentLevel = 0;
 
-	currentWorldState = worldState1;
+	//currentWorldState = worldState1;
 	loadCurrentLevel(worldState1);
 
-	currentWorldState = worldState2;
+	//currentWorldState = worldState2;
 	loadCurrentLevel(worldState2);
 	
 	lastFrameTime = (float)glfwGetTime();
@@ -1036,13 +1000,13 @@ int main() {
         glfwPollEvents();
 		
 		// -- UPDATE -- 
-		currentWorldState = worldState1;
-		currentWorldState->update(&gamepadState, deltaTime);
+		//currentWorldState = worldState1;
+		worldState1->update(&gamepadState, deltaTime);
 
-		currentWorldState = worldState2;
-		currentWorldState->update(&gamepadState, deltaTime);
+		//currentWorldState = worldState2;
+		worldState2->update(&gamepadState, deltaTime);
 		//if (currentWorldState->mode != MODE_FREE_CAMERA) camera.update(deltaTime, currentWorldState->player.worldOffset);
-		if (lightOrbit) moveLightAroundOrbit(deltaTime);
+		if (lightOrbit) moveLightAroundOrbit(worldState1, deltaTime); // TODO: need to do this for all worldStates
 		console.update(deltaTime);
 
 		// -- DRAW --
@@ -1052,56 +1016,48 @@ int main() {
 		glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
 
 		// World1
-		currentWorldState = worldState1;
+		//currentWorldState = worldState1;
 		refreshView();
-		refreshLights();
+		refreshLights(worldState1);
 
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
-		setUniform3f(regularShaderProgramID, "playerPos", currentWorldState->player.worldOffset); // for fog stuff -- not sure where this should be
-		currentWorldState->draw();
-		if (currentWorldState->mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
+		
+		worldState1->draw();
+		if (globalMode == MODE_LEVEL_EDIT) drawProspectiveOutline();
 
 		// World2
-		currentWorldState = worldState2;
-		refreshLights();
-		currentWorldState->draw();
+		//currentWorldState = worldState2;
+		refreshLights(worldState2);
+		worldState2->draw();
 		
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		eventTextBox.drawTextBox(&arial);
 		fpsBox.drawTextBox(&arial);
-		if(currentWorldState->mode == MODE_LEVEL_EDIT) editorUI.draw();
-		else if (currentWorldState->mode == MODE_PAUSED) {
-			//pauseThingy.draw();
-			
-			//for (int i = 0; i < 30; i++) {
-			//	drawText(&arial, "PRESS START", (float)pauseCoords[i].x, (float)pauseCoords[i].y, pauseCoords[i].z * 0.005f, my_vec3(1.0f));
-			//}
-		}
+		if(globalMode == MODE_LEVEL_EDIT) editorUI.draw();
+		
 		console.draw();
 
 		// -- FRAME TIMING --
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	
 		
-		if (currentWorldState->mode != MODE_REPLAY) {
-			if (deltaTime < targetFrameTime) {
-				int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
+		if (deltaTime < targetFrameTime) {
+			int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
 
-				if (timeToSleepMS > 1) {
-					// TODO: make sure that windows is able to sleep at the 1ms level (HH code does this somewhere)
+			if (timeToSleepMS > 1) {
+				// TODO: make sure that windows is able to sleep at the 1ms level (HH code does this somewhere)
 
-					Sleep(timeToSleepMS);
-				}
-
-				while (deltaTime < targetFrameTime) {
-					deltaTime = (float)glfwGetTime() - lastFrameTime;
-				}
+				Sleep(timeToSleepMS);
 			}
-			else {
-				printf("MISSED FRAME! AHH\n"); // TODO: logging
+
+			while (deltaTime < targetFrameTime) {
+				deltaTime = (float)glfwGetTime() - lastFrameTime;
 			}
+		}
+		else {
+			printf("MISSED FRAME! AHH\n"); // TODO: logging
 		}
 
 		float frameTime = deltaTime * 1000.0f;

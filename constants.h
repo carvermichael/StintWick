@@ -29,7 +29,7 @@
 #define EDITOR_MODE_WALL		1
 
 #define MAX_LEVELS			  50
-#define MAX_BULLETS			  1
+#define MAX_BULLETS			  250
 #define MAX_ENEMIES			  20
 #define MAX_PARTICLE_EMITTERS 30
 #define MAX_LIGHTS			  500
