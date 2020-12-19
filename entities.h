@@ -31,21 +31,17 @@ struct Bullet {
 		model->draw(worldOffset + globalOffset, 1.0f, outlineFactor);
 	}
 
-	void update(unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM], float deltaTime, bool *createParticleEmitter, my_vec3 *particleEmitterLocation) {
-		*createParticleEmitter = false;
-		*particleEmitterLocation = my_vec3(0.0f);
-		
+	void update(float deltaTime) {
 		my_vec2 moveAdjust = my_vec2(direction.x * speed * deltaTime, direction.y * speed * deltaTime);
 
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(grid, bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
+		my_vec2 finalOffset = adjustForWallCollisions(bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
 		printf("moveAdjust(%f, %f), boundsAXAY(%f, %f)\n", moveAdjust.x, moveAdjust.y, bounds.AX, bounds.AY);
 
 		if (collided) {
 			printf("collided\n");
 			current = false;
-			*createParticleEmitter = true;
-			*particleEmitterLocation = my_vec3(finalOffset.x, finalOffset.y, 1.5f);
+			createParticleEmitter(my_vec3(finalOffset.x, finalOffset.y, 1.5f));
 		}
 		else {
 			updateWorldOffset(finalOffset.x, finalOffset.y);
@@ -162,7 +158,7 @@ struct Player : Entity {
 };
 
 struct EnemyStrat {
-	virtual void update(Entity *entity, Player *player, Bullet enemyBullets[], unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM], float deltaTime) {};
+	virtual void update(Entity *entity, Player *player, float deltaTime) {};
 };
 
 struct Enemy : Entity {
@@ -189,8 +185,8 @@ struct Enemy : Entity {
 		timeSinceLastShot = (float)(rand() % 50) / 100.0f;
     }
 
-	void update(Player *player, Bullet enemyBullets[], unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM], float deltaTime) {
-		strat->update(this, player, enemyBullets, grid, deltaTime);
+	void update(Player *player, float deltaTime) {
+		strat->update(this, player, deltaTime);
 	}
 
 	void draw(my_vec3 globalOffset) {
@@ -199,7 +195,7 @@ struct Enemy : Entity {
 };
 
 struct Follow : EnemyStrat {
-	void update(Entity *entity, Player *player, Bullet enemyBullets[], unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM], float deltaTime) {
+	void update(Entity *entity, Player *player, float deltaTime) {
 		float distFromPlayer = length(player->worldOffset - entity->worldOffset);
 		if (distFromPlayer > 15.0f) return;
 		
@@ -210,7 +206,7 @@ struct Follow : EnemyStrat {
 		//my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
 		
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(grid, entity->bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
+		my_vec2 finalOffset = adjustForWallCollisions(entity->bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
 
 		entity->updateWorldOffset(finalOffset);
 	}
@@ -220,7 +216,7 @@ struct Shoot : EnemyStrat {
 
 	Shoot() : EnemyStrat() {};
 
-	void update(Entity *entity, Player *player, Bullet enemyBullets[], float deltaTime) {
+	void update(Entity *entity, Player *player, float deltaTime) {
 		float distFromPlayer = length(player->worldOffset - entity->worldOffset);
 		if (distFromPlayer > 25.0f) return;
 		
@@ -230,17 +226,7 @@ struct Shoot : EnemyStrat {
 
 		if (entity->timeSinceLastShot >= entity->timeBetweenShots) {
 
-			//createBullet(entity->worldOffset, dirVec, entity->shotSpeed);
-			bool foundBullet = false;
-			for (int i = 0; i < MAX_BULLETS; i++) {
-				if (!enemyBullets[i].current) {
-					enemyBullets[i].init(entity->worldOffset,
-						my_vec2(dirVec.x, dirVec.y),
-						&models.enemyBullet, entity->shotSpeed);
-					foundBullet = true;
-					break;
-				}
-			}
+			createBullet(entity->worldOffset, dirVec, entity->shotSpeed);
 
 			entity->timeSinceLastShot = 0.0f;
 		}
