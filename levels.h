@@ -111,60 +111,14 @@ struct Level {
 	}	
 };
 
-unsigned int addLevel(Level levels[], unsigned int levelCount, unsigned int gridSizeX, unsigned int gridSizeY) {
+unsigned int addLevel(Level levels[], unsigned int levelCount) {
 
-	// TODO: maybe have max gridSize???
-
-	levels[levelCount].sizeX = gridSizeX;
-	levels[levelCount].sizeY = gridSizeY;
-
-	levels[levelCount].playerStartX = gridSizeX / 2;
-	levels[levelCount].playerStartY = gridSizeY - 2;
+	levels[levelCount].playerStartX = 100;
+	levels[levelCount].playerStartY = 100;
 
 	levels[levelCount].initialized = true;
 	
 	return levelCount + 1;
-}
-
-unsigned int loadLevels(Level levels[]) {
-
-	const char* fileName = "levels.lev";
-
-	std::ifstream levelFile;
-	levelFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	levelFile.open(fileName);
-
-	std::stringstream levelStream;
-	levelStream << levelFile.rdbuf();
-	levelFile.close();
-
-	unsigned int levelCount = 0;
-	unsigned int numLevels;
-
-	levelStream >> numLevels;
-
-	while (!levelStream.eof() && levelCount <= MAX_LEVELS && levelCount < numLevels) {
-		Level *currentLevel = &levels[levelCount];
-		levelStream >> currentLevel->sizeX;
-		levelStream >> currentLevel->sizeY;
-
-		levelStream >> currentLevel->playerStartX;
-		levelStream >> currentLevel->playerStartY;
-
-		levelStream >> currentLevel->numEnemies;		
-
-		for (int i = 0; i < currentLevel->numEnemies; i++) {
-			levelStream >> currentLevel->enemies[i].enemyType;
-			levelStream >> currentLevel->enemies[i].gridX;
-			levelStream >> currentLevel->enemies[i].gridY;
-		}
-
-		currentLevel->initialized = true;
-		
-		levelCount++;
-	}
-
-	return levelCount;
 }
 
 unsigned int loadLevelsV2(Level levels[]) {
@@ -232,7 +186,7 @@ void saveAllLevelsV2(Level levels[], unsigned int levelCount, Textbox *eventText
 		stringStream << std::to_string(currentLevel->numWalls) + "\n\n";
 		
 		for (unsigned int k = 0; k < currentLevel->numWalls; k++) {
-			stringStream << std::to_string(currentLevel->wallLocations->x) + " " + std::to_string(currentLevel->wallLocations->y) + "\n";
+			stringStream << std::to_string(currentLevel->wallLocations[k].x) + " " + std::to_string(currentLevel->wallLocations[k].y) + "\n";
 		}
 		stringStream << "\n";
 		
@@ -248,47 +202,6 @@ void saveAllLevelsV2(Level levels[], unsigned int levelCount, Textbox *eventText
 	}
 
 	const char* fileName = "levels_v2.lev";
-	std::ofstream levelFile;
-	levelFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	levelFile.open(fileName);
-	levelFile.clear();
-	levelFile << stringStream.str();
-	levelFile.close();
-
-	eventTextbox->addTextToBox("Saving complete.");
-
-
-}
-
-void saveAllLevels(Level levels[], unsigned int levelCount, Textbox *eventTextbox) {
-
-	// TODO: logging and error handling
-	// TODO: more robust solution --> write to temp file with timestamp, then switch names
-
-	eventTextbox->addTextToBox("Saving...");
-
-	std::stringstream stringStream;
-
-	stringStream << std::to_string(levelCount) + "\n\n";
-	
-	for (int i = 0; i < MAX_LEVELS; i++) {
-		Level *currentLevel = &levels[i];
-		if (!currentLevel->initialized) break;
-
-		stringStream << std::to_string(currentLevel->sizeX) + " " + std::to_string(currentLevel->sizeY) + "\n";
-		stringStream << std::to_string(currentLevel->playerStartX) + " " + std::to_string(currentLevel->playerStartY) + "\n";
-		stringStream << std::to_string(currentLevel->numEnemies) + "\n";
-
-		for (int j = 0; j < currentLevel->numEnemies; j++) {
-			stringStream << std::to_string(currentLevel->enemies[j].enemyType) + " ";
-			stringStream << std::to_string(currentLevel->enemies[j].gridX) + " ";
-			stringStream << std::to_string(currentLevel->enemies[j].gridY) + "\n";
-		}
-
-		stringStream << "\n";
-	}
-
-	const char* fileName = "levels.lev";
 	std::ofstream levelFile;
 	levelFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 	levelFile.open(fileName);

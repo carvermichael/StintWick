@@ -24,6 +24,8 @@
 #include "math.h"
 #include "constants.h"
 
+#include "randomUtils.h"
+
 #include "global_manip.h"
 
 #include "model.h"
@@ -181,24 +183,7 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_ma
 
 
 // RANDOM UTILS
-std::vector<std::string> splitString(std::string str, char delimiter) {
-	std::vector<std::string> returnStrings;
 
-	int count = 0;
-	for (int i = 0; i < str.size(); i++) {
-		if (str[i] == delimiter) {
-			returnStrings.push_back(std::string(str, i - count, count));
-			count = 0;
-		}
-		else {
-			count++;
-		}
-	}
-
-	returnStrings.push_back(std::string(str, str.size() - count, count));
-
-	return returnStrings;
-}
 
 // GLOBAL STATE STUFF
 
@@ -292,7 +277,7 @@ void loadCurrentLevel() {
 
 	// reset camera
 	if (mode == MODE_LEVEL_EDIT) {
-		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
+		world->camera.initOverhead(level->playerStartX, level->playerStartY);
 	}
 	else {
 		world->camera.initOnPlayer(world->player.worldOffset);
@@ -365,6 +350,12 @@ void addEnemyToLevel(int type, my_ivec2 gridCoords) {
 	levels[currentLevel].addEnemy(type, gridCoords, &eventTextBox);
 }
 
+void addWallToCurrentLevel(my_ivec2 location) {
+	unsigned int numWalls = levels[currentLevel].numWalls++;
+
+	levels[currentLevel].wallLocations[numWalls] = location;
+}
+
 void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	if (world->numEnemies >= MAX_ENEMIES) {
 		printf("ERROR: Max enemies reached.\n");
@@ -386,15 +377,7 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	world->numEnemies++;
 }
 
-// TODO: need addWallToLevel as well
 void addWallToWorld(my_ivec2 gridCoords) {
-	//// v2
-	//world->wallLocations[world->numWalls].x = gridCoords.x;
-	//world->wallLocations[world->numWalls].y = gridCoords.y;
-
-	//world->numWalls++;
-
-	// v3
 	world->grid[gridCoords.x][gridCoords.y] = WALL;
 }
 
@@ -432,8 +415,9 @@ void processConsoleCommand(std::string command) {
 	if (commandVector[0] == "play") {
 		world->camera.initOnPlayer(world->player.worldOffset);
 
-		mode = MODE_PLAY;
+		mode = MODE_PAUSED;
 		eventTextBox.addTextToBox("Mode: Play");
+		console.flipOut();
 	}
 
 	if (commandVector[0] == "freecam") {
@@ -444,11 +428,11 @@ void processConsoleCommand(std::string command) {
 	}
 
 	if (commandVector[0] == "overhead") {
-		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
+		world->camera.initOverhead(20, 20);
 	}
 
 	if (commandVector[0] == "edit") {
-		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
+		world->camera.initOverhead(levels[currentLevel].playerStartX, levels[currentLevel].playerStartY);
 
 		mode = MODE_LEVEL_EDIT;
 		eventTextBox.addTextToBox("Mode: Level Edit");
@@ -468,17 +452,17 @@ void processConsoleCommand(std::string command) {
 		eventTextBox.addTextToBox("levelCount: " + std::to_string(levelCount));
 	}
 
-	if (commandVector[0] == "newLevel") {
+	if (commandVector[0] == "new") {
 
-		if (commandVector.size() < 3) {
+		/*if (commandVector.size() < 3) {
 			eventTextBox.addTextToBox("error: missing args gridSizeX and gridSizeY");
 			return;
 		}
 
 		unsigned int gridSizeX = std::stoi(commandVector[1], nullptr, 10);
-		unsigned int gridSizeY = std::stoi(commandVector[2], nullptr, 10);
+		unsigned int gridSizeY = std::stoi(commandVector[2], nullptr, 10);*/
 
-		levelCount = addLevel(levels, levelCount, gridSizeX, gridSizeY);
+		levelCount = addLevel(levels, levelCount);
 		currentLevel = levelCount - 1;
 		loadCurrentLevel();
 	}
@@ -590,6 +574,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 		}
 		else if (editor_mode == EDITOR_MODE_WALL) {
 			addWallToWorld(my_ivec2(gridCoords.x, gridCoords.y));
+			addWallToCurrentLevel(my_ivec2(gridCoords.x, gridCoords.y));
 		}		
 	}
 
@@ -817,7 +802,7 @@ void drawGuidingGrid() {
 void updateBullets(float deltaTime) {
     for(int i = 0; i < MAX_BULLETS; i++) {
         if(world->playerBullets[i].current) {
-            world->playerBullets[i].update(deltaTime);			
+            world->playerBullets[i].update(deltaTime);		
         }
 
 		if (world->enemyBullets[i].current) {
@@ -845,6 +830,19 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, boo
 	int playerBXFloor = (int)entityBounds.BX;
 	int playerAYFloor = (int)entityBounds.AY;
 	int playerBYFloor = (int)entityBounds.BY;
+
+	// TODO: remove this you dumb hacky bitch, lol
+	if (playerAXFloor - 1 < 0.0f ||
+		(-playerAYFloor) < 0.0f ||
+		(playerBXFloor + 1) < 0.0f ||
+		(-playerAYFloor) < 0.0f ||
+		(playerBXFloor) < 0.0f ||
+		(-playerBYFloor + 1) < 0.0f ||
+		(playerBXFloor) < 0.0f ||
+		(-playerAYFloor - 1) < 0.0) {
+		*collided = true;
+		return my_vec2(entityBounds.AX, entityBounds.AY);
+	}
 
 	if (moveX < 0) {
 		if (finalOffsetX + moveX < playerAXFloor &&							// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
@@ -881,12 +879,29 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, boo
 		}
 	}
 
+	// TODO: this is all garbage, probably should redo collision detection (w/o weird grid/integer boundary logic) -- just do more standard AABB testing with some culling up front
 	if (moveY > 0) {
-		if ((int)(entityBounds.BY + moveY) > playerBYFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(world->grid[playerBXFloor][-playerAYFloor - 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				world->grid[playerAXFloor][-playerAYFloor - 1] == WALL)) {
-			finalOffsetY = (float)playerAYFloor - 0.001f;					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
-			*collided = true;
+		//printf("EntityBounds.AY: %f, moveY: %f, playerBYFloor: %d, playerBXFloor: %d, playerAYFloor: %d, playerAXFloor: %d\n", entityBounds.AY, moveY, playerBYFloor, playerBXFloor, playerAYFloor, playerAXFloor);
+
+		bool firstCheck = (int)(entityBounds.AY + moveY) > playerBYFloor;
+		bool secondCheck = world->grid[playerBXFloor][-playerAYFloor] == WALL;
+		bool thirdCheck = world->grid[playerAXFloor][-playerAYFloor] == WALL;
+		//printf("firstCheck: %d secondCheck[%d][%d]: %d, thirdCheck[%d][%d]: %d\n", firstCheck, playerBXFloor, (-playerAYFloor - 1), secondCheck, playerAXFloor, (-playerAYFloor - 1), thirdCheck);
+
+		if (firstCheck) {
+
+			if (secondCheck || thirdCheck) {
+				finalOffsetY = (float)playerAYFloor - 1.020f;
+				/*f (isPlayer) {
+					printf("isplayer and collided\n");
+				}*/
+
+				*collided = true;
+			}
+			else {
+				finalOffsetY += moveY;
+			}
+
 		}
 		else {
 			finalOffsetY += moveY;
@@ -960,7 +975,7 @@ void checkPlayerForEnemyBulletCollisions() {
 
 		mode = MODE_PAUSED;
 		eventTextBox.addTextToBox("You Died. Try Again.");
-		loadCurrentLevel();	
+		loadCurrentLevel();
 
 		break;
 	}
@@ -1176,11 +1191,11 @@ int main() {
 		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
 		console.update(deltaTime);
 
-		//if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
-		//	loadCurrentLevel();
-		//	currentInputIndex = 0;
-		//	mode = MODE_REPLAY;
-		//}
+		if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
+			loadCurrentLevel();
+			currentInputIndex = 0;
+			mode = MODE_REPLAY;
+		}
 
 		// -- DRAW --
 		refreshView();
