@@ -9,9 +9,6 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #pragma warning (pop)
 
 #include <time.h>
@@ -25,16 +22,11 @@
 #include <map>
 
 #include "math.h"
-#include "utils.h"
 #include "constants.h"
 
 #include "global_manip.h"
 
 #include "model.h"
-
-Models models;
-Materials materials;
-
 #include "camera.h"
 #include "worldState.h"
 #include "shader.h"
@@ -43,11 +35,17 @@ Materials materials;
 #include "editorUI.h"
 #include "levels.h"
 
+struct InputRecord {
+	GLFWgamepadstate gamepadState;
+	float deltaTime;
+};
+
 // TODO: Should all of this go on the heap???
 	// Random Global State -- some subset of this should go in the worldState
 	
 	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
 	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
+	unsigned int mode = MODE_PAUSED;
 	unsigned int editor_mode = EDITOR_MODE_ENEMY;
 	bool blinkMeshes = true;
 
@@ -56,7 +54,7 @@ Materials materials;
 	float lastCursorX = 400;
 	float lastCursorY = 300;
 	bool firstMouse = true;
-	
+	int timeStepDenom = 1;
 	//bool pause = true;
 	bool lightOrbit = false;
 	bool guidingGrid = false;
@@ -74,15 +72,20 @@ Materials materials;
 	glm::mat4 projection;
 
 	// Larger Game Pieces
-
+	Models models;
+	Materials materials;
 	EnemyStrats enemyStrats;
 
 	EditorUI editorUI;
 	Console console;
-	WorldState *currentWorldState;
-	WorldState *worldStates[2];
-	Camera camera;
+	WorldState *world;
 
+#define INPUT_COUNT 10000
+
+	InputRecord recordedInput[INPUT_COUNT];
+	int currentInputIndex = 0;
+	bool recording = false;
+	bool playback = false;
 	Level levels[MAX_LEVELS];
 	UI_Rect pauseThingy;
 
@@ -96,7 +99,7 @@ Materials materials;
 
 // UNIFORM SETTING
 void refreshProjection() {
-	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 300.0f);
+	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
 
 	//printGLMMat4(projection);
 
@@ -111,31 +114,31 @@ void refreshProjection() {
 
 void refreshView() {
 	
-	my_mat4 view = camera.generateMyView();
+	my_mat4 view = world->camera.generateMyView();
 
 	setUniformMat4(regularShaderProgramID, "view", view);
 	setUniformMat4(lightShaderProgramID, "view", view);
 
-	setUniform3f(regularShaderProgramID, "viewPos", camera.position);
-	setUniform3f(lightShaderProgramID, "viewPos", camera.position);
+	setUniform3f(regularShaderProgramID, "viewPos", world->camera.position);
+	setUniform3f(lightShaderProgramID, "viewPos", world->camera.position);
 }
 
 void refreshLights() {
 	for (int i = 0; i < MAX_LIGHTS; i++) {
 		std::string lightsCurrent = "lights[" + std::to_string(i) + "].current";
-		setUniformBool(regularShaderProgramID, lightsCurrent.c_str(), currentWorldState->lights[i].current);
+		setUniformBool(regularShaderProgramID, lightsCurrent.c_str(), world->lights[i].current);
 		
-		if (!currentWorldState->lights[i].current) continue;
+		if (!world->lights[i].current) continue;
 
 		std::string lightsPos		= "lights[" + std::to_string(i) + "].pos";
 		std::string lightsAmbient	= "lights[" + std::to_string(i) + "].ambient";
 		std::string lightsDiffuse	= "lights[" + std::to_string(i) + "].diffuse";
 		std::string lightsSpecular	= "lights[" + std::to_string(i) + "].specular";
 		
-		setUniform3f(regularShaderProgramID,	lightsPos.c_str(),			currentWorldState->lights[i].pos);
-		setUniform3f(regularShaderProgramID,	lightsAmbient.c_str(),		currentWorldState->lights[i].ambient);
-		setUniform3f(regularShaderProgramID,	lightsDiffuse.c_str(),		currentWorldState->lights[i].diffuse);
-		setUniform3f(regularShaderProgramID,	lightsSpecular.c_str(),		currentWorldState->lights[i].specular);
+		setUniform3f(regularShaderProgramID,	lightsPos.c_str(),			world->lights[i].pos);
+		setUniform3f(regularShaderProgramID,	lightsAmbient.c_str(),		world->lights[i].ambient);
+		setUniform3f(regularShaderProgramID,	lightsDiffuse.c_str(),		world->lights[i].diffuse);
+		setUniform3f(regularShaderProgramID,	lightsSpecular.c_str(),		world->lights[i].specular);
 	}	
 }
 
@@ -197,116 +200,13 @@ std::vector<std::string> splitString(std::string str, char delimiter) {
 	return returnStrings;
 }
 
-
-
 // GLOBAL STATE STUFF
-// TODO: bug fix -- bullets move fast enough such that they cross multiple integer boundaries, resulting in frequent teleporting through walls and enemies (at 60 fps)
-//			     -- in wall collision check, need to check every integer boundary crossed, moving initial position to final position
-my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided, bool isPlayer) {
-	float moveX = move.x;
-	float moveY = move.y;
 
-	*collided = false;
-
-	float finalOffsetX = entityBounds.AX;
-	float finalOffsetY = entityBounds.AY;
-
-	int playerAXFloor = (int)entityBounds.AX;
-	int playerBXFloor = (int)entityBounds.BX;
-	int playerAYFloor = (int)entityBounds.AY;
-	int playerBYFloor = (int)entityBounds.BY;
-
-	if (moveX < 0) {
-		if (finalOffsetX + moveX < playerAXFloor &&							// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(currentWorldState->grid[playerAXFloor - 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				currentWorldState->grid[playerAXFloor - 1][-playerBYFloor] == WALL)) {
-			finalOffsetX = (float)playerAXFloor;
-			*collided = true;
-		}
-		else {
-			finalOffsetX += moveX;
-		}
+void hitTheLights() {
+	// i starts at one to keep global light active
+	for (int i = 1; i < MAX_LIGHTS; i++) {
+		world->lights[i].current = false;
 	}
-	if (moveX > 0) {
-		if ((int)(entityBounds.BX + moveX) > playerBXFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(currentWorldState->grid[playerBXFloor + 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				currentWorldState->grid[playerBXFloor + 1][-playerBYFloor] == WALL)) {
-			finalOffsetX = (float)(playerBXFloor - 0.01f);					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
-			*collided = true;
-		}
-		else {
-			finalOffsetX += moveX;
-		}
-	}
-
-	if (moveY < 0) {
-		if ((int)(entityBounds.BY + moveY) <= playerBYFloor - 1 &&			// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(currentWorldState->grid[playerBXFloor][-playerBYFloor + 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				currentWorldState->grid[playerAXFloor][-playerBYFloor + 1] == WALL)) {
-			finalOffsetY = (float)playerBYFloor + 0.001f;
-			*collided = true;
-		}
-		else {
-			finalOffsetY += moveY;
-		}
-	}
-
-	// TODO: this is all garbage
-	if (moveY > 0) {
-		//printf("EntityBounds.AY: %f, moveY: %f, playerBYFloor: %d, playerBXFloor: %d, playerAYFloor: %d, playerAXFloor: %d\n", entityBounds.AY, moveY, playerBYFloor, playerBXFloor, playerAYFloor, playerAXFloor);
-		
-		bool firstCheck = (int)(entityBounds.AY + moveY) > playerBYFloor;
-		bool secondCheck = currentWorldState->grid[playerBXFloor][-playerAYFloor] == WALL;
-		bool thirdCheck = currentWorldState->grid[playerAXFloor][-playerAYFloor] == WALL;
-		//printf("firstCheck: %d secondCheck[%d][%d]: %d, thirdCheck[%d][%d]: %d\n", firstCheck, playerBXFloor, (-playerAYFloor - 1), secondCheck, playerAXFloor, (-playerAYFloor - 1), thirdCheck);
-		
-		if (firstCheck) {
-
-			if (secondCheck || thirdCheck) {
-				finalOffsetY = (float)playerAYFloor - 1.020f;
-				/*f (isPlayer) {
-					printf("isplayer and collided\n");
-				}*/
-
-				*collided = true;
-			}
-			else {
-				finalOffsetY += moveY;
-			}
-
-		}
-		else {
-			finalOffsetY += moveY;
-		}
-
-		//if ((int)(entityBounds.BY + moveY) > playerBYFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-		//	(currentWorldState->grid[playerBXFloor][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-		//		currentWorldState->grid[playerAXFloor][-playerAYFloor] == WALL)) {
-		//	finalOffsetY = (float)playerAYFloor - 0.001f;					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
-		//	*collided = true;
-		//}
-		//else {
-		//	finalOffsetY += moveY;
-		//}
-	}
-
-	return my_vec2(finalOffsetX, finalOffsetY);
-}
-
-my_vec2 adjustForWallCollisions(AABB entityBounds, my_vec2 move, bool *collided) {
-	return adjustForWallCollisions(entityBounds, move, collided, 0);
-}
-
-void createParticleEmitter(my_vec3 newPos) {
-
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (!currentWorldState->particleEmitters[i].current) {
-			currentWorldState->particleEmitters[i].init(newPos, &models.bulletPart, currentWorldState->lights);
-			return;
-		}
-	}
-
-	printf("ParticleEmitter array full! Ah!\n");
 }
 
 void setPauseCoords() {
@@ -320,8 +220,8 @@ void setPauseCoords() {
 void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
 	bool foundBullet = false;
 	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (!currentWorldState->enemyBullets[i].current) {
-			currentWorldState->enemyBullets[i].init(worldOffset,
+		if (!world->enemyBullets[i].current) {
+			world->enemyBullets[i].init(worldOffset,
 				my_vec2(dirVec.x, dirVec.y),
 				&models.enemyBullet, speed);
 			foundBullet = true;
@@ -329,7 +229,7 @@ void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
 		}
 	}
 
-	//if (!foundBullet) printf("Bullet array full! Ah!\n");
+	if (!foundBullet) printf("Bullet array full! Ah!\n");
 }
 
 unsigned int getCurrentLevel() {
@@ -355,42 +255,80 @@ void goForwardOneLevel() {
 }
 
 // This is starting to become a world state reset...
-void loadCurrentLevel(WorldState *worldState) {
-	// This memory wipe doesn't work now that recorded inputs are in the worldState struct.
-	// Maybe I should just keep a pointer to inputs in the worldstate, then pass that pointer
-	// with the level when calling resetToLevel.
-	// SecureZeroMemory(currentWorldState, sizeof(WorldState));
-	
-	eventTextBox.clearTextBox();
-
-	// reset camera
-	if (worldState->mode == MODE_LEVEL_EDIT) {
-		camera.initOverhead(worldState->gridSizeX, worldState->gridSizeY);
-	}
-	else {
-		camera.initOnPlayer(worldState->player.worldOffset);
-	}
-
- 	worldState->resetToLevel(&levels[currentLevel], &eventTextBox);
-}
-
 void loadCurrentLevel() {
-	// This memory wipe doesn't work now that recorded inputs are in the worldState struct.
-	// Maybe I should just keep a pointer to inputs in the worldstate, then pass that pointer
-	// with the level when calling resetToLevel.
-	// SecureZeroMemory(currentWorldState, sizeof(WorldState));
+	SecureZeroMemory(world, sizeof(WorldState));
 
-	eventTextBox.clearTextBox();
+	currentInputIndex = 0;
+
+	srand(250);
+
+	Level *level = &levels[currentLevel];
+
+	world->lights[0].current = true;
+	world->lights[0].pos = my_vec3(-2.0f, -5.0f, 4.0f);
+	world->lights[0].ambient = my_vec3(1.0f, 1.0f, 1.0f);
+	world->lights[0].diffuse = my_vec3(1.0f, 1.0f, 1.0f);
+	world->lights[0].specular = my_vec3(1.0f, 1.0f, 1.0f);
+
+	world->camera.initOnPlayer(world->player.worldOffset);
+
+	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
+
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		world->enemies[i].current = false;
+	}
+
+	world->numEnemies = 0;
+
+	unsigned int numOfEnemies = level->numEnemies;
+	for (unsigned int i = 0; i < numOfEnemies; i++) {
+
+		unsigned int enemyType = level->enemies[i].enemyType;
+		unsigned int gridX = level->enemies[i].gridX;
+		unsigned int gridY = level->enemies[i].gridY;
+
+		addEnemyToWorld(enemyType, my_ivec2(gridX, gridY));
+	}
 
 	// reset camera
-	if (currentWorldState->mode == MODE_LEVEL_EDIT) {
-		camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
+	if (mode == MODE_LEVEL_EDIT) {
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 	}
 	else {
-		camera.initOnPlayer(currentWorldState->player.worldOffset);
+		world->camera.initOnPlayer(world->player.worldOffset);
 	}
 
-	currentWorldState->resetToLevel(&levels[currentLevel], &eventTextBox);
+	// clear particles
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		world->particleEmitters[i].current = false;
+	}
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		world->playerBullets[i].current = false;
+		world->enemyBullets[i].current = false;
+	}
+
+	hitTheLights();
+
+	// v2 wall setting
+	//world->numWalls = level->numWalls;
+	
+	//for (unsigned int i = 0; i < world->numWalls; i++) {
+	//	world->wallLocations[i] = level->wallLocations[i];
+	//}
+
+	// v3 wall setting
+	for (unsigned int i = 0; i < level->numWalls; i++) {
+		my_ivec2 currWallLoc = level->wallLocations[i];
+		world->grid[currWallLoc.x][currWallLoc.y] = WALL;
+	}
+
+	// off for cube-based V2 levels
+	//models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
+	//models.wall.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
+	//models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
+
+	eventTextBox.clearTextBox();
 }
 
 void deleteCurrentLevel() {
@@ -428,7 +366,7 @@ void addEnemyToLevel(int type, my_ivec2 gridCoords) {
 }
 
 void addEnemyToWorld(int type, my_ivec2 gridCoords) {
-	if (currentWorldState->numEnemies >= MAX_ENEMIES) {
+	if (world->numEnemies >= MAX_ENEMIES) {
 		printf("ERROR: Max enemies reached.\n");
 		eventTextBox.addTextToBox("ERROR: Max enemies reached.");
 		return;
@@ -444,8 +382,8 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 	
 	Material	*mat	= &materials.mats[type];
 
-	currentWorldState->enemies[currentWorldState->numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
-	currentWorldState->numEnemies++;
+	world->enemies[world->numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
+	world->numEnemies++;
 }
 
 // TODO: need addWallToLevel as well
@@ -457,7 +395,7 @@ void addWallToWorld(my_ivec2 gridCoords) {
 	//world->numWalls++;
 
 	// v3
-	currentWorldState->grid[gridCoords.x][gridCoords.y] = WALL;
+	world->grid[gridCoords.x][gridCoords.y] = WALL;
 }
 
 void toggleEditorMode() {
@@ -470,8 +408,8 @@ int getEditorMode() {
 }
 
 my_ivec3 cameraCenterToGridCoords() {
-	my_vec3 startingPos = camera.position;
-	my_vec3 dirVec = camera.front;
+	my_vec3 startingPos = world->camera.position;
+	my_vec3 dirVec = world->camera.front;
 
 	my_vec3 currentPos = startingPos;
 
@@ -492,30 +430,27 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 
 	if (commandVector[0] == "play") {
-		//camera.initOnPlayer(currentWorldState->player.worldOffset);
+		world->camera.initOnPlayer(world->player.worldOffset);
 
-		currentWorldState->mode = MODE_PLAY;
-		worldStates[0]->mode = MODE_PLAY;
-		worldStates[1]->mode = MODE_PLAY;
-
+		mode = MODE_PLAY;
 		eventTextBox.addTextToBox("Mode: Play");
 	}
 
 	if (commandVector[0] == "freecam") {
-		currentWorldState->mode = MODE_FREE_CAMERA;
+		mode = MODE_FREE_CAMERA;
 
-		camera.initOnPlayer(currentWorldState->player.worldOffset);
+		world->camera.initOnPlayer(world->player.worldOffset);
 		eventTextBox.addTextToBox("Mode: Free Camera");
 	}
 
 	if (commandVector[0] == "overhead") {
-		camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 	}
 
 	if (commandVector[0] == "edit") {
-		camera.initOverhead(currentWorldState->gridSizeX, currentWorldState->gridSizeY);
+		world->camera.initOverhead(world->gridSizeX, world->gridSizeY);
 
-		currentWorldState->mode = MODE_LEVEL_EDIT;
+		mode = MODE_LEVEL_EDIT;
 		eventTextBox.addTextToBox("Mode: Level Edit");
 	}
 
@@ -556,6 +491,18 @@ void processConsoleCommand(std::string command) {
 
 		setMaterial(commandVector[1], commandVector[2], &materials, &models, &console);
 	}
+}
+
+void createParticleEmitter(my_vec3 newPos) {
+
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (!world->particleEmitters[i].current) {
+			world->particleEmitters[i].init(newPos, &models.bulletPart, world->lights);
+			return;
+		}
+	}
+
+	printf("ParticleEmitter array full! Ah!\n");
 }
 
 // CALLBACKS
@@ -608,8 +555,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (ctlFunc) ctlFunc(action, key, globalDeltaTime);
 }
 
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	if (currentWorldState->mode != MODE_LEVEL_EDIT) return;
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+	if (mode != MODE_LEVEL_EDIT) return;
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		// check in window
@@ -624,7 +572,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		// w.r.t. UI elements (which have their origin in bottom left, and y increases upward).
 
 		// check in editor box
-		if (currentWorldState->mode == MODE_LEVEL_EDIT) {
+		if (mode == MODE_LEVEL_EDIT) {
 			if (editorUI.click(my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight)))) return;
 		}
 
@@ -652,10 +600,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 		// remove target enemy from world
 		for (int i = 0; i < MAX_ENEMIES; i++) {
-			if (currentWorldState->enemies[i].current) {
-				if (worldOffset.x == currentWorldState->enemies[i].worldOffset.x &&
-					worldOffset.y == currentWorldState->enemies[i].worldOffset.y) {
-					currentWorldState->enemies[i].current = false;
+			if (world->enemies[i].current) {
+				if (worldOffset.x == world->enemies[i].worldOffset.x &&
+					worldOffset.y == world->enemies[i].worldOffset.y) {
+					world->enemies[i].current = false;
 				}
 			}
 		}
@@ -674,7 +622,7 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	// TODO: Figure out how to lockdown the cursor such that the coordinate args can't go outside the viewport
 	//		 Clamping won't work.
 	
-	if (currentWorldState->mode == MODE_FREE_CAMERA) {
+	if (mode == MODE_FREE_CAMERA) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 		if (firstMouse)
@@ -687,15 +635,15 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 		float xOffset = (float)(xPos - lastCursorX);
 		float yOffset = (float)(lastCursorY - yPos);
 
-		camera.adjustYawAndPitch(xOffset, yOffset);		
+		world->camera.adjustYawAndPitch(xOffset, yOffset);		
 	}
-	else if (currentWorldState->mode == MODE_LEVEL_EDIT) {
+	else if (mode == MODE_LEVEL_EDIT) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		firstMouse = true;
 
 		// TODO: light up moused over grid piece
 
-	} else if (currentWorldState->mode == MODE_PLAY) {
+	} else if (mode == MODE_PLAY) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		firstMouse = true;
 	}
@@ -744,6 +692,41 @@ void createPlayerAndEnemyModels() {
 }
 
 // DRAWS, REGULAR
+void drawGrid() {
+	for (unsigned int i = 0; i < MAX_GRID_ONE_DIM; i++) {
+		for (unsigned int j = 0; j < MAX_GRID_ONE_DIM; j++) {
+			if(world->grid[i][j] == WALL) {
+				my_vec3 worldOffset = gridCoordsToWorldOffset(my_ivec3(i, j, 1));
+				models.wall.draw(worldOffset);
+			}
+		}
+	}
+}
+
+void drawBullets() {
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (world->playerBullets[i].current) world->playerBullets[i].draw();
+	}
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (world->enemyBullets[i].current) world->enemyBullets[i].draw();
+	}
+}
+
+void drawEnemies() {
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		if (world->enemies[i].current) world->enemies[i].draw();
+	}
+}
+
+void drawParticleEmitters() {
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (world->particleEmitters[i].current) {
+			world->particleEmitters[i].draw();
+		}
+	}
+}
+
 void drawProspectiveOutline() {
 	// turn current center of screen into grid coordinates
 	my_ivec3 gridCoords = cameraCenterToGridCoords();
@@ -830,86 +813,193 @@ void drawGuidingGrid() {
 	glDrawArrays(GL_LINES, 0, numGridVertices);
 }
 
+// UPDATES
+void updateBullets(float deltaTime) {
+    for(int i = 0; i < MAX_BULLETS; i++) {
+        if(world->playerBullets[i].current) {
+            world->playerBullets[i].update(deltaTime);			
+        }
+
+		if (world->enemyBullets[i].current) {
+			world->enemyBullets[i].update(deltaTime);
+		}
+    }
+}
+
+void updateEnemies(float deltaTime) {
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		if (world->enemies[i].current) world->enemies[i].update(&world->player, deltaTime);
+	}
+}
+
+// TODO: bug fix -- bullets move fast enough such that they cross multiple integer boundaries, resulting in frequent teleporting through walls (at 60 fps)
+//			     -- in wall collision check, need to check every integer boundary crossed, moving initial position to final position
+my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided) {
+
+	*collided = false;
+
+	float finalOffsetX = entityBounds.AX;
+	float finalOffsetY = entityBounds.AY;
+
+	int playerAXFloor = (int)entityBounds.AX;
+	int playerBXFloor = (int)entityBounds.BX;
+	int playerAYFloor = (int)entityBounds.AY;
+	int playerBYFloor = (int)entityBounds.BY;
+
+	if (moveX < 0) {
+		if (finalOffsetX + moveX < playerAXFloor &&							// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerAXFloor - 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerAXFloor - 1][-playerBYFloor] == WALL)) {
+			finalOffsetX = (float)playerAXFloor;
+			*collided = true;
+		}
+		else {
+			finalOffsetX += moveX;
+		}
+	}
+	if (moveX > 0) {
+		if ((int)(entityBounds.BX + moveX) > playerBXFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerBXFloor + 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerBXFloor + 1][-playerBYFloor] == WALL)) {
+			finalOffsetX = (float)(playerBXFloor - 0.01f);					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
+			*collided = true;
+		}
+		else {
+			finalOffsetX += moveX;
+		}
+	}
+
+	if (moveY < 0) {
+		if ((int)(entityBounds.BY + moveY) <= playerBYFloor - 1 &&			// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerBXFloor][-playerBYFloor + 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerAXFloor][-playerBYFloor + 1] == WALL)) {
+			finalOffsetY = (float)playerBYFloor + 0.001f;
+			*collided = true;
+		}
+		else {
+			finalOffsetY += moveY;
+		}
+	}
+
+	if (moveY > 0) {
+		if ((int)(entityBounds.BY + moveY) > playerBYFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
+			(world->grid[playerBXFloor][-playerAYFloor - 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
+				world->grid[playerAXFloor][-playerAYFloor - 1] == WALL)) {
+			finalOffsetY = (float)playerAYFloor - 0.001f;					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
+			*collided = true;
+		}
+		else {
+			finalOffsetY += moveY;
+		}
+	}
+
+	return my_vec2(finalOffsetX, finalOffsetY);
+}
+
+void checkBulletsForEnemyCollisions() {
+
+    for(int i = 0; i < MAX_BULLETS; i++) {
+
+        if(!world->playerBullets[i].current) continue;
+        Bullet *bullet = &world->playerBullets[i];
+
+        for(int j = 0; j < MAX_ENEMIES; j++) {
+
+            if(!world->enemies[j].current) continue;
+            Enemy *enemy = &world->enemies[j];
+
+            if(bullet->bounds.left   > enemy->bounds.right)  continue;
+            if(bullet->bounds.right  < enemy->bounds.left)   continue;
+            if(bullet->bounds.top    < enemy->bounds.bottom) continue;
+            if(bullet->bounds.bottom > enemy->bounds.top)    continue;
+
+			createParticleEmitter(my_vec3(bullet->worldOffset.x,
+				bullet->worldOffset.y,
+				1.5f));
+
+            enemy->current = false;
+			bullet->current = false;
+			world->numEnemies--;
+			world->camera.shakeScreen(0.075f);
+
+			break;
+        }
+    }
+}
+
+void checkPlayerForEnemyCollisions() {
+	for (int j = 0; j < MAX_ENEMIES; j++) {
+
+		if (!world->enemies[j].current) continue;
+		Enemy *enemy = &world->enemies[j];
+		
+		if (world->player.bounds.left	> enemy->bounds.right)		continue;
+		if (world->player.bounds.right	< enemy->bounds.left)		continue;
+		if (world->player.bounds.top		< enemy->bounds.bottom)		continue;
+		if (world->player.bounds.bottom	> enemy->bounds.top)		continue;
+
+		mode = MODE_PAUSED;
+		eventTextBox.addTextToBox("You Died. Try Again.");
+		loadCurrentLevel();		
+
+		break;
+	}
+}
+
+void checkPlayerForEnemyBulletCollisions() {
+
+	for (int i = 0; i < MAX_BULLETS; i++) {
+
+		if (!world->enemyBullets[i].current) continue;
+		Bullet *bullet = &world->enemyBullets[i];
+
+		if (world->player.bounds.left	> bullet->bounds.right)		continue;
+		if (world->player.bounds.right	< bullet->bounds.left)		continue;
+		if (world->player.bounds.top	< bullet->bounds.bottom)	continue;
+		if (world->player.bounds.bottom	> bullet->bounds.top)		continue;
+
+		mode = MODE_PAUSED;
+		eventTextBox.addTextToBox("You Died. Try Again.");
+		loadCurrentLevel();	
+
+		break;
+	}
+}
+
+void updateParticleEmitters(float deltaTime) {
+	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+		if (world->particleEmitters[i].current) {
+			world->particleEmitters[i].update(deltaTime);
+		}
+	}
+}
+
 void moveLightAroundOrbit(float deltaTime) {
 	float radius = 35.0f;
 	float speed = 90.0f; // degrees / second
 	float degreesMoved = speed * deltaTime;
 
-	float midGridX = (float)currentWorldState->gridSizeX / 2;
-	float midGridY = -(float)currentWorldState->gridSizeY / 2;
+	float midGridX = (float)world->gridSizeX / 2;
+	float midGridY = -(float)world->gridSizeY / 2;
 
-	float newDegrees = currentWorldState->lights[0].currentDegrees + degreesMoved;
+	float newDegrees = world->lights[0].currentDegrees + degreesMoved;
 	if (newDegrees > 360) newDegrees -= 360;
 
 	float newX = glm::cos(glm::radians(newDegrees)) * radius + midGridX;
 	float newY = glm::sin(glm::radians(newDegrees)) * radius + midGridY;
 
-	currentWorldState->lights[0].pos.x = newX;
-	currentWorldState->lights[0].pos.y = newY;
+	world->lights[0].pos.x = newX;
+	world->lights[0].pos.y = newY;
 
 	//world->lightEntity.worldOffset.x = newX;
 	//world->lightEntity.worldOffset.y = newY;
 
-	currentWorldState->lights[0].currentDegrees = newDegrees;
-}
-
-DWORD WINAPI imageLoadAndFree(LPVOID lpParam) {
-	// Basic usage (see HDR discussion below for HDR usage):
-	//    int x,y,n;
-	//    unsigned char *data = stbi_load(filename, &x, &y, &n, 0);
-	//    // ... process data if not NULL ...
-	//    // ... x = width, y = height, n = # 8-bit components per pixel ...
-	//    // ... replace '0' with '1'..'4' to force that many components per pixel
-	//    // ... but 'n' will always be the number that it would have been if you said 0
-	//    stbi_image_free(data)
-	//
-	// Standard parameters:
-	//    int *x                 -- outputs image width in pixels
-	//    int *y                 -- outputs image height in pixels
-	//    int *channels_in_file  -- outputs # of image components in image file
-	//    int desired_channels   -- if non-zero, # of image components requested in result
-	int count = 0;
-
-	while (true) {
-		printf("loading %d \n", count);
-
-		int x, y, n;
-		unsigned char *data = stbi_load("botw.jpg", &x, &y, &n, 0);
-		printf("...loaded...");
-
-		stbi_image_free(data);
-		printf("freed!\n");
-		count++;
-	}
-}
-
-void liveReloadFragmentShader(WIN32_FILE_ATTRIBUTE_DATA *prevFragmentShaderFileData, WIN32_FILE_ATTRIBUTE_DATA *fragmentShaderFileData) {
-	GetFileAttributesExA(
-		"fragmentShader.frag",
-		GetFileExInfoStandard,
-		fragmentShaderFileData
-	);
-
-	if (fragmentShaderFileData->ftLastWriteTime.dwLowDateTime != prevFragmentShaderFileData->ftLastWriteTime.dwLowDateTime) {
-		printf("File updated.\n");
-		regularShaderProgramID = createShaderProgram("vertexShader.vert", "fragmentShader.frag");
-
-		refreshProjection();
-		refreshView();
-		prevFragmentShaderFileData = fragmentShaderFileData;
-	}
+	world->lights[0].currentDegrees = newDegrees;
 }
 
 int main() {
-	WorldState *worldState1 = (WorldState *)VirtualAlloc(0, sizeof(WorldState), MEM_COMMIT, PAGE_READWRITE);
-	WorldState *worldState2 = (WorldState *)VirtualAlloc(0, sizeof(WorldState), MEM_COMMIT, PAGE_READWRITE);
-	
-	worldStates[0] = worldState1;
-	worldStates[1] = worldState2;
-
-	currentWorldState = worldState1;
-	worldState2->globalOffset = my_vec3(75.0f, 0.0f, 0.0f);
-
+	world = (WorldState *)VirtualAlloc(0, sizeof(WorldState), MEM_COMMIT, PAGE_READWRITE);
+		
 	// ------------ INIT STUFF -------------
 
 	// initialization of glfw and glad libraries, window creation
@@ -976,16 +1066,13 @@ int main() {
 	levelCount = loadLevelsV2(levels);
 	currentLevel = 0;
 
-	currentWorldState = worldState1;
-	loadCurrentLevel(worldState1);
-
-	currentWorldState = worldState2;
-	loadCurrentLevel(worldState2);
+	loadCurrentLevel();
 	
 	lastFrameTime = (float)glfwGetTime();
 
     float deltaTime = 0.0f;
-	
+	float timeStep	= deltaTime;
+
     float targetFrameTime60 = 1.0f / 60.0f;
 	float targetFrameTime90 = 1.0f / 90.0f;
 
@@ -1003,76 +1090,122 @@ int main() {
 
 	outlineOnly = true;
 
+	//recording = true;
+
 	GLFWgamepadstate gamepadState;
-	
+	GLFWgamepadstate prevGamepadState;
+	float deltaTimeForUpdate;
+	float timeStepForUpdate;
 	// game loop
 	WIN32_FILE_ATTRIBUTE_DATA prevFragmentShaderFileData;
+	
+	WIN32_FILE_ATTRIBUTE_DATA fragmentShaderFileData;
 	GetFileAttributesExA(
 		"fragmentShader.frag",
 		GetFileExInfoStandard,
 		&prevFragmentShaderFileData
 	);
 
-	WIN32_FILE_ATTRIBUTE_DATA fragmentShaderFileData = prevFragmentShaderFileData;
-
-	// MULTI-THREAD EXPERIMENT
-	//DWORD threadId;
-	//HANDLE threadHandle = CreateThread(
-	//	NULL,                   // default security attributes
-	//	0,                      // use default stack size  
-	//	imageLoadAndFree,       // thread function name
-	//	0,			            // argument to thread function 
-	//	0,                      // use default creation flags 
-	//	&threadId);				// returns the thread identifier 
-
 	while (!glfwWindowShouldClose(window)) {
 
-		liveReloadFragmentShader(&prevFragmentShaderFileData, &fragmentShaderFileData);
+		// Checking Fragment Shader for saving
+		GetFileAttributesExA(
+			"fragmentShader.frag",
+			GetFileExInfoStandard,
+			&fragmentShaderFileData
+		);
+
+		if (fragmentShaderFileData.ftLastWriteTime.dwLowDateTime != prevFragmentShaderFileData.ftLastWriteTime.dwLowDateTime) {
+			printf("File updated.\n");
+			regularShaderProgramID = createShaderProgram("vertexShader.vert", "fragmentShader.frag");
+			
+			refreshProjection();
+			refreshView();
+			prevFragmentShaderFileData = fragmentShaderFileData;
+		}
+
+		// Getting start button state here, cause it is used to move through states outside of play, too.
+		// Rest of gamepad state is used in moveWithController function.
+		if(!glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepadState)) {	/* TODO: logging */	};
+
+		if (gamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_PRESS
+			&& prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
+			if (mode == MODE_PLAY) mode = MODE_PAUSED;
+			else if (mode == MODE_PAUSED) mode = MODE_PLAY;
+			else if (mode == MODE_REPLAY) {
+				goForwardOneLevel();
+				loadCurrentLevel();
+				mode = MODE_PAUSED;
+			}
+		}
+			
+		if (mode == MODE_REPLAY) {
+			gamepadState = recordedInput[currentInputIndex].gamepadState;
+			deltaTimeForUpdate = recordedInput[currentInputIndex].deltaTime;
+			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;			
+
+			currentInputIndex++;
+		} else if (mode == MODE_PLAY) {
+			recordedInput[currentInputIndex].gamepadState = gamepadState;
+			recordedInput[currentInputIndex].deltaTime = deltaTime;
+			currentInputIndex++;
+			deltaTimeForUpdate = deltaTime;
+			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;
+		} else if (mode == MODE_PAUSED) {
+			deltaTimeForUpdate = 0.0f;
+			timeStepForUpdate = 0.0f;
+		}
 
 		// -- INPUT --
-		if(!glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepadState)) {	/* TODO: logging */	};
-		
 		processKeyboardInput(window, deltaTime);
-        glfwPollEvents();
-		
-		// -- UPDATE -- 
-		currentWorldState = worldState1;
-		currentWorldState->update(&gamepadState, deltaTime);
+        processJoystickInput(gamepadState, deltaTimeForUpdate);
+		glfwPollEvents();
+		prevGamepadState = gamepadState;
 
-		currentWorldState = worldState2;
-		currentWorldState->update(&gamepadState, deltaTime);
-		//if (currentWorldState->mode != MODE_FREE_CAMERA) camera.update(deltaTime, currentWorldState->player.worldOffset);
-		if (lightOrbit) moveLightAroundOrbit(deltaTime);
+		// -- UPDATE -- 
+		// TODO: this should be elsewhere
+		setUniform3f(regularShaderProgramID, "playerPos", world->player.worldOffset);
+
+		updateBullets(timeStepForUpdate);
+		checkBulletsForEnemyCollisions();
+		checkPlayerForEnemyCollisions();
+		checkPlayerForEnemyBulletCollisions();
+		updateEnemies(timeStepForUpdate);
+		updateParticleEmitters(timeStepForUpdate);
+		if(mode != MODE_FREE_CAMERA) world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
+		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
 		console.update(deltaTime);
 
+		//if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
+		//	loadCurrentLevel();
+		//	currentInputIndex = 0;
+		//	mode = MODE_REPLAY;
+		//}
+
 		// -- DRAW --
-		
+		refreshView();
+		refreshLights();
+
 		// Clear color and z-buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
 
-		// World1
-		currentWorldState = worldState1;
-		refreshView();
-		refreshLights();
-
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
-		setUniform3f(regularShaderProgramID, "playerPos", currentWorldState->player.worldOffset); // for fog stuff -- not sure where this should be
-		currentWorldState->draw();
-		if (currentWorldState->mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
-
-		// World2
-		currentWorldState = worldState2;
-		refreshLights();
-		currentWorldState->draw();
+		
+		drawGrid();
+	    world->player.draw();
+        drawEnemies();
+        drawBullets();
+		drawParticleEmitters();
+		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
 		
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		eventTextBox.drawTextBox(&arial);
 		fpsBox.drawTextBox(&arial);
-		if(currentWorldState->mode == MODE_LEVEL_EDIT) editorUI.draw();
-		else if (currentWorldState->mode == MODE_PAUSED) {
+		if(mode == MODE_LEVEL_EDIT) editorUI.draw();
+		else if (mode == MODE_PAUSED) {
 			//pauseThingy.draw();
 			
 			//for (int i = 0; i < 30; i++) {
@@ -1085,7 +1218,7 @@ int main() {
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	
 		
-		if (currentWorldState->mode != MODE_REPLAY) {
+		if (mode != MODE_REPLAY) {
 			if (deltaTime < targetFrameTime) {
 				int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
 
@@ -1110,6 +1243,8 @@ int main() {
 		stream << "FrameTime(ms): " << std::setprecision(4) << frameTime;
 		drawText(&arial, stream.str(), 0, (float) currentScreenHeight - 30.0f, 0.5f, my_vec3(1.0f));
 		
+        timeStep = deltaTime / timeStepDenom;
+		//if (mode == MODE_PAUSED) timeStep = 0.0f;
 		globalDeltaTime = deltaTime;
 
 		lastFrameTime = (float)glfwGetTime();

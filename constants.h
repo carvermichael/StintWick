@@ -29,13 +29,12 @@
 #define EDITOR_MODE_WALL		1
 
 #define MAX_LEVELS			  50
-#define MAX_BULLETS			  1
+#define MAX_BULLETS			  25
 #define MAX_ENEMIES			  20
 #define MAX_PARTICLE_EMITTERS 30
 #define MAX_LIGHTS			  500
 #define MAX_WALLS			  500
 #define MAX_GRID_ONE_DIM	  500
-#define MAX_INPUTS			  10000
 
 // grid constants in world state -- don't use anything but 0 and 1 right now, but with level gen, this will come in handy for entity placement
 #define NOTHING		0

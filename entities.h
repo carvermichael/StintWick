@@ -27,19 +27,17 @@ struct Bullet {
         speed = newSpeed;
     }
 
-	void draw(my_vec3 globalOffset) {
-		model->draw(worldOffset + globalOffset, 1.0f, outlineFactor);
+	void draw() {
+		model->draw(worldOffset, 1.0f, outlineFactor);
 	}
 
 	void update(float deltaTime) {
 		my_vec2 moveAdjust = my_vec2(direction.x * speed * deltaTime, direction.y * speed * deltaTime);
 
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
-		printf("moveAdjust(%f, %f), boundsAXAY(%f, %f)\n", moveAdjust.x, moveAdjust.y, bounds.AX, bounds.AY);
+		my_vec2 finalOffset = adjustForWallCollisions(bounds, moveAdjust.x, moveAdjust.y, &collided);
 
 		if (collided) {
-			printf("collided\n");
 			current = false;
 			createParticleEmitter(my_vec3(finalOffset.x, finalOffset.y, 1.5f));
 		}
@@ -100,7 +98,7 @@ struct Entity {
 	float speed = 10.0f;
 	float shotSpeed = 45.0f;
 
-	void draw(my_vec3 globalOffset) {
+	void draw() {
 		float outlineFactor = 0.0f;
 		
 		//if (blinking) {
@@ -114,7 +112,7 @@ struct Entity {
 		//	}
 		//}
 
-		model->draw(worldOffset + globalOffset, 1.0f, outlineFactor);
+		model->draw(worldOffset, 1.0f, outlineFactor);
 	}
 
 	void draw(Material *mat) {
@@ -189,8 +187,8 @@ struct Enemy : Entity {
 		strat->update(this, player, deltaTime);
 	}
 
-	void draw(my_vec3 globalOffset) {
-		model->draw(worldOffset + globalOffset, 1.0f, 0.0f, mat);
+	void draw() {
+		model->draw(worldOffset, 1.0f, 0.0f, mat);
 	}
 };
 
@@ -206,7 +204,7 @@ struct Follow : EnemyStrat {
 		//my_vec3 newWorldOffset = entity->worldOffset + (dirVec * entity->speed * deltaTime);
 		
 		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(entity->bounds, my_vec2(moveAdjust.x, moveAdjust.y), &collided);
+		my_vec2 finalOffset = adjustForWallCollisions(entity->bounds, moveAdjust.x, moveAdjust.y, &collided);
 
 		entity->updateWorldOffset(finalOffset);
 	}
@@ -293,9 +291,9 @@ struct ParticleEmitter {
 		model = newModel;
 	}
 
-	void draw(my_vec3 globalOffset) {
+	void draw() {
 		for (int i = 0; i < 8; i++) {
-			model->draw(positions[i] + globalOffset, 1.0f, 0.75f);
+			model->draw(positions[i], 1.0f, 0.75f);
 		}
 	}
 
