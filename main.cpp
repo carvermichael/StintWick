@@ -101,7 +101,7 @@ struct InputRecord {
 
 // UNIFORM SETTING
 void refreshProjection() {
-	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 100.0f);
+	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 5000.0f);
 
 	//printGLMMat4(projection);
 
@@ -255,6 +255,8 @@ void loadCurrentLevel() {
 	world->lights[0].diffuse = my_vec3(1.0f, 1.0f, 1.0f);
 	world->lights[0].specular = my_vec3(1.0f, 1.0f, 1.0f);
 
+	world->wallModel = &models.wall;
+
 	world->camera.initOnPlayer(world->player.worldOffset);
 
 	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
@@ -296,23 +298,12 @@ void loadCurrentLevel() {
 	hitTheLights();
 
 	// v2 wall setting
-	//world->numWalls = level->numWalls;
+	world->numWalls = level->numWalls;
 	
-	//for (unsigned int i = 0; i < world->numWalls; i++) {
-	//	world->wallLocations[i] = level->wallLocations[i];
-	//}
-
-	// v3 wall setting
-	for (unsigned int i = 0; i < level->numWalls; i++) {
-		my_ivec2 currWallLoc = level->wallLocations[i];
-		world->grid[currWallLoc.x][currWallLoc.y] = WALL;
+	for (unsigned int i = 0; i < world->numWalls; i++) {
+		world->wallLocations[i] = level->wallLocations[i];
 	}
-
-	// off for cube-based V2 levels
-	//models.floorModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, (-(float)world->gridSizeY) + 2.0f, 1.0f));
-	//models.wall.rescale(my_vec3(1.0f, -1.0f * world->gridSizeY, 2.0f));
-	//models.wallTopModel.rescale(my_vec3((float)world->gridSizeX - 2.0f, -1.0f, 2.0f));
-
+		
 	eventTextBox.clearTextBox();
 }
 
@@ -378,7 +369,7 @@ void addEnemyToWorld(int type, my_ivec2 gridCoords) {
 }
 
 void addWallToWorld(my_ivec2 gridCoords) {
-	world->grid[gridCoords.x][gridCoords.y] = WALL;
+	world->wallLocations[world->numWalls++] = gridCoords;	
 }
 
 void toggleEditorMode() {
@@ -453,14 +444,6 @@ void processConsoleCommand(std::string command) {
 	}
 
 	if (commandVector[0] == "new") {
-
-		/*if (commandVector.size() < 3) {
-			eventTextBox.addTextToBox("error: missing args gridSizeX and gridSizeY");
-			return;
-		}
-
-		unsigned int gridSizeX = std::stoi(commandVector[1], nullptr, 10);
-		unsigned int gridSizeY = std::stoi(commandVector[2], nullptr, 10);*/
 
 		levelCount = addLevel(levels, levelCount);
 		currentLevel = levelCount - 1;
@@ -677,41 +660,6 @@ void createPlayerAndEnemyModels() {
 }
 
 // DRAWS, REGULAR
-void drawGrid() {
-	for (unsigned int i = 0; i < MAX_GRID_ONE_DIM; i++) {
-		for (unsigned int j = 0; j < MAX_GRID_ONE_DIM; j++) {
-			if(world->grid[i][j] == WALL) {
-				my_vec3 worldOffset = gridCoordsToWorldOffset(my_ivec3(i, j, 1));
-				models.wall.draw(worldOffset);
-			}
-		}
-	}
-}
-
-void drawBullets() {
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (world->playerBullets[i].current) world->playerBullets[i].draw();
-	}
-
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (world->enemyBullets[i].current) world->enemyBullets[i].draw();
-	}
-}
-
-void drawEnemies() {
-	for (int i = 0; i < MAX_ENEMIES; i++) {
-		if (world->enemies[i].current) world->enemies[i].draw();
-	}
-}
-
-void drawParticleEmitters() {
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (world->particleEmitters[i].current) {
-			world->particleEmitters[i].draw();
-		}
-	}
-}
-
 void drawProspectiveOutline() {
 	// turn current center of screen into grid coordinates
 	my_ivec3 gridCoords = cameraCenterToGridCoords();
@@ -823,90 +771,10 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, boo
 
 	*collided = false;
 
-	float finalOffsetX = entityBounds.AX;
-	float finalOffsetY = entityBounds.AY;
+	float finalOffsetX = entityBounds.AX + moveX;
+	float finalOffsetY = entityBounds.AY + moveY;
 
-	int playerAXFloor = (int)entityBounds.AX;
-	int playerBXFloor = (int)entityBounds.BX;
-	int playerAYFloor = (int)entityBounds.AY;
-	int playerBYFloor = (int)entityBounds.BY;
-
-	// TODO: remove this you dumb hacky bitch, lol
-	if (playerAXFloor - 1 < 0.0f ||
-		(-playerAYFloor) < 0.0f ||
-		(playerBXFloor + 1) < 0.0f ||
-		(-playerAYFloor) < 0.0f ||
-		(playerBXFloor) < 0.0f ||
-		(-playerBYFloor + 1) < 0.0f ||
-		(playerBXFloor) < 0.0f ||
-		(-playerAYFloor - 1) < 0.0) {
-		*collided = true;
-		return my_vec2(entityBounds.AX, entityBounds.AY);
-	}
-
-	if (moveX < 0) {
-		if (finalOffsetX + moveX < playerAXFloor &&							// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(world->grid[playerAXFloor - 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				world->grid[playerAXFloor - 1][-playerBYFloor] == WALL)) {
-			finalOffsetX = (float)playerAXFloor;
-			*collided = true;
-		}
-		else {
-			finalOffsetX += moveX;
-		}
-	}
-	if (moveX > 0) {
-		if ((int)(entityBounds.BX + moveX) > playerBXFloor &&				// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(world->grid[playerBXFloor + 1][-playerAYFloor] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				world->grid[playerBXFloor + 1][-playerBYFloor] == WALL)) {
-			finalOffsetX = (float)(playerBXFloor - 0.01f);					// hacky solution: flooring the BX bounds doesn't work when BX is exactly on the integer line
-			*collided = true;
-		}
-		else {
-			finalOffsetX += moveX;
-		}
-	}
-
-	if (moveY < 0) {
-		if ((int)(entityBounds.BY + moveY) <= playerBYFloor - 1 &&			// checks to see if player will hit an integer boundary (walls only occur on integer boundries)
-			(world->grid[playerBXFloor][-playerBYFloor + 1] == WALL ||		// effectively checks to see if there's a wall where top left will hit or where bottom left will hit
-				world->grid[playerAXFloor][-playerBYFloor + 1] == WALL)) {
-			finalOffsetY = (float)playerBYFloor + 0.001f;
-			*collided = true;
-		}
-		else {
-			finalOffsetY += moveY;
-		}
-	}
-
-	// TODO: this is all garbage, probably should redo collision detection (w/o weird grid/integer boundary logic) -- just do more standard AABB testing with some culling up front
-	if (moveY > 0) {
-		//printf("EntityBounds.AY: %f, moveY: %f, playerBYFloor: %d, playerBXFloor: %d, playerAYFloor: %d, playerAXFloor: %d\n", entityBounds.AY, moveY, playerBYFloor, playerBXFloor, playerAYFloor, playerAXFloor);
-
-		bool firstCheck = (int)(entityBounds.AY + moveY) > playerBYFloor;
-		bool secondCheck = world->grid[playerBXFloor][-playerAYFloor] == WALL;
-		bool thirdCheck = world->grid[playerAXFloor][-playerAYFloor] == WALL;
-		//printf("firstCheck: %d secondCheck[%d][%d]: %d, thirdCheck[%d][%d]: %d\n", firstCheck, playerBXFloor, (-playerAYFloor - 1), secondCheck, playerAXFloor, (-playerAYFloor - 1), thirdCheck);
-
-		if (firstCheck) {
-
-			if (secondCheck || thirdCheck) {
-				finalOffsetY = (float)playerAYFloor - 1.020f;
-				/*f (isPlayer) {
-					printf("isplayer and collided\n");
-				}*/
-
-				*collided = true;
-			}
-			else {
-				finalOffsetY += moveY;
-			}
-
-		}
-		else {
-			finalOffsetY += moveY;
-		}
-	}
+	// TODO: REDO THIS, adding wall bounds to params
 
 	return my_vec2(finalOffsetX, finalOffsetY);
 }
@@ -1145,7 +1013,9 @@ int main() {
 
 		if (gamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_PRESS
 			&& prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
-			if (mode == MODE_PLAY) mode = MODE_PAUSED;
+			if (mode == MODE_PLAY) {
+				mode = MODE_PAUSED;
+			}
 			else if (mode == MODE_PAUSED) mode = MODE_PLAY;
 			else if (mode == MODE_REPLAY) {
 				goForwardOneLevel();
@@ -1208,11 +1078,7 @@ int main() {
 		glDepthFunc(GL_LESS);
 		if(guidingGrid)	drawGuidingGrid();
 		
-		drawGrid();
-	    world->player.draw();
-        drawEnemies();
-        drawBullets();
-		drawParticleEmitters();
+		world->draw();
 		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
 		
 		// UI Elements
@@ -1246,6 +1112,10 @@ int main() {
 				while (deltaTime < targetFrameTime) {
 					deltaTime = (float)glfwGetTime() - lastFrameTime;
 				}
+			}
+			else if (deltaTime > 0.5f) {
+				printf("test");
+				deltaTime = targetFrameTime;
 			}
 			else {
 				printf("MISSED FRAME! AHH\n"); // TODO: logging

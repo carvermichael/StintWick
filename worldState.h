@@ -16,9 +16,7 @@ struct WorldState {
 	// level v2 stuff
 	unsigned int numWalls;
 	my_ivec2 wallLocations[MAX_WALLS];
-	
-	// level v3 stuff -- not being stupid this time
-	unsigned short grid[MAX_GRID_ONE_DIM][MAX_GRID_ONE_DIM];
+	Model *wallModel;
 
 	Camera camera;
 
@@ -33,7 +31,7 @@ struct WorldState {
 
 	ParticleEmitter particleEmitters[MAX_PARTICLE_EMITTERS];
 
-    void init(unsigned int newGridSizeX, unsigned int newGridSizeY) {
+	void init(unsigned int newGridSizeX, unsigned int newGridSizeY, Model *inWallModel) {
 		gridSizeX = newGridSizeX;
 		gridSizeY = newGridSizeY;
 
@@ -51,7 +49,49 @@ struct WorldState {
 		lights[0].specular = my_vec3(1.0f, 1.0f, 1.0f);
 
 		numEnemies = 0;
+
+		this->wallModel = inWallModel;
     }
+
+	void draw() {
+		player.draw();
+
+		drawGrid();
+		drawBullets();
+		drawEnemies();
+		drawParticleEmitters();
+	}
+
+	void drawGrid() {
+		for (unsigned int i = 0; i < numWalls; i++) {
+			wallModel->draw(my_vec3((float)wallLocations[i].x, (float)wallLocations[i].y, 0.0f), 1.0f, 0.0f);
+		}
+	}
+
+	void drawBullets() {
+		for (int i = 0; i < MAX_BULLETS; i++) {
+			if (playerBullets[i].current) playerBullets[i].draw();
+		}
+
+		for (int i = 0; i < MAX_BULLETS; i++) {
+			if (enemyBullets[i].current) enemyBullets[i].draw();
+		}
+	}
+
+	void drawEnemies() {
+		for (int i = 0; i < MAX_ENEMIES; i++) {
+			if (enemies[i].current) enemies[i].draw();
+		}
+	}
+
+	void drawParticleEmitters() {
+		for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
+			if (particleEmitters[i].current) {
+				particleEmitters[i].draw();
+			}
+		}
+	}
+
 };
 
 #define MAX_ENTITIES 100
