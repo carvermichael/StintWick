@@ -1,28 +1,59 @@
-#if !defined(WORLDSTATE)
+#pragma once
 
 #include "constants.h"
 #include "camera.h"
 #include "model.h"
 #include "entities.h"
+#include "levels.h"
+#include <glfw3.h>
 
-struct WorldState {
-	unsigned int seed;
+struct InputRecord {
+	GLFWgamepadstate gamepadState;
+	float deltaTime;
+};
 
-	// level v1 stuff
-	unsigned int gridSizeX;
-	unsigned int gridSizeY;
-    AABB wallBounds;
+class WorldState {
 
-	// level v2 stuff
-	unsigned int numWalls;
-	my_ivec2 wallLocations[MAX_WALLS];
-	Model *wallModel;
-
-	Camera camera;
-
+public:
 	Light lights[MAX_LIGHTS];
 	
+	void init(Models *models, Textbox *inEventTextBox, EnemyStrats *inEnemyStrats, Materials *inMaterials);
+	void resetToLevel(Level *level);
+	void update(InputRecord inputRecord);
+	void draw();
+	
+	void pause();
+	void resume();
+	void replay();
+	unsigned int getCurrentMode();
+
+	my_vec3 getPlayerWorldOffset();
+	
+	// USED BY EDITOR
+	void addEnemyToWorld(int type, my_ivec2 gridCoords);
+	void addWallToWorld(my_ivec2 gridCoords);
+
+	void removeEntityAtOffset(my_vec3 worldOffset);
+
+	unsigned int numWalls;
+	my_ivec2 wallLocations[MAX_WALLS];
+
+private:
+	unsigned int mode;
+	unsigned int seed;
+
+	Textbox *eventTextBox;
+
+	Models *models;
+	EnemyStrats *enemyStrats;
+	Materials *materials;
+
+	GLFWgamepadstate prevGamepadState;
+	InputRecord recordedInput[INPUT_MAX];
+	int currentInputIndex = 0;
+	
 	Player player;
+
 	int numEnemies = 0;
     Enemy enemies[MAX_ENEMIES];
     
@@ -31,71 +62,23 @@ struct WorldState {
 
 	ParticleEmitter particleEmitters[MAX_PARTICLE_EMITTERS];
 
-	void init(unsigned int newGridSizeX, unsigned int newGridSizeY, Model *inWallModel) {
-		gridSizeX = newGridSizeX;
-		gridSizeY = newGridSizeY;
-
-        // @HARDCODE: this is set relative to wall cube sizes
-        wallBounds.AX =  1.0f;
-        wallBounds.AY = -1.0f;
-
-        wallBounds.BX =  (float)(gridSizeX - 1);
-        wallBounds.BY = -(float)(gridSizeY - 1);
-
-		lights[0].current = true;
-		lights[0].pos = my_vec3(-2.0f, -5.0f, 4.0f);
-		lights[0].ambient = my_vec3(1.0f, 1.0f, 1.0f);
-		lights[0].diffuse = my_vec3(1.0f, 1.0f, 1.0f);
-		lights[0].specular = my_vec3(1.0f, 1.0f, 1.0f);
-
-		numEnemies = 0;
-
-		this->wallModel = inWallModel;
-    }
-
-	void draw() {
-		player.draw();
-
-		drawGrid();
-		drawBullets();
-		drawEnemies();
-		drawParticleEmitters();
-	}
-
-	void drawGrid() {
-		for (unsigned int i = 0; i < numWalls; i++) {
-			wallModel->draw(my_vec3((float)wallLocations[i].x, (float)wallLocations[i].y, 0.0f), 1.0f, 0.0f);
-		}
-	}
-
-	void drawBullets() {
-		for (int i = 0; i < MAX_BULLETS; i++) {
-			if (playerBullets[i].current) playerBullets[i].draw();
-		}
-
-		for (int i = 0; i < MAX_BULLETS; i++) {
-			if (enemyBullets[i].current) enemyBullets[i].draw();
-		}
-	}
-
-	void drawEnemies() {
-		for (int i = 0; i < MAX_ENEMIES; i++) {
-			if (enemies[i].current) enemies[i].draw();
-		}
-	}
-
-	void drawParticleEmitters() {
-		for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-			if (particleEmitters[i].current) {
-				particleEmitters[i].draw();
-			}
-		}
-	}
-
+	//my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided);
+	void movePlayer(float x, float y);
+	void playerShoot(float x, float y, float deltaTime);
+	void createParticleEmitter(my_vec3 newPos);
+	void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed);
+	void updateBullets(float deltaTime);
+	void updateEnemies(float deltaTime);
+	void checkBulletsForEnemyCollisions();
+	void checkPlayerForEnemyCollisions();
+	void updateParticleEmitters(float deltaTime);
+	void moveWithController(GLFWgamepadstate state, float deltaTime);
+	void drawGrid();
+	void drawBullets();
+	void drawEnemies();
+	void drawParticleEmitters();
+	void checkPlayerForEnemyBulletCollisions();
 };
 
-#define MAX_ENTITIES 100
-#define NUM_TURN_ENTITIES 2
-
-#define WORLDSTATE
-#endif
+//#define WORLDSTATE 0
+//#endif

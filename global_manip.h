@@ -1,26 +1,28 @@
 #pragma once
 
 #include <iomanip>
+#include "levels.h"
+#include "textBox.h"
+#include "model.h"
 
-void createParticleEmitter(my_vec3 newPos);
+
+my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided);
+
 void processConsoleCommand(std::string command);
 void loadCurrentLevel();
 void goBackOneLevel();
 void goForwardOneLevel();
 void deleteCurrentLevel();
-void goBackOneEnemyType();
-void goForwardOneEnemyType();
+
 unsigned int getCurrentLevel();
-unsigned int getEnemySelection();
-void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed);
-void setPauseCoords();
-void hitTheLights();
-void addEnemyToLevel(int type, my_ivec2 gridCoords);
-void addEnemyToWorld(int type, my_ivec2 gridCoords);
+
 my_ivec3 cameraCenterToGridCoords();
-void toggleEditorMode();
-int getEditorMode();
-my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided);
+
+// Editor-related
+void saveAllLevelsV2(Level levels[], unsigned int levelCount);
+unsigned int addLevel(Level levels[], unsigned int levelCount);
+
+void drawText(Font *font, std::string text, float x, float y, float scale, my_vec3 color);
 
 // TODO: These shouldn't be here --> These will go in the openGL file, when that's created (as part of pulling that out for easier/simpler porting)
 void setUniformBool(unsigned int shaderProgramID, const char *uniformName, bool value);

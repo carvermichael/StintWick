@@ -20,7 +20,7 @@ struct Camera {
 	float shakeAmount = 5.0f;
 	float shakeTimeRemaining = 0.0f;
 
-	void initOverhead(unsigned int gridSizeX, unsigned int gridSizeY);
+	void initOverhead();
 
 	void initOnPlayer(my_vec3 playerPos);
 

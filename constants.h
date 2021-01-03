@@ -19,12 +19,21 @@
 #define NUM_MODELS	10
 #define NUM_MATS	9
 
-#define MODE_PLAY				0
-#define MODE_FREE_CAMERA		1
-#define MODE_LEVEL_EDIT			2
-#define MODE_REPLAY				3
-#define MODE_PAUSED				4
+#define INPUT_MAX 10000
 
+#define LIMIT_LINES 2000
+
+// world state modes
+#define MODE_PLAY				0
+#define MODE_REPLAY				1
+#define MODE_PAUSED				2
+
+// global modes
+#define MODE_FREE_CAMERA		3
+#define MODE_LEVEL_EDIT			4
+#define MODE_GLOBAL_PLAY		5
+
+// editor modes
 #define EDITOR_MODE_ENEMY		0
 #define EDITOR_MODE_WALL		1
 

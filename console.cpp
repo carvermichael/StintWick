@@ -1,5 +1,5 @@
-#include "console.h"
 #include "global_manip.h"
+#include "console.h"
 
 void Console::flipOut() {
 	if (isOut) {

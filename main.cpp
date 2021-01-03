@@ -34,38 +34,46 @@
 #include "shader.h"
 #include "textBox.h"
 #include "console.h"
-#include "editorUI.h"
 #include "levels.h"
-
-struct InputRecord {
-	GLFWgamepadstate gamepadState;
-	float deltaTime;
-};
+#include "editor.h"
 
 // TODO: Should all of this go on the heap???
 	// Random Global State -- some subset of this should go in the worldState
 	
 	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
 	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
-	unsigned int mode = MODE_PAUSED;
-	unsigned int editor_mode = EDITOR_MODE_ENEMY;
-	bool blinkMeshes = true;
+	
+	/*
+		globalModes
+		-- free cam
+		-- level edit
+		-- global play (used to make the camera follow the player during play)
 
+		worldstate modes
+		-- play
+		-- pause
+		-- replay
+
+		editor modes
+		-- placement type (enemy v wall)
+		-- enemy type to be placed
+	*/
+
+	unsigned int globalMode = MODE_GLOBAL_PLAY;
+		
 	float globalDeltaTime = 0.0f;
 	float lastFrameTime = 0.0f;
 	float lastCursorX = 400;
 	float lastCursorY = 300;
 	bool firstMouse = true;
-	int timeStepDenom = 1;
-	//bool pause = true;
-	bool lightOrbit = false;
-	bool guidingGrid = false;
-	my_ivec3 pauseCoords[30];
-	bool outlineOnly = false;
-	unsigned int levelCount;
-	unsigned int currentLevel = 0;
-	unsigned int currentEnemyTypeSelection = 0;
 	
+	bool lightOrbit = false;
+	
+	unsigned int levelCount;
+	unsigned int currentLevelIndex = 0;
+	unsigned int currentEnemyTypeSelection = 0;
+	unsigned int currentEditorMode = EDITOR_MODE_ENEMY;
+
 	// OpenGL Stuff
 	unsigned int regularShaderProgramID;
 	unsigned int lightShaderProgramID;
@@ -78,32 +86,84 @@ struct InputRecord {
 	Materials materials;
 	EnemyStrats enemyStrats;
 
-	EditorUI editorUI;
 	Console console;
 	WorldState *world;
+	Editor editor;
+	Camera camera;
+	Font arial;
 
-#define INPUT_COUNT 10000
-
-	InputRecord recordedInput[INPUT_COUNT];
-	int currentInputIndex = 0;
-	bool recording = false;
-	bool playback = false;
 	Level levels[MAX_LEVELS];
-	UI_Rect pauseThingy;
-
-	#include "shapeData.h"
-
+	
 	Textbox eventTextBox = {};
 	Textbox fpsBox = {};
 
 #include "controls.h"
 
+// TODO: there's probably a better place for this...
+my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided) {
+	*collided = false;
+
+	float adjustedOffsetX = entityBounds.AX + moveX;
+	float adjustedOffsetY = entityBounds.AY + moveY;
+
+	AABB adjustedEntityBounds = AABB(my_vec2(adjustedOffsetX, adjustedOffsetY));
+
+	for (unsigned int i = 0; i < world->numWalls; i++) {
+		AABB wallBounds = AABB(my_vec2((float)world->wallLocations[i].x, (float)world->wallLocations[i].y));
+
+		// First, check adjustEntityBounds for a collision on the wall.
+		if (wallBounds.left > adjustedEntityBounds.right) continue;
+		if (wallBounds.right < adjustedEntityBounds.left) continue;
+		if (wallBounds.top < adjustedEntityBounds.bottom) continue;
+		if (wallBounds.bottom > adjustedEntityBounds.top) continue;
+
+		// If we've gotten here, then a collision happened.
+		*collided = true;
+
+		// Then, we need to find out what adjustment(s) to make:
+		// Depending on which direction the entity was from the wall before movement, we can determine
+		// which direction the collision was in and make the adjustment to just move to that wall's 
+		// bounds spot.
+		if (entityBounds.left >= wallBounds.right) {
+			if (entityBounds.bottom >= wallBounds.top || entityBounds.top <= wallBounds.bottom) {}
+			else adjustedOffsetX = wallBounds.right;
+		}
+
+		if (entityBounds.right <= wallBounds.left) {
+			if (entityBounds.bottom >= wallBounds.top || entityBounds.top <= wallBounds.bottom) {
+
+			}
+			else {
+				adjustedOffsetX = wallBounds.left - 1.0f;
+			}
+		}
+
+		if (entityBounds.bottom >= wallBounds.top) {
+			if (entityBounds.left >= wallBounds.right || entityBounds.right <= wallBounds.left) {
+
+			}
+			else {
+				adjustedOffsetY = wallBounds.top + 1.0f;
+			}
+		}
+
+		if (entityBounds.top <= wallBounds.bottom) {
+			if (entityBounds.left >= wallBounds.right || entityBounds.right <= wallBounds.left) {
+
+			}
+			else {
+				adjustedOffsetY = wallBounds.bottom;
+			}
+		}
+	}
+
+	return my_vec2(adjustedOffsetX, adjustedOffsetY);
+}
+
 
 // UNIFORM SETTING
 void refreshProjection() {
 	projection = glm::perspective(glm::radians(45.0f), (float)currentScreenWidth / (float)currentScreenHeight, 0.1f, 5000.0f);
-
-	//printGLMMat4(projection);
 
 	setUniformMat4(regularShaderProgramID, "projection", projection);
 	setUniformMat4(lightShaderProgramID, "projection", projection);
@@ -116,13 +176,13 @@ void refreshProjection() {
 
 void refreshView() {
 	
-	my_mat4 view = world->camera.generateMyView();
+	my_mat4 view = camera.generateMyView();
 
 	setUniformMat4(regularShaderProgramID, "view", view);
 	setUniformMat4(lightShaderProgramID, "view", view);
 
-	setUniform3f(regularShaderProgramID, "viewPos", world->camera.position);
-	setUniform3f(lightShaderProgramID, "viewPos", world->camera.position);
+	setUniform3f(regularShaderProgramID, "viewPos", camera.position);
+	setUniform3f(lightShaderProgramID, "viewPos", camera.position);
 }
 
 void refreshLights() {
@@ -181,209 +241,56 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_ma
 	glUniformMatrix4fv(location, 1, GL_FALSE, (GLfloat *)&mat4);
 }
 
-
-// RANDOM UTILS
-
-
 // GLOBAL STATE STUFF
-
-void hitTheLights() {
-	// i starts at one to keep global light active
-	for (int i = 1; i < MAX_LIGHTS; i++) {
-		world->lights[i].current = false;
-	}
-}
-
-void setPauseCoords() {
-	for (int i = 0; i < 30; i++) {
-		pauseCoords[i].x = rand() % currentScreenWidth;
-		pauseCoords[i].y = rand() % currentScreenHeight;
-		pauseCoords[i].z = rand() % 200;
-	}
-}
-
-void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
-	bool foundBullet = false;
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		if (!world->enemyBullets[i].current) {
-			world->enemyBullets[i].init(worldOffset,
-				my_vec2(dirVec.x, dirVec.y),
-				&models.enemyBullet, speed);
-			foundBullet = true;
-			break;
-		}
-	}
-
-	if (!foundBullet) printf("Bullet array full! Ah!\n");
-}
-
 unsigned int getCurrentLevel() {
-	return currentLevel;
-}
-
-unsigned int getEnemySelection() {
-	return currentEnemyTypeSelection;
+	return currentLevelIndex;
 }
 
 void goBackOneLevel() {
-	if (currentLevel == 0) currentLevel = levelCount - 1;
-	else currentLevel--;
+	if (currentLevelIndex == 0) currentLevelIndex = levelCount - 1;
+	else currentLevelIndex--;
 
 	loadCurrentLevel();
 }
 
 void goForwardOneLevel() {
-	currentLevel++;
-	if (currentLevel >= levelCount) currentLevel = 0;
+	currentLevelIndex++;
+	if (currentLevelIndex >= levelCount) currentLevelIndex = 0;
 
 	loadCurrentLevel();
 }
 
-// This is starting to become a world state reset...
 void loadCurrentLevel() {
-	SecureZeroMemory(world, sizeof(WorldState));
+	//SecureZeroMemory(world->enemies, sizeof(world->enemies));
 
-	currentInputIndex = 0;
+	world->resetToLevel(&levels[currentLevelIndex]);
 
-	srand(250);
-
-	Level *level = &levels[currentLevel];
-
-	world->lights[0].current = true;
-	world->lights[0].pos = my_vec3(-2.0f, -5.0f, 4.0f);
-	world->lights[0].ambient = my_vec3(1.0f, 1.0f, 1.0f);
-	world->lights[0].diffuse = my_vec3(1.0f, 1.0f, 1.0f);
-	world->lights[0].specular = my_vec3(1.0f, 1.0f, 1.0f);
-
-	world->wallModel = &models.wall;
-
-	world->camera.initOnPlayer(world->player.worldOffset);
-
-	world->player.init(gridCoordsToWorldOffset(my_ivec3(level->playerStartX, level->playerStartY, 1)), &models.player);
-
-	for (int i = 0; i < MAX_ENEMIES; i++) {
-		world->enemies[i].current = false;
+	if (globalMode == MODE_LEVEL_EDIT) {
+		camera.initOverhead();
+	} else {
+		camera.initOnPlayer(world->getPlayerWorldOffset());
 	}
-
-	world->numEnemies = 0;
-
-	unsigned int numOfEnemies = level->numEnemies;
-	for (unsigned int i = 0; i < numOfEnemies; i++) {
-
-		unsigned int enemyType = level->enemies[i].enemyType;
-		unsigned int gridX = level->enemies[i].gridX;
-		unsigned int gridY = level->enemies[i].gridY;
-
-		addEnemyToWorld(enemyType, my_ivec2(gridX, gridY));
-	}
-
-	// reset camera
-	if (mode == MODE_LEVEL_EDIT) {
-		world->camera.initOverhead(level->playerStartX, level->playerStartY);
-	}
-	else {
-		world->camera.initOnPlayer(world->player.worldOffset);
-	}
-
-	// clear particles
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		world->particleEmitters[i].current = false;
-	}
-
-	for (int i = 0; i < MAX_BULLETS; i++) {
-		world->playerBullets[i].current = false;
-		world->enemyBullets[i].current = false;
-	}
-
-	hitTheLights();
-
-	// v2 wall setting
-	world->numWalls = level->numWalls;
-	
-	for (unsigned int i = 0; i < world->numWalls; i++) {
-		world->wallLocations[i] = level->wallLocations[i];
-	}
-		
-	eventTextBox.clearTextBox();
 }
 
 void deleteCurrentLevel() {
-	for (unsigned int i = currentLevel; i < levelCount; i++) {
+	for (unsigned int i = currentLevelIndex; i < levelCount; i++) {
 		levels[i] = levels[i + 1];
 		levels[i + 1].initialized = false;
 	}
-	if (currentLevel == levelCount - 1) {
-		currentLevel = 0;
+	if (currentLevelIndex == levelCount - 1) {
+		currentLevelIndex = 0;
 	}
 	else {
-		currentLevel--;
+		currentLevelIndex--;
 	}
 
 	levelCount--;
 	loadCurrentLevel();
 }
 
-void goBackOneEnemyType() {
-	int numEnemyTypes = sizeof(enemyStrats) / sizeof(enemyStrats.follow);
-	
-	if (currentEnemyTypeSelection == 0) currentEnemyTypeSelection = numEnemyTypes - 1;
-	else currentEnemyTypeSelection--;
-}
-
-void goForwardOneEnemyType() {
-	unsigned int numEnemyTypes = sizeof(enemyStrats) / sizeof(enemyStrats.follow);
-
-	currentEnemyTypeSelection++;
-	if (currentEnemyTypeSelection >= numEnemyTypes) currentEnemyTypeSelection = 0;
-}
-
-void addEnemyToLevel(int type, my_ivec2 gridCoords) {
-	levels[currentLevel].addEnemy(type, gridCoords, &eventTextBox);
-}
-
-void addWallToCurrentLevel(my_ivec2 location) {
-	unsigned int numWalls = levels[currentLevel].numWalls++;
-
-	levels[currentLevel].wallLocations[numWalls] = location;
-}
-
-void addEnemyToWorld(int type, my_ivec2 gridCoords) {
-	if (world->numEnemies >= MAX_ENEMIES) {
-		printf("ERROR: Max enemies reached.\n");
-		eventTextBox.addTextToBox("ERROR: Max enemies reached.");
-		return;
-	}
-
-	EnemyStrat	*strat	= &enemyStrats.follow;
-	if (type == 0) {
-		strat = &enemyStrats.shoot;
-	}
-	else if (type == 1) {		
-		strat = &enemyStrats.follow;
-	}
-	
-	Material	*mat	= &materials.mats[type];
-
-	world->enemies[world->numEnemies].init(gridCoordsToWorldOffset(my_ivec3(gridCoords.x, gridCoords.y, 1)), &models.enemy, mat, strat);
-	world->numEnemies++;
-}
-
-void addWallToWorld(my_ivec2 gridCoords) {
-	world->wallLocations[world->numWalls++] = gridCoords;	
-}
-
-void toggleEditorMode() {
-	if (editor_mode == EDITOR_MODE_ENEMY) editor_mode = EDITOR_MODE_WALL;
-	else if (editor_mode == EDITOR_MODE_WALL) editor_mode = EDITOR_MODE_ENEMY;
-}
-
-int getEditorMode() {
-	return editor_mode;
-}
-
 my_ivec3 cameraCenterToGridCoords() {
-	my_vec3 startingPos = world->camera.position;
-	my_vec3 dirVec = world->camera.front;
+	my_vec3 startingPos = camera.position;
+	my_vec3 dirVec = camera.front;
 
 	my_vec3 currentPos = startingPos;
 
@@ -404,34 +311,30 @@ void processConsoleCommand(std::string command) {
 	std::vector<std::string> commandVector = splitString(command, ' ');
 
 	if (commandVector[0] == "play") {
-		world->camera.initOnPlayer(world->player.worldOffset);
+		camera.initOnPlayer(world->getPlayerWorldOffset());
 
-		mode = MODE_PAUSED;
-		eventTextBox.addTextToBox("Mode: Play");
+		world->pause();
+		globalMode = MODE_GLOBAL_PLAY;
+		eventTextBox.addTextToBox("Game Mode: Paused");
 		console.flipOut();
 	}
 
 	if (commandVector[0] == "freecam") {
-		mode = MODE_FREE_CAMERA;
+		globalMode = MODE_FREE_CAMERA;
 
-		world->camera.initOnPlayer(world->player.worldOffset);
-		eventTextBox.addTextToBox("Mode: Free Camera");
-	}
-
-	if (commandVector[0] == "overhead") {
-		world->camera.initOverhead(20, 20);
+		camera.initOnPlayer(world->getPlayerWorldOffset());
+		eventTextBox.addTextToBox("Global Mode: Free Camera");
 	}
 
 	if (commandVector[0] == "edit") {
-		world->camera.initOverhead(levels[currentLevel].playerStartX, levels[currentLevel].playerStartY);
+		camera.initOverhead();
 
-		mode = MODE_LEVEL_EDIT;
-		eventTextBox.addTextToBox("Mode: Level Edit");
-	}
+		globalMode = MODE_LEVEL_EDIT;
+		
+		loadCurrentLevel();
+		world->pause();
 
-	if (commandVector[0] == "grid") {
-		guidingGrid = !guidingGrid;
-		console.historyTextbox.addTextToBox("Guiding Grid: " + std::to_string(guidingGrid));
+		eventTextBox.addTextToBox("Global Mode: Level Edit");
 	}
 
 	if (commandVector[0] == "orbit") {
@@ -444,32 +347,10 @@ void processConsoleCommand(std::string command) {
 	}
 
 	if (commandVector[0] == "new") {
-
 		levelCount = addLevel(levels, levelCount);
-		currentLevel = levelCount - 1;
+		currentLevelIndex = levelCount - 1;
 		loadCurrentLevel();
 	}
-
-	if (commandVector[0] == "mat") {
-		if (commandVector.size() < 3) {
-			eventTextBox.addTextToBox("error: missing args for material and model");
-			return;
-		}
-
-		setMaterial(commandVector[1], commandVector[2], &materials, &models, &console);
-	}
-}
-
-void createParticleEmitter(my_vec3 newPos) {
-
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (!world->particleEmitters[i].current) {
-			world->particleEmitters[i].init(newPos, &models.bulletPart, world->lights);
-			return;
-		}
-	}
-
-	printf("ParticleEmitter array full! Ah!\n");
 }
 
 // CALLBACKS
@@ -481,20 +362,16 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport((width - currentScreenWidth) / 2, 0, currentScreenWidth, currentScreenHeight);
 
 	console.refresh((float)currentScreenWidth, (float)currentScreenHeight);
-	editorUI.refresh((float)currentScreenWidth, (float)currentScreenHeight);
-	pauseThingy.setBounds(AABB(0.0f, (float)currentScreenWidth, (float)currentScreenHeight, 0.0f));
-	setPauseCoords();
-
+	editor.refresh((float)currentScreenWidth, (float)currentScreenHeight);
+	
 	refreshProjection();
 }
-
 void character_callback(GLFWwindow* window, unsigned int codepoint)
 {
 	if (console.isOut) {
 		console.addInput((char)codepoint);
 	}
 }
-
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -521,76 +398,35 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	control ctlFunc = getControlFunc();
 	if (ctlFunc) ctlFunc(action, key, globalDeltaTime);
 }
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	if (globalMode != MODE_LEVEL_EDIT) return;
 
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
-{
-	if (mode != MODE_LEVEL_EDIT) return;
+	if (lastCursorX < 0 || lastCursorX > currentScreenWidth ||
+		lastCursorY < 0 || lastCursorY > currentScreenHeight) {
+		eventTextBox.addTextToBox("Cursor is off screen, &eventTextBox");
+		return;
+	}
+
+	// Origin for click coordinates are top-left, y increases downward.
+	// Thus, need to get the screen height complement to accurately judge clicks
+	// w.r.t. UI elements (which have their origin in bottom left, and y increases upward).
+	my_vec2 clickCoords = my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight));
+	
+	my_ivec3 gridCoords = cameraCenterToGridCoords();
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		// check in window
-		if (lastCursorX < 0 || lastCursorX > currentScreenWidth ||
-			lastCursorY < 0 || lastCursorY > currentScreenHeight) {
-			eventTextBox.addTextToBox("Cursor is off screen, &eventTextBox");
-			return;
-		}
-
-		// Origin for click coordinates are top-left, y increases downward.
-		// Thus, need to get the screen height complement to accurately judge clicks
-		// w.r.t. UI elements (which have their origin in bottom left, and y increases upward).
-
-		// check in editor box
-		if (mode == MODE_LEVEL_EDIT) {
-			if (editorUI.click(my_vec2(lastCursorX, glm::abs(lastCursorY - currentScreenHeight)))) return;
-		}
-
-		// TODO: Raycast from click coords instead of camera center.
-		// Slight hack to get a working way to place enemies before groking a raycast from click coords. (carver - 9-09-2020)
-		my_ivec3 gridCoords = cameraCenterToGridCoords();
-
-		if (editor_mode == EDITOR_MODE_ENEMY) {
-			// place enemy
-		
-			// TODO: maybe find a better way to keep world and level in sync
-			//			- may end up with a staging level struct at some point
-			addEnemyToWorld(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
-			addEnemyToLevel(currentEnemyTypeSelection, my_ivec2(gridCoords.x, gridCoords.y));
-		}
-		else if (editor_mode == EDITOR_MODE_WALL) {
-			addWallToWorld(my_ivec2(gridCoords.x, gridCoords.y));
-			addWallToCurrentLevel(my_ivec2(gridCoords.x, gridCoords.y));
-		}		
+		editor.leftClick(clickCoords, gridCoords);
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-		// get grid coords
-		my_ivec3 gridCoords = cameraCenterToGridCoords();
-		my_vec3 worldOffset = gridCoordsToWorldOffset(gridCoords);
-
-		// remove target enemy from world
-		for (int i = 0; i < MAX_ENEMIES; i++) {
-			if (world->enemies[i].current) {
-				if (worldOffset.x == world->enemies[i].worldOffset.x &&
-					worldOffset.y == world->enemies[i].worldOffset.y) {
-					world->enemies[i].current = false;
-				}
-			}
-		}
-
-		// remove target enemy from level
-		for (int i = 0; i < MAX_ENEMIES; i++) {
-			if (levels[currentLevel].enemies[i].gridX == gridCoords.x &&
-				levels[currentLevel].enemies[i].gridY == gridCoords.y) {
-				levels[currentLevel].removeEnemy(i);
-			}
-		}
+		editor.rightClick(gridCoords);
 	}
 }
-
 void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 	// TODO: Figure out how to lockdown the cursor such that the coordinate args can't go outside the viewport
 	//		 Clamping won't work.
 	
-	if (mode == MODE_FREE_CAMERA) {
+	if (globalMode == MODE_FREE_CAMERA) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 		if (firstMouse)
@@ -603,18 +439,19 @@ void mouseInputCallback(GLFWwindow* window, double xPos, double yPos) {
 		float xOffset = (float)(xPos - lastCursorX);
 		float yOffset = (float)(lastCursorY - yPos);
 
-		world->camera.adjustYawAndPitch(xOffset, yOffset);		
+		camera.adjustYawAndPitch(xOffset, yOffset);		
 	}
-	else if (mode == MODE_LEVEL_EDIT) {
+	else if (globalMode == MODE_LEVEL_EDIT) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		firstMouse = true;
 
 		// TODO: light up moused over grid piece
-
-	} else if (mode == MODE_PLAY) {
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-		firstMouse = true;
 	}
+	
+	//else if (mode == MODE_PLAY) {
+	//	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	//	firstMouse = true;
+	//}
 
 	lastCursorX = (float)xPos;
 	lastCursorY = (float)yPos;
@@ -637,7 +474,6 @@ void createBulletModel() {
 	models.bulletPart.meshes.push_back(bulletPartMesh);
 	models.bulletPart.scale(my_vec3(0.15f));
 }
-
 void createGridFloorAndWallModels() {
 	Mesh floorMesh = Mesh(&regularShaderProgramID, &materials.blackRubber);
 	models.floorModel.name = std::string("floor");
@@ -647,7 +483,6 @@ void createGridFloorAndWallModels() {
 	models.wall.name = std::string("wallLeft");
 	models.wall.meshes.push_back(wallMesh);
 }
-
 void createPlayerAndEnemyModels() {
 	Mesh playerMesh = Mesh(&regularShaderProgramID, &materials.emerald);
 	models.player.name = std::string("player");
@@ -659,7 +494,153 @@ void createPlayerAndEnemyModels() {
 	models.enemy.scale(my_vec3(1.0f, 1.0f, 0.5f));
 }
 
+// LEVEL MANIPULATION
+unsigned int addLevel(Level levels[], unsigned int levelCount) {
+
+	levels[levelCount].playerStartX = 100;
+	levels[levelCount].playerStartY = 100;
+
+	levels[levelCount].initialized = true;
+
+	return levelCount + 1;
+}
+
+unsigned int loadLevelsV2(Level levels[]) {
+
+	const char* fileName = "levels_v2.lev";
+
+	std::ifstream levelFile;
+	levelFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	levelFile.open(fileName);
+
+	std::stringstream levelStream;
+	levelStream << levelFile.rdbuf();
+	levelFile.close();
+
+	unsigned int levelCount = 0;
+	unsigned int numLevels;
+
+	levelStream >> numLevels;
+
+	while (!levelStream.eof() && levelCount <= MAX_LEVELS && levelCount < numLevels) {
+		Level *currentLevel = &levels[levelCount];
+
+		levelStream >> currentLevel->playerStartX;
+		levelStream >> currentLevel->playerStartY;
+
+		levelStream >> currentLevel->numWalls;
+		for (unsigned int i = 0; i < currentLevel->numWalls; i++) {
+			levelStream >> currentLevel->wallLocations[i].x;
+			levelStream >> currentLevel->wallLocations[i].y;
+		}
+
+		levelStream >> currentLevel->numEnemies;
+
+		for (int i = 0; i < currentLevel->numEnemies; i++) {
+			levelStream >> currentLevel->enemies[i].enemyType;
+			levelStream >> currentLevel->enemies[i].gridX;
+			levelStream >> currentLevel->enemies[i].gridY;
+		}
+
+		currentLevel->initialized = true;
+
+		levelCount++;
+	}
+
+	return levelCount;
+}
+
+void saveAllLevelsV2(Level levels[], unsigned int levelCount) {
+
+	// TODO: logging and error handling
+	// TODO: more robust solution --> write to temp file with timestamp, then switch names
+
+	printf("Saving...");
+
+	std::stringstream stringStream;
+
+	stringStream << std::to_string(levelCount) + "\n\n";
+
+	for (int i = 0; i < MAX_LEVELS; i++) {
+		Level *currentLevel = &levels[i];
+		if (!currentLevel->initialized) break;
+
+		stringStream << std::to_string(currentLevel->playerStartX) + " " + std::to_string(currentLevel->playerStartY) + "\n";
+
+		stringStream << std::to_string(currentLevel->numWalls) + "\n\n";
+
+		for (unsigned int k = 0; k < currentLevel->numWalls; k++) {
+			stringStream << std::to_string(currentLevel->wallLocations[k].x) + " " + std::to_string(currentLevel->wallLocations[k].y) + "\n";
+		}
+		stringStream << "\n";
+
+		stringStream << std::to_string(currentLevel->numEnemies) + "\n";
+
+		for (int j = 0; j < currentLevel->numEnemies; j++) {
+			stringStream << std::to_string(currentLevel->enemies[j].enemyType) + " ";
+			stringStream << std::to_string(currentLevel->enemies[j].gridX) + " ";
+			stringStream << std::to_string(currentLevel->enemies[j].gridY) + "\n";
+		}
+
+		stringStream << "\n";
+	}
+
+	const char* fileName = "levels_v2.lev";
+	std::ofstream levelFile;
+	levelFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	levelFile.open(fileName);
+	levelFile.clear();
+	levelFile << stringStream.str();
+	levelFile.close();
+
+	printf("Saving complete.");
+}
+
 // DRAWS, REGULAR
+void drawText(Font *font, std::string text, float x, float y, float scale, my_vec3 color) {
+
+	setUniform3f(font->shaderProgramID, "textColor", color);
+
+	// TODO: DON'T FORGET TO WORK OUT THE TEXTURE INFO HERE TOO -- can't just use texture 0 for all fonts
+	glActiveTexture(GL_TEXTURE0);
+	glBindVertexArray(font->VAO_ID);
+
+	std::string::const_iterator c;
+	for (c = text.begin(); c != text.end(); c++) {
+		TextCharacter ch = font->textCharacters[*c];
+
+		float xPos = x + ch.bearing.x * scale;
+		float yPos = y - (ch.size.y - ch.bearing.y) * scale;
+
+		float w = ch.size.x * scale;
+		float h = ch.size.y * scale;
+
+		float vertices[] = {
+			xPos,		yPos + h, 0.0f, 0.0f,
+			xPos,		yPos,	  0.0f, 1.0f,
+			xPos + w,	yPos,     1.0f, 1.0f,
+
+			xPos,		yPos + h, 0.0f, 0.0f,
+			xPos + w,	yPos,	  1.0f, 1.0f,
+			xPos + w,	yPos + h, 1.0f, 0.0f,
+		};
+
+		glBindTexture(GL_TEXTURE_2D, ch.textureID);
+
+		glBindBuffer(GL_ARRAY_BUFFER, font->VBO_ID);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// this is a lot of draw calls per line of text
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		x += (ch.advance >> 6) * scale; // bit shift changes unit to pixels
+	}
+
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void drawProspectiveOutline() {
 	// turn current center of screen into grid coordinates
 	my_ivec3 gridCoords = cameraCenterToGridCoords();
@@ -669,201 +650,21 @@ void drawProspectiveOutline() {
 
 	// draw just an outline in that space
 	models.enemy.drawOnlyOutline(worldOffset);
+
+	std::string gridCoordsString = "(" + std::to_string(gridCoords.x) + ", " + std::to_string(gridCoords.y) + ")";
+	
+	drawText(&arial, gridCoordsString, (float) currentScreenWidth / 2 - 100.0f, (float) currentScreenHeight / 2, 0.5f, my_vec3(0.0f));
 }
 
-// GRID LINES
-unsigned int gridVAO_ID, gridVBO_ID;
-unsigned int numGridVertices = 0;
-void guidingGridSetup() {
-	// TODO: create grid mesh
-	//		 note: can't do this is with current mesh setup, as those meshes are made for triangle drawing (these are just lines)
-
-	float lowerZ = 0.05f;
-	float upperZ = 4.05f;
-	float zStep	 = 2.0f;
-
-	float lowerY =  -30.05f;
-	float upperY =  0.05f;
-	float yStep  =  1.0f;
-
-	float lowerX =  0.05f;
-	float upperX =	30.05f;
-	float xStep	 =  1.0f;
-
-	std::vector<float> vertices;
-
-	// lines along x axis
-	for (float y = lowerY; y <= upperY; y += yStep) {
-		for (float z = lowerZ; z <= upperZ; z += zStep) {
-			vertices.push_back(lowerX);
-			vertices.push_back(y);
-			vertices.push_back(z);
-
-			vertices.push_back(upperX);
-			vertices.push_back(y);
-			vertices.push_back(z);
-
-			numGridVertices += 2;
-		}
-	}
-
-	// lines along y axis
-	for (float x = lowerX; x <= upperX; x += xStep) {
-		for (float z = lowerZ; z <= upperZ; z += zStep) {
-			vertices.push_back(x);
-			vertices.push_back(lowerY);
-			vertices.push_back(z);
-
-			vertices.push_back(x);
-			vertices.push_back(upperY);
-			vertices.push_back(z);
-
-			numGridVertices += 2;
-		}
-	}
-
-	glGenVertexArrays(1, &gridVAO_ID);
-	glBindVertexArray(gridVAO_ID);
-
-	glGenBuffers(1, &gridVBO_ID);
-	glBindBuffer(GL_ARRAY_BUFFER, gridVBO_ID);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-}
-void drawGuidingGrid() {
-	glUseProgram(regularShaderProgramID);
-
-	glBindVertexArray(gridVAO_ID);
-	glBindBuffer(GL_ARRAY_BUFFER, gridVBO_ID);
-
-	glm::mat4 currentModel = glm::mat4(1.0f);
-	setUniformMat4(regularShaderProgramID, "model", currentModel);
-
-	setUniform3f(regularShaderProgramID, "objectDiffuse", my_vec3(1.0f, 1.0f, 1.0f));
-	setUniform3f(regularShaderProgramID, "objectAmbient", my_vec3(1.0f, 1.0f, 1.0f));
-
-	glDrawArrays(GL_LINES, 0, numGridVertices);
-}
 
 // UPDATES
-void updateBullets(float deltaTime) {
-    for(int i = 0; i < MAX_BULLETS; i++) {
-        if(world->playerBullets[i].current) {
-            world->playerBullets[i].update(deltaTime);		
-        }
-
-		if (world->enemyBullets[i].current) {
-			world->enemyBullets[i].update(deltaTime);
-		}
-    }
-}
-
-void updateEnemies(float deltaTime) {
-	for (int i = 0; i < MAX_ENEMIES; i++) {
-		if (world->enemies[i].current) world->enemies[i].update(&world->player, deltaTime);
-	}
-}
-
-// TODO: bug fix -- bullets move fast enough such that they cross multiple integer boundaries, resulting in frequent teleporting through walls (at 60 fps)
-//			     -- in wall collision check, need to check every integer boundary crossed, moving initial position to final position
-my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided) {
-
-	*collided = false;
-
-	float finalOffsetX = entityBounds.AX + moveX;
-	float finalOffsetY = entityBounds.AY + moveY;
-
-	// TODO: REDO THIS, adding wall bounds to params
-
-	return my_vec2(finalOffsetX, finalOffsetY);
-}
-
-void checkBulletsForEnemyCollisions() {
-
-    for(int i = 0; i < MAX_BULLETS; i++) {
-
-        if(!world->playerBullets[i].current) continue;
-        Bullet *bullet = &world->playerBullets[i];
-
-        for(int j = 0; j < MAX_ENEMIES; j++) {
-
-            if(!world->enemies[j].current) continue;
-            Enemy *enemy = &world->enemies[j];
-
-            if(bullet->bounds.left   > enemy->bounds.right)  continue;
-            if(bullet->bounds.right  < enemy->bounds.left)   continue;
-            if(bullet->bounds.top    < enemy->bounds.bottom) continue;
-            if(bullet->bounds.bottom > enemy->bounds.top)    continue;
-
-			createParticleEmitter(my_vec3(bullet->worldOffset.x,
-				bullet->worldOffset.y,
-				1.5f));
-
-            enemy->current = false;
-			bullet->current = false;
-			world->numEnemies--;
-			world->camera.shakeScreen(0.075f);
-
-			break;
-        }
-    }
-}
-
-void checkPlayerForEnemyCollisions() {
-	for (int j = 0; j < MAX_ENEMIES; j++) {
-
-		if (!world->enemies[j].current) continue;
-		Enemy *enemy = &world->enemies[j];
-		
-		if (world->player.bounds.left	> enemy->bounds.right)		continue;
-		if (world->player.bounds.right	< enemy->bounds.left)		continue;
-		if (world->player.bounds.top		< enemy->bounds.bottom)		continue;
-		if (world->player.bounds.bottom	> enemy->bounds.top)		continue;
-
-		mode = MODE_PAUSED;
-		eventTextBox.addTextToBox("You Died. Try Again.");
-		loadCurrentLevel();		
-
-		break;
-	}
-}
-
-void checkPlayerForEnemyBulletCollisions() {
-
-	for (int i = 0; i < MAX_BULLETS; i++) {
-
-		if (!world->enemyBullets[i].current) continue;
-		Bullet *bullet = &world->enemyBullets[i];
-
-		if (world->player.bounds.left	> bullet->bounds.right)		continue;
-		if (world->player.bounds.right	< bullet->bounds.left)		continue;
-		if (world->player.bounds.top	< bullet->bounds.bottom)	continue;
-		if (world->player.bounds.bottom	> bullet->bounds.top)		continue;
-
-		mode = MODE_PAUSED;
-		eventTextBox.addTextToBox("You Died. Try Again.");
-		loadCurrentLevel();
-
-		break;
-	}
-}
-
-void updateParticleEmitters(float deltaTime) {
-	for (int i = 0; i < MAX_PARTICLE_EMITTERS; i++) {
-		if (world->particleEmitters[i].current) {
-			world->particleEmitters[i].update(deltaTime);
-		}
-	}
-}
-
 void moveLightAroundOrbit(float deltaTime) {
 	float radius = 35.0f;
 	float speed = 90.0f; // degrees / second
 	float degreesMoved = speed * deltaTime;
 
-	float midGridX = (float)world->gridSizeX / 2;
-	float midGridY = -(float)world->gridSizeY / 2;
+	float midGridX = (float)20.0f / 2;
+	float midGridY = -(float)20.0f / 2;
 
 	float newDegrees = world->lights[0].currentDegrees + degreesMoved;
 	if (newDegrees > 360) newDegrees -= 360;
@@ -891,10 +692,6 @@ int main() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-#if __APPLE__
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif // __APPLE__	
-
 	glfwWindowHint(GLFW_SAMPLES, 4); // for MSAA, takes 4 samples per pixel, bufferSize *= 4
 	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "Stint Wick", NULL, NULL);
 	if (window == NULL) {
@@ -916,11 +713,10 @@ int main() {
 	textShaderProgramID		= createShaderProgram("textVertexShader.vert", "textFragmentShader.frag");
 
 	// ------------- FONTS   -------------
-	Font arial = Font("arial.ttf", textShaderProgramID);
+	arial = Font();
+	arial.init("arial.ttf", textShaderProgramID);
 
-    refreshProjection();
-
-	// initializing viewport and setting callbacks
+    // initializing viewport and setting callbacks
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouseInputCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
@@ -937,20 +733,26 @@ int main() {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
 	// MODELS
-	guidingGridSetup();
 	createGridFloorAndWallModels();
 	createPlayerAndEnemyModels();
     createBulletModel();
 
+	// CONSOLE AND OTHER 2D THINGS
+	refreshProjection();
 	console.setup(UIShaderProgramID, (float)currentScreenWidth, (float)currentScreenHeight, &arial);
+	editor.init(UIShaderProgramID, &arial, (float)currentScreenWidth, (float)currentScreenHeight, world, levels, &eventTextBox, &enemyStrats, &currentLevelIndex, &levelCount);
 	fpsBox.x = (float)(currentScreenWidth - 150);
 	fpsBox.y = (float)(currentScreenHeight - 50);
-
+	
+	// LOAD LEVELS AND SETUP WORLD STATE
 	levelCount = loadLevelsV2(levels);
-	currentLevel = 0;
+	currentLevelIndex = 0;
+
+	world->init(&models, &eventTextBox, &enemyStrats, &materials);
 
 	loadCurrentLevel();
 	
+	// FRAME TIMING SETUP
 	lastFrameTime = (float)glfwGetTime();
 
     float deltaTime = 0.0f;
@@ -961,25 +763,11 @@ int main() {
 
 	float targetFrameTime = targetFrameTime60;
 
-	editorUI.setup(UIShaderProgramID, &arial, (float)currentScreenWidth, (float)currentScreenHeight);
-
-	//world->player.blinking = true;
-
-	pauseThingy.initialized = false;
-	pauseThingy.setup(UIShaderProgramID);
-	pauseThingy.color = my_vec4(0.1f, 0.1f, 0.1f, 0.7f);
-	pauseThingy.setBounds(AABB(0.0f, (float)currentScreenWidth, (float)currentScreenHeight, 0.0f));
-	setPauseCoords();
-
-	outlineOnly = true;
-
-	//recording = true;
-
+	// GAMEPAD SETUP
 	GLFWgamepadstate gamepadState;
 	GLFWgamepadstate prevGamepadState;
-	float deltaTimeForUpdate;
-	float timeStepForUpdate;
-	// game loop
+	
+	// FRAGMENT SHADER HOTLOADING SETUP
 	WIN32_FILE_ATTRIBUTE_DATA prevFragmentShaderFileData;
 	
 	WIN32_FILE_ATTRIBUTE_DATA fragmentShaderFileData;
@@ -987,8 +775,9 @@ int main() {
 		"fragmentShader.frag",
 		GetFileExInfoStandard,
 		&prevFragmentShaderFileData
-	);
+	);	
 
+	// game loop
 	while (!glfwWindowShouldClose(window)) {
 
 		// Checking Fragment Shader for saving
@@ -1011,61 +800,24 @@ int main() {
 		// Rest of gamepad state is used in moveWithController function.
 		if(!glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepadState)) {	/* TODO: logging */	};
 
-		if (gamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_PRESS
-			&& prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
-			if (mode == MODE_PLAY) {
-				mode = MODE_PAUSED;
-			}
-			else if (mode == MODE_PAUSED) mode = MODE_PLAY;
-			else if (mode == MODE_REPLAY) {
-				goForwardOneLevel();
-				loadCurrentLevel();
-				mode = MODE_PAUSED;
-			}
-		}
-			
-		if (mode == MODE_REPLAY) {
-			gamepadState = recordedInput[currentInputIndex].gamepadState;
-			deltaTimeForUpdate = recordedInput[currentInputIndex].deltaTime;
-			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;			
-
-			currentInputIndex++;
-		} else if (mode == MODE_PLAY) {
-			recordedInput[currentInputIndex].gamepadState = gamepadState;
-			recordedInput[currentInputIndex].deltaTime = deltaTime;
-			currentInputIndex++;
-			deltaTimeForUpdate = deltaTime;
-			timeStepForUpdate = deltaTimeForUpdate / timeStepDenom;
-		} else if (mode == MODE_PAUSED) {
-			deltaTimeForUpdate = 0.0f;
-			timeStepForUpdate = 0.0f;
-		}
-
 		// -- INPUT --
-		processKeyboardInput(window, deltaTime);
-        processJoystickInput(gamepadState, deltaTimeForUpdate);
+		InputRecord currentInputRecord;
+		currentInputRecord.gamepadState = gamepadState;
+		currentInputRecord.deltaTime = deltaTime;
+
+		world->update(currentInputRecord);
+		
+		processKeyboardInput(window, deltaTime);        
 		glfwPollEvents();
 		prevGamepadState = gamepadState;
 
 		// -- UPDATE -- 
 		// TODO: this should be elsewhere
-		setUniform3f(regularShaderProgramID, "playerPos", world->player.worldOffset);
-
-		updateBullets(timeStepForUpdate);
-		checkBulletsForEnemyCollisions();
-		checkPlayerForEnemyCollisions();
-		checkPlayerForEnemyBulletCollisions();
-		updateEnemies(timeStepForUpdate);
-		updateParticleEmitters(timeStepForUpdate);
-		if(mode != MODE_FREE_CAMERA) world->camera.update(deltaTimeForUpdate, world->player.worldOffset);
-		if (lightOrbit) moveLightAroundOrbit(deltaTimeForUpdate);
+		setUniform3f(regularShaderProgramID, "playerPos", world->getPlayerWorldOffset());
+				
+		if (globalMode == MODE_GLOBAL_PLAY) camera.update(deltaTime, world->getPlayerWorldOffset());
+		if (lightOrbit) moveLightAroundOrbit(deltaTime);
 		console.update(deltaTime);
-
-		if (world->numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
-			loadCurrentLevel();
-			currentInputIndex = 0;
-			mode = MODE_REPLAY;
-		}
 
 		// -- DRAW --
 		refreshView();
@@ -1076,30 +828,23 @@ int main() {
 		glClearColor(0.65f, 0.65f, 0.65f, 1.0f);
 
 		glDepthFunc(GL_LESS);
-		if(guidingGrid)	drawGuidingGrid();
 		
 		world->draw();
-		if (mode == MODE_LEVEL_EDIT) drawProspectiveOutline();
+		if (globalMode == MODE_LEVEL_EDIT) drawProspectiveOutline();
 		
 		// UI Elements
 		glDepthFunc(GL_ALWAYS); // always buffer overwrite - in order of draw calls
 		eventTextBox.drawTextBox(&arial);
 		fpsBox.drawTextBox(&arial);
-		if(mode == MODE_LEVEL_EDIT) editorUI.draw();
-		else if (mode == MODE_PAUSED) {
-			//pauseThingy.draw();
-			
-			//for (int i = 0; i < 30; i++) {
-			//	drawText(&arial, "PRESS START", (float)pauseCoords[i].x, (float)pauseCoords[i].y, pauseCoords[i].z * 0.005f, my_vec3(1.0f));
-			//}
-		}
+		if(globalMode == MODE_LEVEL_EDIT) editor.draw();
+
 		console.draw();
 
 		// -- FRAME TIMING --
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	
 		
-		if (mode != MODE_REPLAY) {
+		if (world->getCurrentMode() != MODE_REPLAY) {
 			if (deltaTime < targetFrameTime) {
 				int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
 
@@ -1128,8 +873,7 @@ int main() {
 		stream << "FrameTime(ms): " << std::setprecision(4) << frameTime;
 		drawText(&arial, stream.str(), 0, (float) currentScreenHeight - 30.0f, 0.5f, my_vec3(1.0f));
 		
-        timeStep = deltaTime / timeStepDenom;
-		//if (mode == MODE_PAUSED) timeStep = 0.0f;
+        //if (world->mode == MODE_PAUSED) timeStep = 0.0f;
 		globalDeltaTime = deltaTime;
 
 		lastFrameTime = (float)glfwGetTime();

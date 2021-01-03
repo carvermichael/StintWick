@@ -1,4 +1,4 @@
-#if !defined(CONSOLE)
+#pragma once
 
 #include "textBox.h"
 #include "UIRect.h"
@@ -48,6 +48,3 @@ struct Console {
 
 	void update(float deltaTime);
 };
-
-#define CONSOLE 
-#endif

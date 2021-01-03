@@ -1,14 +1,11 @@
 #include "constants.h"
 #include "camera.h"
 
-void Camera::initOverhead(unsigned int gridSizeX, unsigned int gridSizeY) {
+void Camera::initOverhead() {
 	yaw = -90.0f;
 	pitch = 0.0f;
 	 
-	float midGridX = (float)gridSizeX / 2;
-	float midGridY = -(float)gridSizeY / 2;
-
-	position = my_vec3(midGridX, midGridY, 80.0f);
+	position = my_vec3(10.0f, 10.0f, 80.0f);
 
 	up = my_vec3(0.0f, 1.0f, 0.0f);
 
