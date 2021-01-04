@@ -71,8 +71,8 @@
 	
 	unsigned int levelCount;
 	unsigned int currentLevelIndex = 0;
-	unsigned int currentEnemyTypeSelection = 0;
-	unsigned int currentEditorMode = EDITOR_MODE_ENEMY;
+	unsigned int enemyTypeSelection = 0;
+	unsigned int editorMode = EDITOR_MODE_ENEMY;
 
 	// OpenGL Stuff
 	unsigned int regularShaderProgramID;
@@ -260,6 +260,29 @@ void goForwardOneLevel() {
 	loadCurrentLevel();
 }
 
+void goBackOneEnemyType() {
+	if	 (enemyTypeSelection == 0) enemyTypeSelection = NUM_ENEMY_TYPES - 1;
+	else (enemyTypeSelection)--;
+}
+
+void goForwardOneEnemyType() {
+	enemyTypeSelection++;
+	if ((enemyTypeSelection) >= NUM_ENEMY_TYPES) enemyTypeSelection = 0;
+}
+
+void toggleEditorMode() {
+	if (editorMode == EDITOR_MODE_ENEMY) editorMode = EDITOR_MODE_WALL;
+	else if (editorMode == EDITOR_MODE_WALL) editorMode = EDITOR_MODE_ENEMY;
+}
+
+unsigned int getEnemyTypeSelection() {
+	return enemyTypeSelection;
+}
+
+unsigned int getEditorMode() {
+	return editorMode;
+}
+
 void loadCurrentLevel() {
 	//SecureZeroMemory(world->enemies, sizeof(world->enemies));
 
@@ -286,6 +309,38 @@ void deleteCurrentLevel() {
 
 	levelCount--;
 	loadCurrentLevel();
+}
+
+void addEnemyToWorld(unsigned int enemyType, my_ivec2 gridCoords) {
+	world->addEnemyToWorld(enemyType, gridCoords);
+}
+
+void addWallToWorld(my_ivec2 gridCoords) {
+	world->addWallToWorld(gridCoords);
+}
+
+void addEnemyToCurrentLevel(int type, my_ivec2 gridCoords) {
+	levels[currentLevelIndex].addEnemy(type, gridCoords);
+}
+
+void addWallToCurrentLevel(my_ivec2 location) {
+	unsigned int numWalls = levels[currentLevelIndex].numWalls++;
+
+	levels[currentLevelIndex].wallLocations[numWalls] = location;
+}
+
+// TODO: remove ANY entity, not just enemies (walls should count, too)
+void removeEntityFromCurrentLevel(my_ivec2 gridCoords) {
+	for (int i = 0; i < MAX_ENEMIES; i++) {
+		if (levels[currentLevelIndex].enemies[i].gridX == gridCoords.x &&
+			levels[currentLevelIndex].enemies[i].gridY == gridCoords.y) {
+			levels[currentLevelIndex].removeEnemy(i);
+		}
+	}
+}
+
+void removeEntityFromWorld(my_vec3 worldOffset) {
+	world->removeEntityAtOffset(worldOffset);
 }
 
 my_ivec3 cameraCenterToGridCoords() {
@@ -740,7 +795,7 @@ int main() {
 	// CONSOLE AND OTHER 2D THINGS
 	refreshProjection();
 	console.setup(UIShaderProgramID, (float)currentScreenWidth, (float)currentScreenHeight, &arial);
-	editor.init(UIShaderProgramID, &arial, (float)currentScreenWidth, (float)currentScreenHeight, world, levels, &eventTextBox, &enemyStrats, &currentLevelIndex, &levelCount);
+	editor.setup(UIShaderProgramID, &arial, (float)currentScreenWidth, (float)currentScreenHeight);
 	fpsBox.x = (float)(currentScreenWidth - 150);
 	fpsBox.y = (float)(currentScreenHeight - 50);
 	

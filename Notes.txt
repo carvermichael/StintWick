@@ -3,10 +3,9 @@ Actual TODO:
 - put Levels array together with currentLevelIndex and levelCount (should all be in a single struct for easier passing around)
 	- then do things like deleting levels, adding enemies to levels, etc via levels->addEnemyAtLocation(...), like currently done with worldState
 
-- get rid of Editor/EditorUI distinction
-	- the editor IS the UI...
+- get rid of Editor/EditorUI distinction - X
 
-- do brute force collision detection -- O(n^2) style, in prep for culling of candidate collisions
+- do brute force collision detection -- O(n^2) style, in prep for culling of candidate collisions - X
 
 Random TODO:
 

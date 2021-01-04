@@ -84,67 +84,6 @@ unsigned int WorldState::getCurrentMode() {
 	return mode;
 }
 
-//my_vec2 WorldState::adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided) {
-//
-//	*collided = false;
-//
-//	float adjustedOffsetX = entityBounds.AX + moveX;
-//	float adjustedOffsetY = entityBounds.AY + moveY;
-//
-//	AABB adjustedEntityBounds = AABB(my_vec2(adjustedOffsetX, adjustedOffsetY));
-//
-//	for (unsigned int i = 0; i < numWalls; i++) {
-//		AABB wallBounds = AABB(my_vec2((float) wallLocations[i].x, (float) wallLocations[i].y));
-//
-//		// First, check adjustEntityBounds for a collision on the wall.
-//		if (wallBounds.left > adjustedEntityBounds.right) continue;
-//		if (wallBounds.right < adjustedEntityBounds.left) continue;
-//		if (wallBounds.top < adjustedEntityBounds.bottom) continue;
-//		if (wallBounds.bottom > adjustedEntityBounds.top) continue;
-//
-//		// If we've gotten here, then a collision happened.
-//		*collided = true;
-//		
-//		// Then, we need to find out what adjustment(s) to make:
-//		// Depending on which direction the entity was from the wall before movement, we can determine
-//		// which direction the collision was in and make the adjustment to just move to that wall's 
-//		// bounds spot.
-//		if (entityBounds.left >= wallBounds.right) {
-//			if (entityBounds.bottom >= wallBounds.top || entityBounds.top <= wallBounds.bottom) {}
-//			else adjustedOffsetX = wallBounds.right;
-//		}
-//
-//		if (entityBounds.right <= wallBounds.left) {
-//			if (entityBounds.bottom >= wallBounds.top || entityBounds.top <= wallBounds.bottom) {
-//
-//			}
-//			else {
-//				adjustedOffsetX = wallBounds.left - 1.0f;
-//			}
-//		}
-//
-//		if (entityBounds.bottom >= wallBounds.top) {
-//			if (entityBounds.left >= wallBounds.right || entityBounds.right <= wallBounds.left) {
-//
-//			}
-//			else {
-//				adjustedOffsetY = wallBounds.top + 1.0f;
-//			}			
-//		}
-//
-//		if (entityBounds.top <= wallBounds.bottom) {
-//			if (entityBounds.left >= wallBounds.right || entityBounds.right <= wallBounds.left) {
-//				
-//			}
-//			else {
-//				adjustedOffsetY = wallBounds.bottom;
-//			}
-//		}
-//	}
-//
-//	return my_vec2(adjustedOffsetX, adjustedOffsetY);
-//}
-
 my_vec3 WorldState::getPlayerWorldOffset() {
 	return player.worldOffset;
 }
@@ -381,7 +320,7 @@ void WorldState::update(InputRecord inputRecord) {
 		checkBulletsForEnemyCollisions();
 		checkPlayerForEnemyCollisions();
 		checkPlayerForEnemyBulletCollisions();
-		//updateEnemies(deltaTimeForUpdate);
+		updateEnemies(deltaTimeForUpdate);
 		updateParticleEmitters(deltaTimeForUpdate);
 	}
 }

@@ -12,7 +12,6 @@ void processConsoleCommand(std::string command);
 void loadCurrentLevel();
 void goBackOneLevel();
 void goForwardOneLevel();
-void deleteCurrentLevel();
 
 unsigned int getCurrentLevel();
 
@@ -21,6 +20,18 @@ my_ivec3 cameraCenterToGridCoords();
 // Editor-related
 void saveAllLevelsV2(Level levels[], unsigned int levelCount);
 unsigned int addLevel(Level levels[], unsigned int levelCount);
+unsigned int getEnemyTypeSelection();
+unsigned int getEditorMode();
+void deleteCurrentLevel();
+void addEnemyToWorld(unsigned int enemyType, my_ivec2 gridCoords);
+void addWallToWorld(my_ivec2 gridCoords);
+void addEnemyToCurrentLevel(int type, my_ivec2 gridCoords);
+void addWallToCurrentLevel(my_ivec2 location);
+void removeEntityFromCurrentLevel(my_ivec2 gridCoords);
+void removeEntityFromWorld(my_vec3 worldOffset);
+void toggleEditorMode();
+void goBackOneEnemyType();
+void goForwardOneEnemyType();
 
 void drawText(Font *font, std::string text, float x, float y, float scale, my_vec3 color);
 

@@ -1,36 +1,67 @@
 #pragma once
 
-#include "worldState.h"
-#include "editorUI.h"
+#include "math.h"
+#include "UIRect.h"
+#include "textBox.h"
+
+struct Selector {
+	unsigned int shaderProgramID;
+	Font *font;
+	
+	my_vec2 location;
+	float height;
+	float width;
+
+	UI_Rect leftArrow;
+	UI_Rect rightArrow;
+	UI_Rect stateIndicator;
+
+	void setup(unsigned int inShaderProgramID, Font *inFont, my_vec2 *inTopLeft, float *inHeight, float *inWidth);
+	void draw();
+	bool click(my_vec2 clickCoords);
+};
+
+// TODO: see if these click and draw stubs here are needed (they're on the super struct as well)
+struct LevelSelector : Selector {
+	bool click(my_vec2 clickCoords);
+	void draw();
+};
+
+struct EnemySelector : Selector {
+	bool click(my_vec2 clickCoords);
+	void draw();
+};
+
+struct EntityTypeSelector : Selector {
+	bool click(my_vec2 clickCoords);
+	void draw();
+};
 
 struct Editor {
-	unsigned int mode = EDITOR_MODE_ENEMY;
-	unsigned int currentEnemyTypeSelection = 0;
-	
-	EditorUI editorUI;
+	Font *font;
 
-	WorldState *world;
-	Level *levels;
-	Textbox *eventTextBox;
-	EnemyStrats *enemyStrats;
-	unsigned int *currentLevelIndex;
-	unsigned int *levelCount;
+	unsigned int shaderProgramID;
+	float currentScreenWidth;
+	float currentScreenHeight;
 
-	void init(unsigned int UIShaderProgramID, Font *font, float screenWidth, float screenHeight,
-		WorldState *inWorld, Level inLevels[MAX_LEVELS], Textbox *inEventTextBox, EnemyStrats *inEnemyStrats,
-		unsigned int *inCurrentLevelIndex, unsigned int *levelCount);
+	AABB bounds;
+	float width;
+	float height;
 
-	void refresh(float screenWidth, float screenHeight);
+	UI_Rect background;
 
+	LevelSelector levelSelector;
+	EnemySelector enemySelector;
+	EntityTypeSelector wallSelector;
+	UI_Rect deleteButton;
+
+	void setup(unsigned int inShaderProgramID, Font *inFont, float screenWidth, float screenHeight);
 	void draw();
 
 	void leftClick(my_vec2 clickCoords, my_ivec3 gridCoords);
-
 	void rightClick(my_ivec3 gridCoords);
-
-	unsigned int getEnemySelection();
-
-	void addEnemyToLevel(int type, my_ivec2 gridCoords);
-
-	void addWallToCurrentLevel(my_ivec2 location);
+	
+	bool click(my_vec2 clickCoords);
+	void refresh(float screenWidth, float screenHeight);
 };
+
