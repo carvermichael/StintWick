@@ -161,7 +161,7 @@ void Shoot::update(Entity *entity, Player *player, float deltaTime) {
 
 	if (entity->timeSinceLastShot >= entity->timeBetweenShots) {
 
-		//createBullet(entity->worldOffset, dirVec, entity->shotSpeed);
+		createBullet(entity->worldOffset, dirVec, entity->shotSpeed);
 
 		entity->timeSinceLastShot = 0.0f;
 	}

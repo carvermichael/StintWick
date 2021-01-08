@@ -7,6 +7,7 @@
 
 
 my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided);
+void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed);
 
 void processConsoleCommand(std::string command);
 void loadCurrentLevel();

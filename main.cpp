@@ -160,6 +160,20 @@ my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, boo
 	return my_vec2(adjustedOffsetX, adjustedOffsetY);
 }
 
+void createBullet(my_vec3 worldOffset, my_vec3 dirVec, float speed) {
+	bool foundBullet = false;
+	for (int i = 0; i < MAX_BULLETS; i++) {
+		if (!world->enemyBullets[i].current) {
+			world->enemyBullets[i].init(worldOffset,
+				my_vec2(dirVec.x, dirVec.y),
+				&models.enemyBullet, speed);
+			foundBullet = true;
+			break;
+		}
+	}
+
+	if (!foundBullet) printf("Bullet array full! Ah!\n");
+}
 
 // UNIFORM SETTING
 void refreshProjection() {

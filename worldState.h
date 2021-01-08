@@ -12,9 +12,8 @@ struct InputRecord {
 	float deltaTime;
 };
 
-class WorldState {
+struct WorldState {
 
-public:
 	Light lights[MAX_LIGHTS];
 	
 	void init(Models *models, Textbox *inEventTextBox, EnemyStrats *inEnemyStrats, Materials *inMaterials);
@@ -38,7 +37,6 @@ public:
 	unsigned int numWalls;
 	my_ivec2 wallLocations[MAX_WALLS];
 
-private:
 	unsigned int mode;
 	unsigned int seed;
 

@@ -291,6 +291,8 @@ void WorldState::update(InputRecord inputRecord) {
 		}
 	}
 
+	prevGamepadState = inputRecord.gamepadState;
+
 	if (mode == MODE_REPLAY) {
 		gamepadStateToUse = recordedInput[currentInputIndex].gamepadState;
 		deltaTimeForUpdate = recordedInput[currentInputIndex].deltaTime;
