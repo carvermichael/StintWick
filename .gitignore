@@ -10,3 +10,4 @@ build/
 *.sln
 x64/
 *.vcxproj*
+Notes.txt

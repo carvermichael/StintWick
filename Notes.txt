@@ -10,4 +10,3 @@ Actual TODO:
 Random TODO:
 
 - get math library in own namespace? -- then you won't have to do the dumb my_ thing...
-- think about putting Levels + WorldState + Fonts + other things in a single "globalState" struct???

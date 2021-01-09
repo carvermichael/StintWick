@@ -18,7 +18,7 @@ struct WorldState {
 	
 	void init(Models *models, Textbox *inEventTextBox, EnemyStrats *inEnemyStrats, Materials *inMaterials);
 	void resetToLevel(Level *level);
-	void update(InputRecord inputRecord);
+	void update(InputRecord currentInput, InputRecord prevInput, InputRecord recordedInput[], int *currentInputIndex);
 	void draw();
 	
 	void pause();
@@ -46,10 +46,6 @@ struct WorldState {
 	EnemyStrats *enemyStrats;
 	Materials *materials;
 
-	GLFWgamepadstate prevGamepadState;
-	InputRecord recordedInput[INPUT_MAX];
-	int currentInputIndex = 0;
-	
 	Player player;
 
 	int numEnemies = 0;

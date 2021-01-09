@@ -13,8 +13,6 @@ void WorldState::init(Models *inModels, Textbox *inEventTextBox, EnemyStrats *in
 void WorldState::resetToLevel(Level *level) {
 	srand(250);
 
-	currentInputIndex = 0;
-
 	// LIGHTS
 	for (int i = 1; i < MAX_LIGHTS; i++) {
 		lights[i].current = false;
@@ -206,6 +204,7 @@ void WorldState::removeEntityAtOffset(my_vec3 worldOffset) {
 			if (worldOffset.x == enemies[i].worldOffset.x &&
 				worldOffset.y == enemies[i].worldOffset.y) {
 				enemies[i].current = false;
+				numEnemies--;
 			}
 		}
 	}
@@ -274,14 +273,14 @@ void WorldState::updateParticleEmitters(float deltaTime) {
 	}
 }
 
-void WorldState::update(InputRecord inputRecord) {
+void WorldState::update(InputRecord currentInput, InputRecord prevInput, InputRecord recordedInput[], int *currentInputIndex) {
 
-	GLFWgamepadstate gamepadStateToUse = inputRecord.gamepadState;
-	float deltaTime = inputRecord.deltaTime;
+	GLFWgamepadstate gamepadStateToUse = currentInput.gamepadState;
+	float deltaTime = currentInput.deltaTime;
 	float deltaTimeForUpdate;
 
 	if (gamepadStateToUse.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_PRESS
-		&& prevGamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
+		&& prevInput.gamepadState.buttons[GLFW_GAMEPAD_BUTTON_START] == GLFW_RELEASE) {
 		if (mode == MODE_PLAY) mode = MODE_PAUSED;
 		else if (mode == MODE_PAUSED) mode = MODE_PLAY;
 		else if (mode == MODE_REPLAY) {
@@ -290,33 +289,29 @@ void WorldState::update(InputRecord inputRecord) {
 			mode = MODE_PAUSED;
 		}
 	}
-
-	prevGamepadState = inputRecord.gamepadState;
-
+	
 	if (mode == MODE_REPLAY) {
-		gamepadStateToUse = recordedInput[currentInputIndex].gamepadState;
-		deltaTimeForUpdate = recordedInput[currentInputIndex].deltaTime;
+		printf("replay: currentInputIndex: %d\n", *currentInputIndex);
+		
+		gamepadStateToUse = recordedInput[*currentInputIndex].gamepadState;
+		deltaTimeForUpdate = recordedInput[*currentInputIndex].deltaTime;
 
-		currentInputIndex++;
+		*currentInputIndex = *currentInputIndex + 1;
 	}
 	else if (mode == MODE_PLAY) {
-		recordedInput[currentInputIndex].gamepadState = gamepadStateToUse;
-		recordedInput[currentInputIndex].deltaTime = deltaTime;
-		currentInputIndex++;
+		printf("recording: currentInputIndex: %d\n", *currentInputIndex);
+
+		recordedInput[*currentInputIndex].gamepadState = gamepadStateToUse;
+		recordedInput[*currentInputIndex].deltaTime = deltaTime;
+		*currentInputIndex = *currentInputIndex + 1;
 		deltaTimeForUpdate = deltaTime;
 	}
 	else if (mode == MODE_PAUSED) {
 		deltaTimeForUpdate = 0.0f;
 	}
 
-	if (numEnemies <= 0 && (mode == MODE_PLAY || mode == MODE_REPLAY)) {
-		loadCurrentLevel();
-		currentInputIndex = 0;
-		mode = MODE_REPLAY;
-	}
-
 	if (mode != MODE_PAUSED) {
-		moveWithController(gamepadStateToUse, deltaTime);
+		moveWithController(gamepadStateToUse, deltaTimeForUpdate);
 
 		updateBullets(deltaTimeForUpdate);
 		checkBulletsForEnemyCollisions();

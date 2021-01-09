@@ -36,70 +36,73 @@
 #include "console.h"
 #include "levels.h"
 #include "editor.h"
-
-// TODO: Should all of this go on the heap???
-	// Random Global State -- some subset of this should go in the worldState
 	
-	unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
-	unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
+unsigned int currentScreenHeight = INITIAL_SCREEN_HEIGHT;
+unsigned int currentScreenWidth = INITIAL_SCREEN_WIDTH;
 	
-	/*
-		globalModes
-		-- free cam
-		-- level edit
-		-- global play (used to make the camera follow the player during play)
+/*
+	globalModes
+	-- free cam
+	-- level edit
+	-- global play (used to make the camera follow the player during play)
 
-		worldstate modes
-		-- play
-		-- pause
-		-- replay
+	worldstate modes
+	-- play
+	-- pause
+	-- replay
 
-		editor modes
-		-- placement type (enemy v wall)
-		-- enemy type to be placed
-	*/
+	editor modes
+	-- placement type (enemy v wall)
+	-- enemy type to be placed
+*/
 
-	unsigned int globalMode = MODE_GLOBAL_PLAY;
+unsigned int globalMode = MODE_GLOBAL_PLAY;
 		
-	float globalDeltaTime = 0.0f;
-	float lastFrameTime = 0.0f;
-	float lastCursorX = 400;
-	float lastCursorY = 300;
-	bool firstMouse = true;
+float globalDeltaTime = 0.0f;
+float lastFrameTime = 0.0f;
+float lastCursorX = 400;
+float lastCursorY = 300;
+bool firstMouse = true;
 	
-	bool lightOrbit = false;
+bool lightOrbit = false;
 	
-	unsigned int levelCount;
-	unsigned int currentLevelIndex = 0;
-	unsigned int enemyTypeSelection = 0;
-	unsigned int editorMode = EDITOR_MODE_ENEMY;
+unsigned int levelCount;
+unsigned int currentLevelIndex = 0;
+unsigned int enemyTypeSelection = 0;
+unsigned int editorMode = EDITOR_MODE_ENEMY;
 
-	// OpenGL Stuff
-	unsigned int regularShaderProgramID;
-	unsigned int lightShaderProgramID;
-	unsigned int UIShaderProgramID;
-	unsigned int textShaderProgramID;
-	glm::mat4 projection;
+// OpenGL Stuff
+unsigned int regularShaderProgramID;
+unsigned int lightShaderProgramID;
+unsigned int UIShaderProgramID;
+unsigned int textShaderProgramID;
+glm::mat4 projection;
 
-	// Larger Game Pieces
-	Models models;
-	Materials materials;
-	EnemyStrats enemyStrats;
+// Larger Game Pieces
+Models models;
+Materials materials;
+EnemyStrats enemyStrats;
 
-	Console console;
-	WorldState *world;
-	Editor editor;
-	Camera camera;
-	Font arial;
+Console console;
+WorldState *world;
+Editor editor;
+Camera camera;
+Font arial;
 
-	Level levels[MAX_LEVELS];
+GLFWgamepadstate prevGamepadState;
+
+InputRecord prevInputRecord;
+InputRecord recordedInput[INPUT_MAX];
+int currentInputIndex = 0;
+
+Level levels[MAX_LEVELS];
 	
-	Textbox eventTextBox = {};
-	Textbox fpsBox = {};
+Textbox eventTextBox = {};
+Textbox fpsBox = {};
 
 #include "controls.h"
 
-// TODO: there's probably a better place for this...
+// TODO: there's probably a better place for this... --> probably just in another header file, really
 my_vec2 adjustForWallCollisions(AABB entityBounds, float moveX, float moveY, bool *collided) {
 	*collided = false;
 
@@ -298,9 +301,12 @@ unsigned int getEditorMode() {
 }
 
 void loadCurrentLevel() {
-	//SecureZeroMemory(world->enemies, sizeof(world->enemies));
+	SecureZeroMemory(world, sizeof(world));
 
+	world->init(&models, &eventTextBox, &enemyStrats, &materials);
 	world->resetToLevel(&levels[currentLevelIndex]);
+
+	currentInputIndex = 0;
 
 	if (globalMode == MODE_LEVEL_EDIT) {
 		camera.initOverhead();
@@ -752,6 +758,7 @@ void moveLightAroundOrbit(float deltaTime) {
 
 int main() {
 	world = (WorldState *)VirtualAlloc(0, sizeof(WorldState), MEM_COMMIT, PAGE_READWRITE);
+	SecureZeroMemory(world, sizeof(world));
 		
 	// ------------ INIT STUFF -------------
 
@@ -817,7 +824,7 @@ int main() {
 	levelCount = loadLevelsV2(levels);
 	currentLevelIndex = 0;
 
-	world->init(&models, &eventTextBox, &enemyStrats, &materials);
+	
 
 	loadCurrentLevel();
 	
@@ -833,8 +840,7 @@ int main() {
 	float targetFrameTime = targetFrameTime60;
 
 	// GAMEPAD SETUP
-	GLFWgamepadstate gamepadState;
-	GLFWgamepadstate prevGamepadState;
+	GLFWgamepadstate gamepadState;	
 	
 	// FRAGMENT SHADER HOTLOADING SETUP
 	WIN32_FILE_ATTRIBUTE_DATA prevFragmentShaderFileData;
@@ -865,20 +871,24 @@ int main() {
 			prevFragmentShaderFileData = fragmentShaderFileData;
 		}
 
-		// Getting start button state here, cause it is used to move through states outside of play, too.
-		// Rest of gamepad state is used in moveWithController function.
 		if(!glfwGetGamepadState(GLFW_JOYSTICK_1, &gamepadState)) {	/* TODO: logging */	};
+
+		if (world->numEnemies <= 0 && (world->mode == MODE_PLAY || world->mode == MODE_REPLAY)) {
+			loadCurrentLevel();
+			currentInputIndex = 0;
+			world->mode = MODE_REPLAY;
+		}
 
 		// -- INPUT --
 		InputRecord currentInputRecord;
 		currentInputRecord.gamepadState = gamepadState;
 		currentInputRecord.deltaTime = deltaTime;
 
-		world->update(currentInputRecord);
+		world->update(currentInputRecord, prevInputRecord, recordedInput, &currentInputIndex);
 		
 		processKeyboardInput(window, deltaTime);        
 		glfwPollEvents();
-		prevGamepadState = gamepadState;
+		prevInputRecord = currentInputRecord;
 
 		// -- UPDATE -- 
 		// TODO: this should be elsewhere
@@ -913,7 +923,7 @@ int main() {
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;	
 		
-		if (world->getCurrentMode() != MODE_REPLAY) {
+		//if (world->getCurrentMode() != MODE_REPLAY) {
 			if (deltaTime < targetFrameTime) {
 				int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
 
@@ -934,7 +944,7 @@ int main() {
 			else {
 				printf("MISSED FRAME! AHH\n"); // TODO: logging
 			}
-		}
+		//}
 
 		float frameTime = deltaTime * 1000.0f;
 
