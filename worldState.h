@@ -24,7 +24,6 @@ struct WorldState {
 	
 	// Floor stuff
 	void resetFloorGrid();
-	int getFloorIndex(my_ivec2 location);
 	void WorldState::fillFloor(my_ivec2 startingLocation);
 	void WorldState::copyFloorToLevel(Level* level);
 
@@ -44,7 +43,6 @@ struct WorldState {
 
 	unsigned int numWalls;
 	my_ivec2 wallLocations[MAX_WALLS];
-	int WorldState::getWallIndex(my_ivec2 location);
 	
 	Floor floor;
 

@@ -370,8 +370,6 @@ void fillFloor(my_ivec2 gridCoords, Level* level) {
 	world->copyFloorToLevel(level);
 }
 
-
-
 // TODO: remove ANY entity, not just enemies (walls should count, too)
 void removeEntityFromCurrentLevel(my_ivec2 gridCoords) {
 	for (int i = 0; i < MAX_ENEMIES; i++) {
@@ -850,8 +848,6 @@ int main() {
 	levelCount = loadLevelsV2(levels);
 	currentLevelIndex = 0;
 
-	
-
 	loadCurrentLevel();
 	
 	// FRAME TIMING SETUP
@@ -946,7 +942,9 @@ int main() {
 		// -- FRAME TIMING --
 		float currentFrame = (float)glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;
-		
+/*
+		// Don't know why this suddenly made me go from ~16-17ms frame times to ~30ms frame times.
+		// Pretty sure I hadn't touched anything here in a long time... (Carver - 4-18-21)
 		if (deltaTime < targetFrameTime) {
 			int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
 
@@ -967,7 +965,7 @@ int main() {
 		else {
 			printf("MISSED FRAME! AHH\n"); // TODO: logging
 		}
-
+*/
 		float frameTime = deltaTime * 1000.0f;
 
 		std::stringstream stream;

@@ -180,123 +180,89 @@ void Follow::update(Entity *entity, Player *player, Floor *floor, float deltaTim
 		floor->tiles[playerMatchIndex].visited = true;
 	}
 
-	int enemyDestinationFloorIndex = -1;
-	if (playerMatchIndex != -1 && enemyMatchIndex != -1) {
+	if (enemyMatchIndex == -1 || playerMatchIndex == -1) return;
 
-		// create edgeTo array	
-		int edgeTo[MAX_FLOORS];
+	int edgeTo[MAX_FLOORS];
+	int distTo[MAX_FLOORS];
+	bool visited[MAX_FLOORS];
 
-		bool marked[MAX_FLOORS] = { false };
-
-		int frontier[MAX_FLOORS];
-		frontier[0] = playerMatchIndex;
-		int lastFrontierIndex = 1;
-		int currentFrontierIndex = 0;
-		int numLeft = 1;
-
-		// start at index of player (playerMatchIndex)
-		// add playerMatchIndex to frontier
-
-		while (true) {
-			int currentIndex = frontier[currentFrontierIndex++];
-			
-			if (!marked[currentIndex]) {
-				marked[currentIndex] = true;
-
-				int adj0 = floor->adjLists[currentIndex][0];
-				int adj1 = floor->adjLists[currentIndex][1];
-				int adj2 = floor->adjLists[currentIndex][2];
-				int adj3 = floor->adjLists[currentIndex][3];
-
-				if (adj0 != -1 && !marked[adj0]) {
-					edgeTo[adj0] = currentIndex;
-					frontier[lastFrontierIndex++] = adj0;
-					numLeft++;
-
-					if (adj0 == enemyMatchIndex) break;
-				}
-
-				if (adj1 != -1 && !marked[adj1]) {
-					edgeTo[adj1] = currentIndex;
-					frontier[lastFrontierIndex++] = adj1;
-					numLeft++;
-
-					if (adj1 == enemyMatchIndex) break;
-				}
-
-				if (adj2 != -1 && !marked[adj2]) {
-					edgeTo[adj2] = currentIndex;
-					frontier[lastFrontierIndex++] = adj2;
-					numLeft++;
-
-					if (adj2 == enemyMatchIndex) break;
-				}
-
-				if (adj3 != -1 && !marked[adj3]) {
-					edgeTo[adj3] = currentIndex;
-					frontier[lastFrontierIndex++] = adj3;
-					numLeft++;
-
-					if (adj3 == enemyMatchIndex) break;
-				}
-			}
-
-			numLeft--;
-			if (numLeft == 0) break;
-		}
-
-		// traverse edgeToArray
-		int currIndex = enemyMatchIndex;
-		while (currIndex != playerMatchIndex) {
-			floor->tiles[currIndex].onPath = true;
-			currIndex = edgeTo[currIndex];
-		}
-
-		/*
-			frame++;
-			if (frame > 200000) frame = 0;
-			if (frame % 5 == 0) 
-			{
-				enemyDestinationFloorIndex = edgeTo[enemyMatchIndex];
-			}
-		*/
-
-		int candDest = enemyMatchIndex;
-		for (int i = 0; i < 3; i++) {
-			candDest = edgeTo[candDest];
-			if (candDest > 0) enemyDestinationFloorIndex = candDest;
-			else break;
-		}
-
-
-		//enemyDestinationFloorIndex = edgeTo[edgeTo[edgeTo[enemyMatchIndex]]];
+	for (int i = 0; i < MAX_FLOORS; i++)
+	{
+		edgeTo[i] = -1;
+		distTo[i] = 9999;
+		visited[i] = false;
 	}
 
-	// float distFromPlayer = length(player->worldOffset - entity->worldOffset);
-	// if (distFromPlayer > 15.0f) return;
+	edgeTo[enemyMatchIndex] = enemyMatchIndex;
+	distTo[enemyMatchIndex] = 0;
 
-	if (enemyDestinationFloorIndex != -1) {
-		FloorTile targetFloorTile = floor->tiles[enemyDestinationFloorIndex];
-		my_vec3 destination;
-		if (enemyDestinationFloorIndex == playerMatchIndex) 
+	PriorityQueue queue;
+	queue.init();
+
+	// add tiles adjacent to enemyMatchIndex to the PriorityQueue
+	for (int i = 0; i < 4; i++)
+	{
+		int adj = floor->adjLists[enemyMatchIndex][i];
+
+		if (adj != -1)
 		{
-			destination = player->worldOffset;
+			int weight = floor->tiles[adj].weight;
+			queue.push(adj, weight);
+			visited[adj] = true;
 		}
-		else 
-		{
-			destination = my_vec3(targetFloorTile.location.x + 0.5, targetFloorTile.location.y - 0.5, 0.0);
-		}
+	}
+	
+	// while there's something in the queue
+	while (!queue.isEmpty())
+	{
+		// pop next thing off the queue
+		int currIndex;
+		int currWeight;
+
+		queue.pop(&currIndex, &currWeight);
 		
-		my_vec3 dirVec = normalize(destination - entity->worldOffset);
+		int smallestDistTo = 1000000;
+		int smallestIndex = -1;
+		
+		// find smallest distTo among adjacents
+		for (int i = 0; i < 4; i++)
+		{
+			int adj = floor->adjLists[currIndex][i];
 
-		my_vec3 moveAdjust = dirVec * entity->speed * deltaTime;
+			if (adj != -1 && distTo[adj] < smallestDistTo)
+			{
+				smallestDistTo = distTo[adj];
+				smallestIndex = adj;
 
-		bool collided;
-		my_vec2 finalOffset = adjustForWallCollisions(entity->bounds, moveAdjust.x, moveAdjust.y, &collided);
+			}
 
-		entity->updateWorldOffset(finalOffset);
+			// add all adjacents that haven't been visited yet to PQueue
+			if (!visited[adj])
+			{
+				queue.push(adj, floor->tiles[adj].weight);
+				visited[adj] = true;
+			}
+		}
+
+		// attach current to node with smallest distTo
+		if (smallestIndex != -1)
+		{
+			edgeTo[currIndex] = smallestIndex;
+			distTo[currIndex] = smallestDistTo + currWeight;
+		}
 	}
-/*
+
+	// When you're here, the edgeTo graph should have the shortest weighted path to any given destination.
+	// Just need to walk back from goal point to origin.
+
+	int currIndex = playerMatchIndex;
+	// assumption: enemyMatchIndex and playerMatchIndex are on the same graph
+	while (currIndex != enemyMatchIndex)
+	{
+		currIndex = edgeTo[currIndex];
+		floor->tiles[currIndex].visited = true;
+	}
+	/*
 		// naive follow player logic
 		float distFromPlayer = length(player->worldOffset - entity->worldOffset);
 		if (distFromPlayer > 15.0f) return;

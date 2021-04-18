@@ -2,10 +2,12 @@
 
 #include "math.h"
 #include "global_manip.h"
+#include "priorityQueue.h"
 
 // TODO: not ideal place for these floor structs...shrug
 struct FloorTile {
 	my_ivec2 location;
+	int weight;
 	int up;
 	int down;
 	int left;

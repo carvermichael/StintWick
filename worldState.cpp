@@ -11,15 +11,53 @@ void WorldState::init(Models *inModels, Textbox *inEventTextBox, EnemyStrats *in
 	this->materials = inMaterials;
 }
 
-// TODO: don't need to completely rebuild adjLists everytime a floor is added
-void buildFloorAdjLists(Floor *floor)
+int getFloorIndex(Floor *floor, my_ivec2 p)
 {
-	// pre-process adjacency lists
+	for (int i = 0; i < floor->size; i++) {
+		if (floor->tiles[i].location.x == p.x &&
+			floor->tiles[i].location.y == p.y) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+int getWallIndex(my_ivec2 wallLocations[MAX_WALLS], unsigned int numWalls, my_ivec2 p) {
+	for (int i = 0; i < numWalls; i++) {
+		if (wallLocations[i].x == p.x &&
+			wallLocations[i].y == p.y) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+void WorldState::resetFloorGrid() {
+	for (int i = 0; i < floor.size; i++) {
+		floor.tiles[i].visited = false;
+		floor.tiles[i].onPath = false;
+
+		int x = floor.tiles[i].location.x;
+		int y = floor.tiles[i].location.y;
+
+		floor.tiles[i].up	= getFloorIndex(&floor, my_ivec2(x, y + 1));
+		floor.tiles[i].down	= getFloorIndex(&floor, my_ivec2(x, y - 1));
+		floor.tiles[i].left	= getFloorIndex(&floor, my_ivec2(x - 1, y));
+		floor.tiles[i].right = getFloorIndex(&floor, my_ivec2(x + 1, y));
+	}
+}
+
+// TODO: don't need to completely rebuild adjLists and weights everytime a floor is added
+void buildFloorAdjListsAndWeights(Floor *floor, my_ivec2 wallLocations[MAX_WALLS], unsigned int numWalls)
+{
 	for (int i = 0; i < floor->size; i++) {
 
 		int currX = floor->tiles[i].location.x;
 		int currY = floor->tiles[i].location.y;
 
+		// set adjacency lists
 		floor->adjLists[i][0] = -1;
 		floor->adjLists[i][1] = -1;
 		floor->adjLists[i][2] = -1;
@@ -46,6 +84,28 @@ void buildFloorAdjLists(Floor *floor)
 				floor->adjLists[i][3] = j;
 			}
 		}
+
+		// set weight
+		int weight = 1;
+
+		if (getWallIndex(wallLocations, numWalls, my_ivec2(currX + 1, currY)) != -1)
+		{
+			weight = 2;
+		}
+		if (weight == 1 && getWallIndex(wallLocations, numWalls, my_ivec2(currX - 1, currY)) != -1)
+		{
+			weight = 2;
+		}
+		if (weight == 1 && getWallIndex(wallLocations, numWalls, my_ivec2(currX, currY + 1)) != -1)
+		{
+			weight = 2;
+		}
+		if (weight == 1 && getWallIndex(wallLocations, numWalls, my_ivec2(currX, currY - 1)) != -1)
+		{
+			weight = 2;
+		}
+		
+		floor->tiles[i].weight = weight;
 	}
 }
 
@@ -102,7 +162,7 @@ void WorldState::resetToLevel(Level *level) {
 	}
 
 	// FLOOR
-	buildFloorAdjLists(&floor);
+	buildFloorAdjListsAndWeights(&floor, wallLocations, numWalls);
 
 	// TEXTBOX
 	eventTextBox->clearTextBox();
@@ -241,44 +301,7 @@ void WorldState::addWallToWorld(my_ivec2 gridCoords) {
 
 void WorldState::addFloorToWorld(my_ivec2 gridCoords) {
 	floor.tiles[floor.size++].location = gridCoords;		
-	buildFloorAdjLists(&floor);
-}
-
-int WorldState::getFloorIndex(my_ivec2 location) {
-	for (int i = 0; i < floor.size; i++) {
-		if (floor.tiles[i].location.x == location.x &&
-			floor.tiles[i].location.y == location.y) {
-			return i;
-		}
-	}
-
-	return -1;
-}
-
-int WorldState::getWallIndex(my_ivec2 location) {
-	for (int i = 0; i < numWalls; i++) {
-		if (wallLocations[i].x == location.x &&
-			wallLocations[i].y == location.y) {
-			return i;
-		}
-	}
-
-	return -1;
-}
-
-void WorldState::resetFloorGrid() {
-	for (int i = 0; i < floor.size; i++) {
-		floor.tiles[i].visited = false;
-		floor.tiles[i].onPath = false;
-
-		int x = floor.tiles[i].location.x;
-		int y = floor.tiles[i].location.y;
-
-		floor.tiles[i].up	= getFloorIndex(my_ivec2(x, y + 1));
-		floor.tiles[i].down	= getFloorIndex(my_ivec2(x, y - 1));
-		floor.tiles[i].left	= getFloorIndex(my_ivec2(x - 1, y));
-		floor.tiles[i].right = getFloorIndex(my_ivec2(x + 1, y));
-	}
+	buildFloorAdjListsAndWeights(&floor, wallLocations, numWalls);
 }
 
 bool isInFrontier(my_ivec2 frontier[MAX_FLOORS], my_ivec2 loc) {
@@ -302,28 +325,28 @@ void WorldState::fillFloor(my_ivec2 loc) {
 	while (numLeft > 0 && size < MAX_FLOORS && curr < size) {
 
 		my_ivec2 currLoc = frontier[curr];
-		if (getFloorIndex(currLoc) == -1) {
+		if (getFloorIndex(&floor, currLoc) == -1) {
 			addFloorToWorld(currLoc);
 			
-			if (getWallIndex(my_ivec2(currLoc.x, currLoc.y + 1)) == -1) {
+			if (getWallIndex(wallLocations, numWalls, my_ivec2(currLoc.x, currLoc.y + 1)) == -1) {
 				if (!isInFrontier(frontier, my_ivec2(currLoc.x, currLoc.y + 1))) {
 					frontier[size++] = my_ivec2(currLoc.x, currLoc.y + 1);
 					numLeft++;
 				}
 			}
-			if (getWallIndex(my_ivec2(currLoc.x, currLoc.y - 1)) == -1) {
+			if (getWallIndex(wallLocations, numWalls, my_ivec2(currLoc.x, currLoc.y - 1)) == -1) {
 				if (!isInFrontier(frontier, my_ivec2(currLoc.x, currLoc.y - 1))) {
 					frontier[size++] = (my_ivec2(currLoc.x, currLoc.y - 1));
 					numLeft++;
 				}				
 			}
-			if (getWallIndex(my_ivec2(currLoc.x - 1, currLoc.y)) == -1) {
+			if (getWallIndex(wallLocations, numWalls, my_ivec2(currLoc.x - 1, currLoc.y)) == -1) {
 				if (!isInFrontier(frontier, my_ivec2(currLoc.x - 1, currLoc.y))) {
 					frontier[size++] = (my_ivec2(currLoc.x - 1, currLoc.y));
 					numLeft++;
 				}				
 			}
-			if (getWallIndex(my_ivec2(currLoc.x + 1, currLoc.y)) == -1) {
+			if (getWallIndex(wallLocations, numWalls, my_ivec2(currLoc.x + 1, currLoc.y)) == -1) {
 				if (!isInFrontier(frontier, my_ivec2(currLoc.x + 1, currLoc.y))) {
 					frontier[size++] = (my_ivec2(currLoc.x + 1, currLoc.y));
 					numLeft++;
