@@ -11,6 +11,44 @@ void WorldState::init(Models *inModels, Textbox *inEventTextBox, EnemyStrats *in
 	this->materials = inMaterials;
 }
 
+// TODO: don't need to completely rebuild adjLists everytime a floor is added
+void buildFloorAdjLists(Floor *floor)
+{
+	// pre-process adjacency lists
+	for (int i = 0; i < floor->size; i++) {
+
+		int currX = floor->tiles[i].location.x;
+		int currY = floor->tiles[i].location.y;
+
+		floor->adjLists[i][0] = -1;
+		floor->adjLists[i][1] = -1;
+		floor->adjLists[i][2] = -1;
+		floor->adjLists[i][3] = -1;
+
+		for (int j = 0; j < floor->size; j++) {
+
+			int refX = floor->tiles[j].location.x;
+			int refY = floor->tiles[j].location.y;
+
+			if (currX == refX && currY == refY - 1) {
+				floor->adjLists[i][0] = j;
+			}
+
+			if (currX == refX && currY == refY + 1) {
+				floor->adjLists[i][1] = j;
+			}
+
+			if (currX == refX - 1 && currY == refY) {
+				floor->adjLists[i][2] = j;
+			}
+
+			if (currX == refX + 1 && currY == refY) {
+				floor->adjLists[i][3] = j;
+			}
+		}
+	}
+}
+
 void WorldState::resetToLevel(Level *level) {
 	srand(250);
 
@@ -62,6 +100,9 @@ void WorldState::resetToLevel(Level *level) {
 	for (unsigned int i = 0; i < numWalls; i++) {
 		wallLocations[i] = level->wallLocations[i];
 	}
+
+	// FLOOR
+	buildFloorAdjLists(&floor);
 
 	// TEXTBOX
 	eventTextBox->clearTextBox();
@@ -199,13 +240,14 @@ void WorldState::addWallToWorld(my_ivec2 gridCoords) {
 }
 
 void WorldState::addFloorToWorld(my_ivec2 gridCoords) {
-	floorTiles[numFloors++].location = gridCoords;		
+	floor.tiles[floor.size++].location = gridCoords;		
+	buildFloorAdjLists(&floor);
 }
 
 int WorldState::getFloorIndex(my_ivec2 location) {
-	for (int i = 0; i < numFloors; i++) {
-		if (floorTiles[i].location.x == location.x &&
-			floorTiles[i].location.y == location.y) {
+	for (int i = 0; i < floor.size; i++) {
+		if (floor.tiles[i].location.x == location.x &&
+			floor.tiles[i].location.y == location.y) {
 			return i;
 		}
 	}
@@ -225,17 +267,17 @@ int WorldState::getWallIndex(my_ivec2 location) {
 }
 
 void WorldState::resetFloorGrid() {
-	for (int i = 0; i < numFloors; i++) {
-		floorTiles[i].visited = false;
-		floorTiles[i].onPath = false;
+	for (int i = 0; i < floor.size; i++) {
+		floor.tiles[i].visited = false;
+		floor.tiles[i].onPath = false;
 
-		int x = floorTiles[i].location.x;
-		int y = floorTiles[i].location.y;
+		int x = floor.tiles[i].location.x;
+		int y = floor.tiles[i].location.y;
 
-		floorTiles[i].up	= getFloorIndex(my_ivec2(x, y + 1));
-		floorTiles[i].down	= getFloorIndex(my_ivec2(x, y - 1));
-		floorTiles[i].left	= getFloorIndex(my_ivec2(x - 1, y));
-		floorTiles[i].right = getFloorIndex(my_ivec2(x + 1, y));
+		floor.tiles[i].up	= getFloorIndex(my_ivec2(x, y + 1));
+		floor.tiles[i].down	= getFloorIndex(my_ivec2(x, y - 1));
+		floor.tiles[i].left	= getFloorIndex(my_ivec2(x - 1, y));
+		floor.tiles[i].right = getFloorIndex(my_ivec2(x + 1, y));
 	}
 }
 
@@ -297,11 +339,11 @@ void WorldState::fillFloor(my_ivec2 loc) {
 void WorldState::copyFloorToLevel(Level* level) {
 	// TODO: will need to use this after filling a floor (not going to run that on both world and level)
 
-	level->numFloors = numFloors;
+	level->numFloors = floor.size;
 
-	for (int i = 0; i < numFloors; i++) {
-		level->floorLocations[i].x = floorTiles->location.x;
-		level->floorLocations[i].y = floorTiles->location.y;
+	for (int i = 0; i < floor.size; i++) {
+		level->floorLocations[i].x = floor.tiles->location.x;
+		level->floorLocations[i].y = floor.tiles->location.y;
 	}
 }
 
@@ -321,7 +363,7 @@ void WorldState::removeEntityAtOffset(my_vec3 worldOffset) {
 
 void WorldState::updateEnemies(float deltaTime) {
 	for (int i = 0; i < MAX_ENEMIES; i++) {
-		if (enemies[i].current) enemies[i].update(&player, floorTiles, numFloors, deltaTime);
+		if (enemies[i].current) enemies[i].update(&player, &floor, deltaTime);
 	}
 }
 
@@ -483,12 +525,12 @@ void WorldState::drawGrid() {
 		models->wall.draw(my_vec3((float)wallLocations[i].x, (float)wallLocations[i].y, 0.0f), 1.0f, 0.0f);
 	}
 
-	for (unsigned int i = 0; i < numFloors; i++) {
-		FloorTile currTile = floorTiles[i];
+	for (unsigned int i = 0; i < floor.size; i++) {
+		FloorTile currTile = floor.tiles[i];
 		if (currTile.visited) 
 		{
 			models->wall.draw(my_vec3((float)currTile.location.x, (float)currTile.location.y, -1.0f), 1.0f, 0.0f);
-			floorTiles[i].visited = false;
+			floor.tiles[i].visited = false;
 		}
 		else if(currTile.onPath)
 		{
@@ -499,8 +541,8 @@ void WorldState::drawGrid() {
 			models->floorModel.draw(my_vec3((float)currTile.location.x, (float)currTile.location.y, -1.0f), 1.0f, 0.0f);
 		}
 
-		floorTiles[i].visited = false;
-		floorTiles[i].onPath = false;
+		floor.tiles[i].visited = false;
+		floor.tiles[i].onPath = false;
 	}
 }
 

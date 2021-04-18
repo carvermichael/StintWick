@@ -121,41 +121,48 @@ void Enemy::init(my_vec3 offset, Model *newModel, Material *newMat, EnemyStrat *
 	timeSinceLastShot = (float)(rand() % 50) / 100.0f;
 }
 
-void Enemy::update(Player *player, FloorTile floor[], int numFloors, float deltaTime) {
-	strat->update(this, player, floor, numFloors, deltaTime);
+void Enemy::update(Player *player, Floor *floor, float deltaTime) {
+	strat->update(this, player, floor, deltaTime);
 }
 
 void Enemy::draw() {
 	model->draw(worldOffset, 1.0f, 0.0f, mat);
 }
 
-// ENEMY STRATS
+int getClosestTile(Floor *floor, my_vec3 p)
+{
+	int matchedIndex = -1;
+	int x = (int)p.x;
+	int y = (int)p.y;
 
-// EnemyStrat::Follow
-void Follow::update(Entity *entity, Player *player, FloorTile floor[], int numFloors, float deltaTime) {
-	static int frame = 0;
-	
-	// find closest tile, light it up
-	int x = (int)entity->worldOffset.x;
-	int y = (int)entity->worldOffset.y;
-	
-	int enemyMatchIndex = -1;
-	for (int i = 0; i < numFloors; i++)
+	for (int i = 0; i < floor->size; i++)
 	{
-		if (floor[i].location.x == x && floor[i].location.y == y) 
+		if (floor->tiles[i].location.x == x && floor->tiles[i].location.y == y) 
 		{
-			enemyMatchIndex = i;
+			matchedIndex = i;
 			break;
 		}
 	}
 
+	return matchedIndex;
+}
+
+// ENEMY STRATS
+
+// EnemyStrat::Follow
+void Follow::update(Entity *entity, Player *player, Floor *floor, float deltaTime) {
+	static int frame = 0;
+	if (deltaTime < 0.00001) return;
+	
+	// find closest tile, light it up
+	int enemyMatchIndex = getClosestTile(floor, entity->worldOffset);
 	if (enemyMatchIndex == -1)
 	{
 		printf("Couldn't find floor near enemy.\n");
 	}
 	else 
 	{
-		floor[enemyMatchIndex].visited = true;
+		floor->tiles[enemyMatchIndex].visited = true;
 	}
 
 	// get player tile index
@@ -163,65 +170,18 @@ void Follow::update(Entity *entity, Player *player, FloorTile floor[], int numFl
 	int playerX = (int) player->worldOffset.x;
 	int playerY = (int) player->worldOffset.y;
 
-	int playerMatchIndex = -1;
-
-	for (int i = 0; i < numFloors; i++)
-	{
-		if (floor[i].location.x == playerX && floor[i].location.y == playerY)
-		{
-			playerMatchIndex = i;
-			break;
-		}
-	}
-
+	int playerMatchIndex = getClosestTile(floor, player->worldOffset);
 	if (playerMatchIndex == -1)
 	{
 		printf("Couldn't find floor near player.\n");
 	}
 	else
 	{
-		floor[playerMatchIndex].visited = true;
+		floor->tiles[playerMatchIndex].visited = true;
 	}
 
 	int enemyDestinationFloorIndex = -1;
 	if (playerMatchIndex != -1 && enemyMatchIndex != -1) {
-
-
-		// pre-process adjacency lists
-		int adjLists[MAX_FLOORS][4];
-
-		for (int i = 0; i < numFloors; i++) {
-
-			int currX = floor[i].location.x;
-			int currY = floor[i].location.y;
-
-			adjLists[i][0] = -1;
-			adjLists[i][1] = -1;
-			adjLists[i][2] = -1;
-			adjLists[i][3] = -1;
-
-			for (int j = 0; j < numFloors; j++) {
-
-				int refX = floor[j].location.x;
-				int refY = floor[j].location.y;
-
-				if (currX == refX && currY == refY - 1) {
-					adjLists[i][0] = j;
-				}
-
-				if (currX == refX && currY == refY + 1) {
-					adjLists[i][1] = j;
-				}
-
-				if (currX == refX - 1 && currY == refY) {
-					adjLists[i][2] = j;
-				}
-
-				if (currX == refX + 1 && currY == refY) {
-					adjLists[i][3] = j;
-				}
-			}
-		}
 
 		// create edgeTo array	
 		int edgeTo[MAX_FLOORS];
@@ -243,10 +203,10 @@ void Follow::update(Entity *entity, Player *player, FloorTile floor[], int numFl
 			if (!marked[currentIndex]) {
 				marked[currentIndex] = true;
 
-				int adj0 = adjLists[currentIndex][0];
-				int adj1 = adjLists[currentIndex][1];
-				int adj2 = adjLists[currentIndex][2];
-				int adj3 = adjLists[currentIndex][3];
+				int adj0 = floor->adjLists[currentIndex][0];
+				int adj1 = floor->adjLists[currentIndex][1];
+				int adj2 = floor->adjLists[currentIndex][2];
+				int adj3 = floor->adjLists[currentIndex][3];
 
 				if (adj0 != -1 && !marked[adj0]) {
 					edgeTo[adj0] = currentIndex;
@@ -288,7 +248,7 @@ void Follow::update(Entity *entity, Player *player, FloorTile floor[], int numFl
 		// traverse edgeToArray
 		int currIndex = enemyMatchIndex;
 		while (currIndex != playerMatchIndex) {
-			floor[currIndex].onPath = true;
+			floor->tiles[currIndex].onPath = true;
 			currIndex = edgeTo[currIndex];
 		}
 
@@ -316,7 +276,7 @@ void Follow::update(Entity *entity, Player *player, FloorTile floor[], int numFl
 	// if (distFromPlayer > 15.0f) return;
 
 	if (enemyDestinationFloorIndex != -1) {
-		FloorTile targetFloorTile = floor[enemyDestinationFloorIndex];
+		FloorTile targetFloorTile = floor->tiles[enemyDestinationFloorIndex];
 		my_vec3 destination;
 		if (enemyDestinationFloorIndex == playerMatchIndex) 
 		{
@@ -336,8 +296,7 @@ void Follow::update(Entity *entity, Player *player, FloorTile floor[], int numFl
 
 		entity->updateWorldOffset(finalOffset);
 	}
-
-	/*
+/*
 		// naive follow player logic
 		float distFromPlayer = length(player->worldOffset - entity->worldOffset);
 		if (distFromPlayer > 15.0f) return;
@@ -353,7 +312,7 @@ void Follow::update(Entity *entity, Player *player, FloorTile floor[], int numFl
 		//my_vec2 finalOffset = my_vec2(entity->worldOffset.x + moveAdjust.x, entity->worldOffset.y + moveAdjust.y);
 
 		entity->updateWorldOffset(finalOffset);
-	*/
+*/
 }
 
 // EnemyStrat::Shoot

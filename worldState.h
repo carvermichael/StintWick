@@ -45,9 +45,8 @@ struct WorldState {
 	unsigned int numWalls;
 	my_ivec2 wallLocations[MAX_WALLS];
 	int WorldState::getWallIndex(my_ivec2 location);
-
-	unsigned int numFloors;
-	FloorTile floorTiles[MAX_FLOORS];	
+	
+	Floor floor;
 
 	unsigned int mode;
 	unsigned int seed;

@@ -3,7 +3,7 @@
 #include "math.h"
 #include "global_manip.h"
 
-// TODO: not ideal place for this...shrug
+// TODO: not ideal place for these floor structs...shrug
 struct FloorTile {
 	my_ivec2 location;
 	int up;
@@ -12,6 +12,13 @@ struct FloorTile {
 	int right;
 	bool visited;
 	bool onPath;
+};
+
+struct Floor
+{
+	unsigned int size;
+	FloorTile tiles[MAX_FLOORS];	
+	int adjLists[MAX_FLOORS][4];
 };
 
 struct Bullet {
@@ -76,11 +83,11 @@ struct Player : Entity {
 };
 
 struct EnemyStrat {
-	virtual void update(Entity *entity, Player *player, FloorTile floor[], int numFloors, float deltaTime) {};
+	virtual void update(Entity *entity, Player *player, Floor *floor, float deltaTime) {};
 };
 
 struct Follow : EnemyStrat {
-	void update(Entity *entity, Player *player, FloorTile floor[], int numFloors, float deltaTime);
+	void update(Entity *entity, Player *player, Floor *floor, float deltaTime);
 };
 
 struct Shoot : EnemyStrat {
@@ -97,7 +104,7 @@ struct Enemy : Entity {
 	Material *mat;
 
 	void init(my_vec3 offset, Model *newModel, Material *newMat, EnemyStrat *newStrat);
-	void update(Player *player, FloorTile floor[], int numFloors, float deltaTime);
+	void update(Player *player, Floor *floor, float deltaTime);
 	void draw();
 };
 
