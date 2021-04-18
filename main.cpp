@@ -259,8 +259,12 @@ void setUniformMat4(unsigned int shaderProgramID, const char *uniformName, my_ma
 }
 
 // GLOBAL STATE STUFF
-unsigned int getCurrentLevel() {
+unsigned int getCurrentLevelIndex() {
 	return currentLevelIndex;
+}
+
+Level* getCurrentLevel() {
+	return &levels[currentLevelIndex];
 }
 
 void goBackOneLevel() {
@@ -289,7 +293,9 @@ void goForwardOneEnemyType() {
 
 void toggleEditorMode() {
 	if (editorMode == EDITOR_MODE_ENEMY) editorMode = EDITOR_MODE_WALL;
-	else if (editorMode == EDITOR_MODE_WALL) editorMode = EDITOR_MODE_ENEMY;
+	else if (editorMode == EDITOR_MODE_WALL) editorMode = EDITOR_MODE_FLOOR;
+	else if (editorMode == EDITOR_MODE_FLOOR) editorMode = EDITOR_MODE_FLOOR_FILL;
+	else if (editorMode == EDITOR_MODE_FLOOR_FILL) editorMode = EDITOR_MODE_ENEMY;
 }
 
 unsigned int getEnemyTypeSelection() {
@@ -335,12 +341,12 @@ void addEnemyToWorld(unsigned int enemyType, my_ivec2 gridCoords) {
 	world->addEnemyToWorld(enemyType, gridCoords);
 }
 
-void addWallToWorld(my_ivec2 gridCoords) {
-	world->addWallToWorld(gridCoords);
-}
-
 void addEnemyToCurrentLevel(int type, my_ivec2 gridCoords) {
 	levels[currentLevelIndex].addEnemy(type, gridCoords);
+}
+
+void addWallToWorld(my_ivec2 gridCoords) {
+	world->addWallToWorld(gridCoords);
 }
 
 void addWallToCurrentLevel(my_ivec2 location) {
@@ -348,6 +354,23 @@ void addWallToCurrentLevel(my_ivec2 location) {
 
 	levels[currentLevelIndex].wallLocations[numWalls] = location;
 }
+
+void addFloorToWorld(my_ivec2 gridCoords) {
+	world->addFloorToWorld(gridCoords);
+}
+
+void addFloorToCurrentLevel(my_ivec2 location) {
+	unsigned int numFloors = levels[currentLevelIndex].numFloors++;
+
+	levels[currentLevelIndex].floorLocations[numFloors] = location;
+}
+
+void fillFloor(my_ivec2 gridCoords, Level* level) {
+	world->fillFloor(gridCoords);
+	world->copyFloorToLevel(level);
+}
+
+
 
 // TODO: remove ANY entity, not just enemies (walls should count, too)
 void removeEntityFromCurrentLevel(my_ivec2 gridCoords) {
@@ -550,7 +573,7 @@ void createBulletModel() {
 	models.bulletPart.scale(my_vec3(0.15f));
 }
 void createGridFloorAndWallModels() {
-	Mesh floorMesh = Mesh(&regularShaderProgramID, &materials.blackRubber);
+	Mesh floorMesh = Mesh(&regularShaderProgramID, &materials.gold);
 	models.floorModel.name = std::string("floor");
 	models.floorModel.meshes.push_back(floorMesh);
 	
@@ -764,9 +787,12 @@ int main() {
 
 	// initialization of glfw and glad libraries, window creation
 	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	int major, minor, rev;
+	glfwGetVersion(&major, &minor, &rev);
 
 	glfwWindowHint(GLFW_SAMPLES, 4); // for MSAA, takes 4 samples per pixel, bufferSize *= 4
 	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "Stint Wick", NULL, NULL);
@@ -884,21 +910,19 @@ int main() {
 		currentInputRecord.gamepadState = gamepadState;
 		currentInputRecord.deltaTime = deltaTime;
 
-		world->update(currentInputRecord, prevInputRecord, recordedInput, &currentInputIndex);
-		
 		processKeyboardInput(window, deltaTime);        
 		glfwPollEvents();
-		prevInputRecord = currentInputRecord;
-
+		
 		// -- UPDATE -- 
-		// TODO: this should be elsewhere
-		setUniform3f(regularShaderProgramID, "playerPos", world->getPlayerWorldOffset());
-				
+		if (globalMode != MODE_LEVEL_EDIT) world->update(currentInputRecord, prevInputRecord, recordedInput, &currentInputIndex);
 		if (globalMode == MODE_GLOBAL_PLAY) camera.update(deltaTime, world->getPlayerWorldOffset());
 		if (lightOrbit) moveLightAroundOrbit(deltaTime);
-		console.update(deltaTime);
+		console.update(deltaTime);		
 
 		// -- DRAW --
+		// TODO: this should be elsewhere -- it's for fog
+		setUniform3f(regularShaderProgramID, "playerPos", world->getPlayerWorldOffset());
+		
 		refreshView();
 		refreshLights();
 
@@ -921,30 +945,28 @@ int main() {
 
 		// -- FRAME TIMING --
 		float currentFrame = (float)glfwGetTime();
-		deltaTime = currentFrame - lastFrameTime;	
+		deltaTime = currentFrame - lastFrameTime;
 		
-		//if (world->getCurrentMode() != MODE_REPLAY) {
-			if (deltaTime < targetFrameTime) {
-				int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
+		if (deltaTime < targetFrameTime) {
+			int timeToSleepMS = (int)(1000.0f * (targetFrameTime - deltaTime));
 
-				if (timeToSleepMS > 1) {
-					// TODO: make sure that windows is able to sleep at the 1ms level (HH code does this somewhere)
+			if (timeToSleepMS > 1) {
+				// TODO: make sure that windows is able to sleep at the 1ms level (HH code does this somewhere)
 
-					Sleep(timeToSleepMS);
-				}
+				Sleep(timeToSleepMS);
+			}
 
-				while (deltaTime < targetFrameTime) {
-					deltaTime = (float)glfwGetTime() - lastFrameTime;
-				}
+			while (deltaTime < targetFrameTime) {
+				deltaTime = (float)glfwGetTime() - lastFrameTime;
 			}
-			else if (deltaTime > 0.5f) {
-				printf("test");
-				deltaTime = targetFrameTime;
-			}
-			else {
-				printf("MISSED FRAME! AHH\n"); // TODO: logging
-			}
-		//}
+		}
+		else if (deltaTime > 0.5f) {
+			printf("test");
+			deltaTime = targetFrameTime;
+		}
+		else {
+			printf("MISSED FRAME! AHH\n"); // TODO: logging
+		}
 
 		float frameTime = deltaTime * 1000.0f;
 
@@ -958,6 +980,7 @@ int main() {
 		lastFrameTime = (float)glfwGetTime();
 
 		glfwSwapBuffers(window);
+		prevInputRecord = currentInputRecord;
 	}
 
 	glfwTerminate();

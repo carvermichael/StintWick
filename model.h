@@ -28,8 +28,8 @@ struct Materials {
 			//				-- carver (9-10-20)
 
 			// enemy mats
-			Material ruby;
 			Material gold;
+			Material ruby;
 			
 			// other mats
 			Material light;

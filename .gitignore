@@ -11,3 +11,4 @@ build/
 x64/
 *.vcxproj*
 Notes.txt
+Debug/

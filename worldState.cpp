@@ -2,6 +2,7 @@
 #include <glfw3.h>
 #include "randomUtils.h"
 #include "levels.h"
+#include "collision.h"
 
 void WorldState::init(Models *inModels, Textbox *inEventTextBox, EnemyStrats *inEnemyStrats, Materials *inMaterials) {
 	this->models = inModels;
@@ -90,10 +91,11 @@ void WorldState::movePlayer(float x, float y) {
 	x *= player.speed;
 	y *= player.speed;
 
-	AABB playerBounds = AABB(my_vec2(player.worldOffset.x, player.worldOffset.y));
+	my_vec2 dirVec = my_vec2(x, y);
 
 	bool collided;
-	my_vec2 finalOffset = adjustForWallCollisions(playerBounds, x, y, &collided);
+	my_vec2 finalOffset = adjustForWallCollisions(player.bounds, x, y, &collided);
+	
 
 	player.updateWorldOffset(finalOffset);
 }
@@ -196,6 +198,113 @@ void WorldState::addWallToWorld(my_ivec2 gridCoords) {
 	wallLocations[numWalls++] = gridCoords;
 }
 
+void WorldState::addFloorToWorld(my_ivec2 gridCoords) {
+	floorTiles[numFloors++].location = gridCoords;		
+}
+
+int WorldState::getFloorIndex(my_ivec2 location) {
+	for (int i = 0; i < numFloors; i++) {
+		if (floorTiles[i].location.x == location.x &&
+			floorTiles[i].location.y == location.y) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+int WorldState::getWallIndex(my_ivec2 location) {
+	for (int i = 0; i < numWalls; i++) {
+		if (wallLocations[i].x == location.x &&
+			wallLocations[i].y == location.y) {
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+void WorldState::resetFloorGrid() {
+	for (int i = 0; i < numFloors; i++) {
+		floorTiles[i].visited = false;
+		floorTiles[i].onPath = false;
+
+		int x = floorTiles[i].location.x;
+		int y = floorTiles[i].location.y;
+
+		floorTiles[i].up	= getFloorIndex(my_ivec2(x, y + 1));
+		floorTiles[i].down	= getFloorIndex(my_ivec2(x, y - 1));
+		floorTiles[i].left	= getFloorIndex(my_ivec2(x - 1, y));
+		floorTiles[i].right = getFloorIndex(my_ivec2(x + 1, y));
+	}
+}
+
+bool isInFrontier(my_ivec2 frontier[MAX_FLOORS], my_ivec2 loc) {
+	for (int i = 0; i < MAX_FLOORS; i++) {
+		if (frontier[i].x == loc.x &&
+			frontier[i].y == loc.y) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void WorldState::fillFloor(my_ivec2 loc) {
+	my_ivec2 frontier[MAX_FLOORS];
+	frontier[0] = loc;
+	int numLeft = 1;
+	int curr = 0;
+	int size = 1;
+
+	while (numLeft > 0 && size < MAX_FLOORS && curr < size) {
+
+		my_ivec2 currLoc = frontier[curr];
+		if (getFloorIndex(currLoc) == -1) {
+			addFloorToWorld(currLoc);
+			
+			if (getWallIndex(my_ivec2(currLoc.x, currLoc.y + 1)) == -1) {
+				if (!isInFrontier(frontier, my_ivec2(currLoc.x, currLoc.y + 1))) {
+					frontier[size++] = my_ivec2(currLoc.x, currLoc.y + 1);
+					numLeft++;
+				}
+			}
+			if (getWallIndex(my_ivec2(currLoc.x, currLoc.y - 1)) == -1) {
+				if (!isInFrontier(frontier, my_ivec2(currLoc.x, currLoc.y - 1))) {
+					frontier[size++] = (my_ivec2(currLoc.x, currLoc.y - 1));
+					numLeft++;
+				}				
+			}
+			if (getWallIndex(my_ivec2(currLoc.x - 1, currLoc.y)) == -1) {
+				if (!isInFrontier(frontier, my_ivec2(currLoc.x - 1, currLoc.y))) {
+					frontier[size++] = (my_ivec2(currLoc.x - 1, currLoc.y));
+					numLeft++;
+				}				
+			}
+			if (getWallIndex(my_ivec2(currLoc.x + 1, currLoc.y)) == -1) {
+				if (!isInFrontier(frontier, my_ivec2(currLoc.x + 1, currLoc.y))) {
+					frontier[size++] = (my_ivec2(currLoc.x + 1, currLoc.y));
+					numLeft++;
+				}
+			}
+		}
+
+		numLeft--;
+		curr++;
+	}
+}
+
+void WorldState::copyFloorToLevel(Level* level) {
+	// TODO: will need to use this after filling a floor (not going to run that on both world and level)
+
+	level->numFloors = numFloors;
+
+	for (int i = 0; i < numFloors; i++) {
+		level->floorLocations[i].x = floorTiles->location.x;
+		level->floorLocations[i].y = floorTiles->location.y;
+	}
+}
+
 void WorldState::removeEntityAtOffset(my_vec3 worldOffset) {
 
 	// remove target enemy from world
@@ -212,7 +321,7 @@ void WorldState::removeEntityAtOffset(my_vec3 worldOffset) {
 
 void WorldState::updateEnemies(float deltaTime) {
 	for (int i = 0; i < MAX_ENEMIES; i++) {
-		if (enemies[i].current) enemies[i].update(&player, deltaTime);
+		if (enemies[i].current) enemies[i].update(&player, floorTiles, numFloors, deltaTime);
 	}
 }
 
@@ -291,7 +400,7 @@ void WorldState::update(InputRecord currentInput, InputRecord prevInput, InputRe
 	}
 	
 	if (mode == MODE_REPLAY) {
-		printf("replay: currentInputIndex: %d\n", *currentInputIndex);
+		// printf("replay: currentInputIndex: %d\n", *currentInputIndex);
 		
 		gamepadStateToUse = recordedInput[*currentInputIndex].gamepadState;
 		deltaTimeForUpdate = recordedInput[*currentInputIndex].deltaTime;
@@ -299,7 +408,7 @@ void WorldState::update(InputRecord currentInput, InputRecord prevInput, InputRe
 		*currentInputIndex = *currentInputIndex + 1;
 	}
 	else if (mode == MODE_PLAY) {
-		printf("recording: currentInputIndex: %d\n", *currentInputIndex);
+		// printf("recording: currentInputIndex: %d\n", *currentInputIndex);
 
 		recordedInput[*currentInputIndex].gamepadState = gamepadStateToUse;
 		recordedInput[*currentInputIndex].deltaTime = deltaTime;
@@ -320,14 +429,22 @@ void WorldState::update(InputRecord currentInput, InputRecord prevInput, InputRe
 		updateEnemies(deltaTimeForUpdate);
 		updateParticleEmitters(deltaTimeForUpdate);
 	}
+
+
+
+	if (mode != MODE_PAUSED) {
+
+
+
+
+
+	}
 }
 
 // NOTE: The check for GLFW_RELEASE relies on Windows repeat logic,
 //		 probably don't want to rely on that long-term.		
 //									-carver (8-10-20)
 void WorldState::moveWithController(GLFWgamepadstate state, float deltaTime) {
-	static GLFWgamepadstate prevState;
-
 	// movement
 	float leftX = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
 	float leftY = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
@@ -350,8 +467,6 @@ void WorldState::moveWithController(GLFWgamepadstate state, float deltaTime) {
 
 	// Up on Y joystick is negative. Flipping here to make it easier to work with in relation to world space.
 	playerShoot(rightX, rightY * -1.0f, deltaTime);
-
-	prevState = state;
 }
 
 void WorldState::draw() {
@@ -366,6 +481,26 @@ void WorldState::draw() {
 void WorldState::drawGrid() {
 	for (unsigned int i = 0; i < numWalls; i++) {
 		models->wall.draw(my_vec3((float)wallLocations[i].x, (float)wallLocations[i].y, 0.0f), 1.0f, 0.0f);
+	}
+
+	for (unsigned int i = 0; i < numFloors; i++) {
+		FloorTile currTile = floorTiles[i];
+		if (currTile.visited) 
+		{
+			models->wall.draw(my_vec3((float)currTile.location.x, (float)currTile.location.y, -1.0f), 1.0f, 0.0f);
+			floorTiles[i].visited = false;
+		}
+		else if(currTile.onPath)
+		{
+			models->wallTopModel.draw(my_vec3((float)currTile.location.x, (float)currTile.location.y, -1.0f), 1.0f, 0.0f);
+		}
+		else
+		{
+			models->floorModel.draw(my_vec3((float)currTile.location.x, (float)currTile.location.y, -1.0f), 1.0f, 0.0f);
+		}
+
+		floorTiles[i].visited = false;
+		floorTiles[i].onPath = false;
 	}
 }
 

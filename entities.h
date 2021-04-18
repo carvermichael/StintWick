@@ -3,6 +3,17 @@
 #include "math.h"
 #include "global_manip.h"
 
+// TODO: not ideal place for this...shrug
+struct FloorTile {
+	my_ivec2 location;
+	int up;
+	int down;
+	int left;
+	int right;
+	bool visited;
+	bool onPath;
+};
+
 struct Bullet {
 
     bool current = false;
@@ -16,6 +27,9 @@ struct Bullet {
 
 	my_vec3 worldOffset;
     AABB bounds;
+
+	my_vec3 prevWorldOffset;
+	AABB prevBounds;
 
 	void init(my_vec3 offset, my_vec2 dirVec, Model *newModel, float newSpeed);
 	void draw();
@@ -62,18 +76,18 @@ struct Player : Entity {
 };
 
 struct EnemyStrat {
-	virtual void update(Entity *entity, Player *player, float deltaTime) {};
+	virtual void update(Entity *entity, Player *player, FloorTile floor[], int numFloors, float deltaTime) {};
 };
 
 struct Follow : EnemyStrat {
-	void update(Entity *entity, Player *player, float deltaTime);
+	void update(Entity *entity, Player *player, FloorTile floor[], int numFloors, float deltaTime);
 };
 
 struct Shoot : EnemyStrat {
 
 	Shoot() : EnemyStrat() {};
 
-	void update(Entity *entity, Player *player, float deltaTime);
+	void update(Entity *entity, Player *player, FloorTile floor[], int numFloors, float deltaTime);
 };
 
 struct Enemy : Entity {
@@ -83,7 +97,7 @@ struct Enemy : Entity {
 	Material *mat;
 
 	void init(my_vec3 offset, Model *newModel, Material *newMat, EnemyStrat *newStrat);
-	void update(Player *player, float deltaTime);
+	void update(Player *player, FloorTile floor[], int numFloors, float deltaTime);
 	void draw();
 };
 

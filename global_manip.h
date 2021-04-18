@@ -14,7 +14,8 @@ void loadCurrentLevel();
 void goBackOneLevel();
 void goForwardOneLevel();
 
-unsigned int getCurrentLevel();
+unsigned int getCurrentLevelIndex();
+Level* getCurrentLevel();
 
 my_ivec3 cameraCenterToGridCoords();
 
@@ -25,9 +26,12 @@ unsigned int getEnemyTypeSelection();
 unsigned int getEditorMode();
 void deleteCurrentLevel();
 void addEnemyToWorld(unsigned int enemyType, my_ivec2 gridCoords);
-void addWallToWorld(my_ivec2 gridCoords);
 void addEnemyToCurrentLevel(int type, my_ivec2 gridCoords);
+void addWallToWorld(my_ivec2 gridCoords);
 void addWallToCurrentLevel(my_ivec2 location);
+void addFloorToWorld(my_ivec2 gridCoords);
+void addFloorToCurrentLevel(my_ivec2 location);
+void fillFloor(my_ivec2 gridCoords, Level* level);
 void removeEntityFromCurrentLevel(my_ivec2 gridCoords);
 void removeEntityFromWorld(my_vec3 worldOffset);
 void toggleEditorMode();

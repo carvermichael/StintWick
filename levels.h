@@ -25,6 +25,19 @@
 		3 6
 		2 1
 
+		TODO: add floors here
+		10		// # floor pieces
+		2 3		// x, y coords of floors
+		2 4
+		2 5
+		1 5
+		0 5
+		2 6
+		5 8
+		4 7
+		3 6
+		2 1
+
 		9	   // # enemies
 		1 8  4 // enemies - type, gridX, gridY
 		1 12 4
@@ -54,6 +67,9 @@ struct Level {
 	// v2 stuff
 	unsigned int numWalls;
 	my_ivec2 wallLocations[MAX_WALLS];
+
+	unsigned int numFloors;
+	my_ivec2 floorLocations[MAX_FLOORS];
 
 	int numEnemies;
 

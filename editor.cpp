@@ -61,7 +61,7 @@ void LevelSelector::draw() {
 	rightArrow.draw();
 	stateIndicator.draw();
 
-	std::string enemyIndicatorString = "Level: " + std::to_string(getCurrentLevel());
+	std::string enemyIndicatorString = "Level: " + std::to_string(getCurrentLevelIndex());
 	drawText(font, enemyIndicatorString, stateIndicator.bounds.AX + 8.0f, stateIndicator.bounds.BY + 4.0f, 0.5f, my_vec3(1.0f, 1.0f, 1.0f));
 }
 
@@ -110,6 +110,12 @@ void EntityTypeSelector::draw() {
 	}
 	else if (editorMode == EDITOR_MODE_WALL) {
 		wallBoolText += "Wall";
+	}
+	else if (editorMode == EDITOR_MODE_FLOOR) {
+		wallBoolText += "Floor";
+	}
+	else if (editorMode == EDITOR_MODE_FLOOR_FILL) {
+		wallBoolText += "Fill Floor";
 	}
 	drawText(font, wallBoolText, stateIndicator.bounds.AX + 8.0f, stateIndicator.bounds.BY + 4.0f, 0.5f, my_vec3(1.0f, 1.0f, 1.0f));
 }
@@ -171,6 +177,13 @@ void Editor::leftClick(my_vec2 clickCoords, my_ivec3 gridCoords) {
 	else if (editorMode == EDITOR_MODE_WALL) {
 		addWallToWorld(my_ivec2(gridCoords.x, gridCoords.y));
 		addWallToCurrentLevel(my_ivec2(gridCoords.x, gridCoords.y));
+	}
+	else if (editorMode == EDITOR_MODE_FLOOR) {
+		addFloorToWorld(my_ivec2(gridCoords.x, gridCoords.y));
+		addFloorToCurrentLevel(my_ivec2(gridCoords.x, gridCoords.y));
+	}
+	else if (editorMode == EDITOR_MODE_FLOOR_FILL) {
+		fillFloor(my_ivec2(gridCoords.x, gridCoords.y), getCurrentLevel());
 	}
 }
 

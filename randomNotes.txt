@@ -1,0 +1,53 @@
+Ramblings on 4-18-21:
+- question: do I want to do this using VIM and not with VS?
+	- VIM pros: less use of mouse --> means faster and probably more egonomic
+				eventually will be much faster
+				will likely become better acquainted with the code (wtf does
+this mean?)
+	- VIM cons: learning curve/ramp up time
+				need to recreate the build (how long will this take? could
+just look up what you had before / what is working for the maths project)'
+				rabbit hole on vim things instead of doing the actual work
+
+- current decision: nope, just use VS...but also make sure to notice usage
+  patterns and plan accordingly (e.g., setup useful shortcuts for things)
+
+- next question: should I add a plugin for vim-like editing in VS
+	-- answer: yes
+
+
+
+TODO as of 4-18-21:
+- add/enable vim plugin for VS
+- find easy way to navigate to an arbitrary file
+- review the current implementation of graph search -- determine what can be
+  moved out of the current place (enemy strat function)
+
+
+
+
+
+
+
+OLD -----------------------------
+Actual TODO:
+
+- redo wall-player collision detection, this time using a ray cast
+	- then, eventually, use a raycast for bullets collisions, but also (BIG IDEA) enemy-to-enemy collisions (create dynamic mobs of enemies that bump up against each other)
+
+- rewrite editor a few times (for practice)
+	- also, during this, work on getting comfortable with vim editor again (either in VS or just in console, not sure which one yet)
+
+- Editor features
+	- ability to shift click one spot, then another --> creates wall between two points
+	- figure out ray cast from a mouse click --> then highlight the object hit (later we can do more things with this selection, but just need to figure this out for now)
+		- quick guess: near clip plane + mouse coordinates can get the vec3 point, then the dir vec is just where the camera is facing? not totally sure how to get a vec3 for that...
+			
+
+- get rid of Editor/EditorUI distinction - X
+- do brute force collision detection -- O(n^2) style, in prep for culling of candidate collisions - X
+
+Random TODO:
+
+- get math library in own namespace? -- then you won't have to do the dumb my_
+  thing...

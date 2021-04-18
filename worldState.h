@@ -18,9 +18,16 @@ struct WorldState {
 	
 	void init(Models *models, Textbox *inEventTextBox, EnemyStrats *inEnemyStrats, Materials *inMaterials);
 	void resetToLevel(Level *level);
+	
 	void update(InputRecord currentInput, InputRecord prevInput, InputRecord recordedInput[], int *currentInputIndex);
 	void draw();
 	
+	// Floor stuff
+	void resetFloorGrid();
+	int getFloorIndex(my_ivec2 location);
+	void WorldState::fillFloor(my_ivec2 startingLocation);
+	void WorldState::copyFloorToLevel(Level* level);
+
 	void pause();
 	void resume();
 	void replay();
@@ -31,11 +38,16 @@ struct WorldState {
 	// USED BY EDITOR
 	void addEnemyToWorld(int type, my_ivec2 gridCoords);
 	void addWallToWorld(my_ivec2 gridCoords);
+	void addFloorToWorld(my_ivec2 gridCoords);
 
 	void removeEntityAtOffset(my_vec3 worldOffset);
 
 	unsigned int numWalls;
 	my_ivec2 wallLocations[MAX_WALLS];
+	int WorldState::getWallIndex(my_ivec2 location);
+
+	unsigned int numFloors;
+	FloorTile floorTiles[MAX_FLOORS];	
 
 	unsigned int mode;
 	unsigned int seed;

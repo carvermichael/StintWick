@@ -36,6 +36,8 @@
 // editor modes
 #define EDITOR_MODE_ENEMY		0
 #define EDITOR_MODE_WALL		1
+#define EDITOR_MODE_FLOOR		2
+#define EDITOR_MODE_FLOOR_FILL	3
 
 #define MAX_LEVELS			  50
 #define MAX_BULLETS			  25
@@ -43,6 +45,7 @@
 #define MAX_PARTICLE_EMITTERS 30
 #define MAX_LIGHTS			  500
 #define MAX_WALLS			  500
+#define MAX_FLOORS			  5000
 #define MAX_GRID_ONE_DIM	  500
 
 // grid constants in world state -- don't use anything but 0 and 1 right now, but with level gen, this will come in handy for entity placement
